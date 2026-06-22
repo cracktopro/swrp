@@ -47,15 +47,25 @@
 
         <div id="board-sidebar-combate">
           <section class="swrp-panel mb-3 d-none" id="board-turn-panel">
-            <h2 class="swrp-panel__title">Control de turnos</h2>
-            <p id="board-turn-assign-hint" class="small text-muted mb-2 d-none">Orden de iniciativa activo. Avanza con «Siguiente turno» o asigna manualmente.</p>
+            <div class="d-flex justify-content-between align-items-center gap-2 mb-2 flex-wrap">
+              <h2 class="swrp-panel__title mb-0">Control de turnos</h2>
+              <button type="button" id="board-advance-turn" class="btn btn-sm btn-swrp btn-swrp-primary d-none">Siguiente turno</button>
+            </div>
+            <p id="board-turn-assign-hint" class="small text-muted mb-2 d-none">Asigna el turno manualmente o deja que el jugador activo gestione sus acciones.</p>
             <p id="board-turn-banner" class="board-turn-banner board-turn-banner--idle small mb-2">Sin turno asignado</p>
+            <div id="board-turn-actions" class="board-turn-actions mb-2 d-none">
+              <p id="board-action-status" class="small text-muted mb-2">Acciones: 0/2</p>
+              <div class="d-flex gap-2">
+                <button type="button" id="board-action-mode-move" class="btn btn-sm btn-swrp btn-swrp-ghost flex-grow-1">Movimiento</button>
+                <button type="button" id="board-action-mode-attack" class="btn btn-sm btn-swrp btn-swrp-ghost flex-grow-1">Atacar</button>
+              </div>
+            </div>
             <div id="board-turn-list" class="board-turn-list"></div>
-            <button type="button" id="board-advance-turn" class="btn btn-sm btn-swrp btn-swrp-primary w-100 mt-2 d-none">Siguiente turno</button>
             <button type="button" id="board-end-combat" class="btn btn-sm btn-swrp btn-swrp-danger w-100 mt-2 d-none">Finalizar combate</button>
           </section>
           <section class="swrp-panel mb-3 d-none" id="board-combat-panel">
             <h2 class="swrp-panel__title">Combate en curso</h2>
+            <div id="board-attack-tools" class="board-attack-tools">
             <h3 class="h6 text-gold mb-2">Consola de dados</h3>
             <form id="board-dice-form" class="mb-3">
               <label class="form-label small" for="board-active-character">Personaje</label>
@@ -82,6 +92,7 @@
             </form>
             <h3 class="h6 text-gold mb-2">Habilidades</h3>
             <div id="board-skills-list" class="board-skills-list mb-3"></div>
+            </div>
             <h3 class="h6 text-gold mb-2">Acción narrativa</h3>
             <form id="board-action-form">
               <textarea class="form-control form-control-sm mb-2" id="board-action-text" rows="3"
@@ -454,8 +465,8 @@
         const boardHint = document.getElementById('board-board-hint');
         if (boardHint) {
           boardHint.textContent = isGM
-            ? 'Clic izquierdo: control de chapa · Clic derecho: carta · Arrastra para mover.'
-            : 'Clic en una chapa para ver la carta. Arrastra la tuya cuando sea tu turno.';
+            ? 'Clic izquierdo: control de chapa · Clic derecho: carta · En tu turno: elige Movimiento o Atacar (2 acciones).'
+            : 'Clic en una chapa para ver la carta. En tu turno: Movimiento o Atacar, luego «Siguiente turno».';
         }
 
         let board;

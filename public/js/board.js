@@ -67,7 +67,25 @@ function stripUndefinedDeep(value) {
   return out;
 }
 
-const CELL = 48;
+const MOVE_RANGE = 5;
+const MAX_TURN_ACTIONS = 2;
+
+function defaultTurnActions() {
+  return { movesUsed: 0, attacksUsed: 0, activeMode: null };
+}
+
+function chebyshevDistance(c1, r1, c2, r2) {
+  return Math.max(Math.abs(c2 - c1), Math.abs(r2 - r1));
+}
+
+function normalizeTurnActions(value) {
+  if (!value || typeof value !== 'object') return defaultTurnActions();
+  return {
+    movesUsed: Number(value.movesUsed) || 0,
+    attacksUsed: Number(value.attacksUsed) || 0,
+    activeMode: value.activeMode === 'move' || value.activeMode === 'attack' ? value.activeMode : null
+  };
+}
 const DEFAULT_COLS = 24;
 const DEFAULT_ROWS = 16;
 const MIN_GRID = 4;
@@ -87,6 +105,7 @@ export class TacticalBoard {
     this.initiativeOpen = true;
     this.turnOrder = [];
     this.turnOrderIndex = 0;
+    this.turnActions = defaultTurnActions();
     this.colLabelsEl = options.colLabelsEl || null;
     this.rowLabelsEl = options.rowLabelsEl || null;
     this.tooltipEl = options.tooltipEl || null;
@@ -177,6 +196,7 @@ export class TacticalBoard {
       this.initiativeOpen = data.initiativeOpen ?? !data.combatStarted;
       this.turnOrder = data.turnOrder || [];
       this.turnOrderIndex = data.turnOrderIndex ?? 0;
+      this.turnActions = normalizeTurnActions(data.turnActions);
       if (data.grid?.cols) this.cols = clampGrid(data.grid.cols);
       if (data.grid?.rows) this.rows = clampGrid(data.grid.rows);
       this.tokens = this.tokens.filter(
@@ -199,6 +219,7 @@ export class TacticalBoard {
       this.initiativeOpen = true;
       this.turnOrder = [];
       this.turnOrderIndex = 0;
+      this.turnActions = defaultTurnActions();
       this.initiativeLog = [];
       this.applyGridDimensions();
       this.render();
@@ -222,6 +243,7 @@ export class TacticalBoard {
       this.initiativeOpen = data.initiativeOpen ?? !data.combatStarted;
       this.turnOrder = data.turnOrder || [];
       this.turnOrderIndex = data.turnOrderIndex ?? 0;
+      this.turnActions = normalizeTurnActions(data.turnActions);
       let gridChanged = false;
       if (data.grid?.cols && data.grid.cols !== this.cols) {
         this.cols = clampGrid(data.grid.cols);
@@ -252,6 +274,7 @@ export class TacticalBoard {
       );
       this.onCombatStateChange(this.combatStarted);
       this.onInitiativeStateChange?.(this.initiativeOpen);
+      this.onTurnActionsChange?.(this.turnActions);
       this.onActiveTurnChange(this.activeTurn);
       this.onTokensChange(this.tokens);
     });
@@ -341,13 +364,15 @@ export class TacticalBoard {
     this.turnOrderIndex = 0;
     this.activeTurn = turnOrder[0];
     this.initiativeLog = [];
+    this.resetTurnActions();
     await this.saveState({
       combatStarted: true,
       initiativeOpen: false,
       turnOrder,
       turnOrderIndex: 0,
       activeTurn: this.activeTurn,
-      initiativeLog: []
+      initiativeLog: [],
+      turnActions: this.turnActions
     });
     this.renderInitiativeLog([]);
     this.renderInitiativeOrderPreview(null);
@@ -366,13 +391,14 @@ export class TacticalBoard {
   }
 
   async advanceTurn() {
-    if (!this.isGM || !this.combatStarted || !this.turnOrder.length) return;
+    if (!this.canUserAdvanceTurn()) return;
     const prevIndex = this.turnOrderIndex;
     const cycleCompleted = prevIndex === this.turnOrder.length - 1;
     if (cycleCompleted) {
       this.initiativeOpen = true;
       this.initiativeLog = [];
       this.activeTurn = null;
+      this.resetTurnActions();
       await this.appendLog(logEntrySystem('fin del ciclo de turnos — nueva tirada de iniciativa'));
       await this.saveState({
         initiativeOpen: true,
@@ -388,6 +414,7 @@ export class TacticalBoard {
     const nextIndex = prevIndex + 1;
     this.turnOrderIndex = nextIndex;
     this.activeTurn = this.turnOrder[nextIndex];
+    this.resetTurnActions();
     await this.saveState({
       activeTurn: this.activeTurn,
       turnOrderIndex: this.turnOrderIndex
@@ -407,13 +434,15 @@ export class TacticalBoard {
     this.turnOrder = [];
     this.turnOrderIndex = 0;
     this.initiativeLog = [];
+    this.resetTurnActions();
     await this.saveState({
       combatStarted: false,
       initiativeOpen: true,
       activeTurn: null,
       turnOrder: [],
       turnOrderIndex: 0,
-      initiativeLog: []
+      initiativeLog: [],
+      turnActions: defaultTurnActions()
     });
     await this.appendLog(logEntrySystem('finalizó el combate'), { force: true });
     this.renderInitiativeLog([]);
@@ -427,6 +456,7 @@ export class TacticalBoard {
   async setActiveTurn(turn) {
     if (!this.isGM) return;
     this.activeTurn = turn || null;
+    this.resetTurnActions();
     if (this.turnOrder.length && turn) {
       const idx = this.turnOrder.findIndex((t) => turnKeyFromTurn(t) === turnKeyFromTurn(turn));
       if (idx >= 0) this.turnOrderIndex = idx;
@@ -456,14 +486,131 @@ export class TacticalBoard {
     this.onTokensChange(this.tokens);
   }
 
+  resetTurnActions() {
+    this.turnActions = defaultTurnActions();
+    this.onTurnActionsChange?.(this.turnActions);
+  }
+
+  getActionsUsed() {
+    return (this.turnActions.movesUsed || 0) + (this.turnActions.attacksUsed || 0);
+  }
+
+  isTurnActionsComplete() {
+    return this.getActionsUsed() >= MAX_TURN_ACTIONS;
+  }
+
+  canControlActiveTurn() {
+    if (!this.combatStarted || this.initiativeOpen || !this.activeTurn) return false;
+    if (this.activeTurn.kind === 'enemy') return this.isGM;
+    return this.activeTurn.kind === 'player' && this.activeTurn.userId === this.userId;
+  }
+
+  canUserAdvanceTurn() {
+    if (!this.combatStarted || this.initiativeOpen || !this.turnOrder.length) return false;
+    if (!this.isTurnActionsComplete()) return false;
+    return this.canControlActiveTurn();
+  }
+
+  canUseAttackMode() {
+    if (!this.canControlActiveTurn()) return false;
+    if (this.getActionsUsed() >= MAX_TURN_ACTIONS) return false;
+    return true;
+  }
+
+  canUseMoveMode() {
+    return this.canUseAttackMode();
+  }
+
+  async selectActionMode(mode) {
+    if (!this.canControlActiveTurn()) return false;
+    if (mode === 'move' && !this.canUseMoveMode()) return false;
+    if (mode === 'attack' && !this.canUseAttackMode()) return false;
+    this.turnActions.activeMode = mode;
+    await this.saveState({ turnActions: this.turnActions });
+    const actor = this.getActiveTurnActor();
+    if (actor && mode === 'attack') {
+      await this.appendLog(logEntryTurnAction(actor, mode));
+    }
+    this.onTurnActionsChange?.(this.turnActions);
+    this.render();
+    return true;
+  }
+
+  async consumeMoveAction() {
+    this.turnActions.movesUsed = (this.turnActions.movesUsed || 0) + 1;
+    this.turnActions.activeMode = null;
+    await this.saveState({ turnActions: this.turnActions });
+    this.onTurnActionsChange?.(this.turnActions);
+    this.render();
+  }
+
+  async consumeAttackAction() {
+    this.turnActions.attacksUsed = (this.turnActions.attacksUsed || 0) + 1;
+    this.turnActions.activeMode = null;
+    await this.saveState({ turnActions: this.turnActions });
+    this.onTurnActionsChange?.(this.turnActions);
+    this.render();
+  }
+
+  getActiveTurnActor() {
+    const turn = this.activeTurn;
+    if (!turn) return null;
+    if (turn.kind === 'enemy') {
+      return { name: turn.label || 'Enemigos', class: 'soldado', color: '#ff1744' };
+    }
+    const token = this.tokens.find(
+      (t) => t.kind === 'character' && t.sourceId === turn.sourceId
+    );
+    if (token) {
+      const meta = getClassMeta(token.class);
+      return {
+        name: token.name,
+        class: token.class,
+        color: token.color || meta.color
+      };
+    }
+    const char = this.roster.find((c) => c.id === turn.sourceId);
+    if (char) {
+      const meta = getClassMeta(char.class);
+      return { name: char.name, class: char.class, color: meta.color };
+    }
+    return { name: turn.label || 'Jugador', class: 'soldado', color: getClassMeta('soldado').color };
+  }
+
+  getMovementTokenForTurn() {
+    if (!this.activeTurn) return null;
+    if (this.activeTurn.kind === 'enemy') return null;
+    return this.tokens.find(
+      (t) => t.kind === 'character' && t.sourceId === this.activeTurn.sourceId
+    ) || null;
+  }
+
+  isCellReachableForMove(token, col, row, fromCol, fromRow) {
+    if (col < 0 || col >= this.cols || row < 0 || row >= this.rows) return false;
+    if (chebyshevDistance(fromCol, fromRow, col, row) > MOVE_RANGE) return false;
+    return !this.tokens.some((t) => t.id !== token.id && t.col === col && t.row === row);
+  }
+
   canUserMoveToken(token) {
-    if (this.isGM) return true;
-    if (!this.combatStarted || !this.activeTurn) return false;
-    if (this.activeTurn.kind !== 'player') return false;
-    if (this.activeTurn.userId !== this.userId) return false;
+    if (!this.combatStarted || this.initiativeOpen) {
+      return this.isGM;
+    }
+    if (!this.canControlActiveTurn()) return false;
+    if (this.turnActions.activeMode !== 'move') return false;
+    if (this.getActionsUsed() >= MAX_TURN_ACTIONS) return false;
+
+    if (this.activeTurn.kind === 'enemy') {
+      return this.isGM && token.side === 'enemy';
+    }
+
     return token.kind === 'character'
-      && token.sourceId === this.userCharacterSourceId
+      && token.sourceId === this.activeTurn.sourceId
       && token.side !== 'enemy';
+  }
+
+  canUseAttackActions() {
+    if (!this.canControlActiveTurn()) return false;
+    return this.turnActions.activeMode === 'attack' && this.getActionsUsed() < MAX_TURN_ACTIONS;
   }
 
   isTokenActiveTurn(token) {
@@ -508,6 +655,7 @@ export class TacticalBoard {
     this.turnOrder = [];
     this.turnOrderIndex = 0;
     this.initiativeLog = [];
+    this.resetTurnActions();
     await this.saveState({
       combatStarted: false,
       activeTurn: null,
@@ -515,7 +663,8 @@ export class TacticalBoard {
       turnOrder: [],
       turnOrderIndex: 0,
       log: [],
-      initiativeLog: []
+      initiativeLog: [],
+      turnActions: defaultTurnActions()
     });
     this.renderLog([]);
     this.renderInitiativeLog([]);
@@ -716,10 +865,12 @@ export class TacticalBoard {
 
     const { col, row } = this.cellFromEvent(e);
     if (col >= 0 && col < this.cols && row >= 0 && row < this.rows) {
-      const occupied = this.tokens.find(
-        (t) => t.col === col && t.row === row && t.id !== this.pointer.token.id
-      );
-      if (!occupied) {
+      const fromCol = this.pointer.fromCol;
+      const fromRow = this.pointer.fromRow;
+      const inRange = this.combatStarted && !this.initiativeOpen
+        ? this.isCellReachableForMove(this.pointer.token, col, row, fromCol, fromRow)
+        : !this.tokens.find((t) => t.col === col && t.row === row && t.id !== this.pointer.token.id);
+      if (inRange) {
         this.pointer.token.col = col;
         this.pointer.token.row = row;
         this.render();
@@ -734,12 +885,35 @@ export class TacticalBoard {
 
     if (dragging) {
       if (token.col === fromCol && token.row === fromRow) return;
+      const dist = chebyshevDistance(fromCol, fromRow, token.col, token.row);
+      const isActionMove = this.combatStarted && !this.initiativeOpen
+        && this.turnActions.activeMode === 'move';
+      if (isActionMove && dist > MOVE_RANGE) {
+        token.col = fromCol;
+        token.row = fromRow;
+        this.render();
+        const { swrpAlert } = await import('./swrp-dialog.js');
+        await swrpAlert({
+          title: 'Movimiento inválido',
+          message: `Solo puedes moverte hasta ${MOVE_RANGE} casillas por acción de movimiento.`
+        });
+        return;
+      }
       await this.saveState({});
       if (this.combatStarted) {
-        await this.appendLog(logEntryToken(token, 'move', {
-          fromCell: cellLabel(fromCol, fromRow),
-          toCell: cellLabel(token.col, token.row)
-        }));
+        const actor = this.getActiveTurnActor();
+        if (isActionMove && actor) {
+          await this.appendLog(logEntryTokenMove(actor, {
+            fromCell: cellLabel(fromCol, fromRow),
+            toCell: cellLabel(token.col, token.row)
+          }));
+          await this.consumeMoveAction();
+        } else {
+          await this.appendLog(logEntryToken(token, 'move', {
+            fromCell: cellLabel(fromCol, fromRow),
+            toCell: cellLabel(token.col, token.row)
+          }));
+        }
       }
       this.render();
       return;
@@ -863,7 +1037,10 @@ export class TacticalBoard {
           : (this.turnOrder ?? current.turnOrder ?? []),
         turnOrderIndex: partial.turnOrderIndex !== undefined
           ? partial.turnOrderIndex
-          : (this.turnOrderIndex ?? current.turnOrderIndex ?? 0)
+          : (this.turnOrderIndex ?? current.turnOrderIndex ?? 0),
+        turnActions: partial.turnActions !== undefined
+          ? partial.turnActions
+          : normalizeTurnActions(this.turnActions ?? current.turnActions)
       }),
       updatedAt: serverTimestamp()
     };
@@ -914,7 +1091,30 @@ export class TacticalBoard {
       ctx.stroke();
     }
 
+    this.drawMoveRange();
     this.drawVisionCones();
+  }
+
+  drawMoveRange() {
+    if (this.turnActions.activeMode !== 'move' || !this.canControlActiveTurn()) return;
+    const ctx = this.ctx;
+    const originToken = this.pointer?.dragging
+      ? this.pointer.token
+      : (this.activeTurn?.kind === 'enemy'
+        ? null
+        : this.getMovementTokenForTurn());
+    if (!originToken) return;
+
+    const fromCol = this.pointer?.dragging ? this.pointer.fromCol : originToken.col;
+    const fromRow = this.pointer?.dragging ? this.pointer.fromRow : originToken.row;
+
+    ctx.fillStyle = 'rgba(57, 255, 20, 0.14)';
+    for (let c = 0; c < this.cols; c++) {
+      for (let r = 0; r < this.rows; r++) {
+        if (!this.isCellReachableForMove(originToken, c, r, fromCol, fromRow)) continue;
+        ctx.fillRect(c * CELL + 1, r * CELL + 1, CELL - 2, CELL - 2);
+      }
+    }
   }
 
   drawVisionCones() {
@@ -1025,6 +1225,40 @@ export function logEntrySystem(message) {
     type: 'system',
     actor: { isGM: true, name: 'GM' },
     message
+  };
+}
+
+export function logEntryTurnAction(actor, actionType) {
+  const meta = getClassMeta(actor.class);
+  const labels = { move: 'Movimiento', attack: 'Ataque' };
+  return {
+    time: timeLabel(),
+    type: 'turn_action',
+    actionType,
+    actionLabel: labels[actionType] || actionType,
+    actor: {
+      isGM: false,
+      name: actor.name,
+      class: actor.class,
+      color: actor.color || meta.color
+    }
+  };
+}
+
+export function logEntryTokenMove(actor, { fromCell, toCell }) {
+  const meta = getClassMeta(actor.class);
+  return {
+    time: timeLabel(),
+    type: 'move',
+    actor: {
+      isGM: false,
+      name: actor.name,
+      class: actor.class,
+      color: actor.color || meta.color
+    },
+    fromCell,
+    toCell,
+    isActionMove: true
   };
 }
 
@@ -1159,7 +1393,18 @@ export function renderLogEntryHtml(entry, context = {}) {
   const name = `<span class="combat-log__actor" style="color:${escapeHtml(color)}">${escapeHtml(entry.actor?.name || '')}</span>`;
   const cell = (label) => `<span class="combat-log__cell">${escapeHtml(label)}</span>`;
 
+  if (entry.type === 'turn_action') {
+    const badgeClass = entry.actionType === 'move'
+      ? 'combat-log__action-type--move'
+      : 'combat-log__action-type--attack';
+    const label = escapeHtml(entry.actionLabel || entry.actionType || 'Acción');
+    return `<div class="combat-log__entry">${time} ${name} elige <span class="combat-log__action-type ${badgeClass}">${label}</span>.</div>`;
+  }
   if (entry.type === 'move') {
+    const arrow = '<span class="combat-log__arrow" aria-hidden="true">→</span>';
+    if (entry.isActionMove) {
+      return `<div class="combat-log__entry combat-log__entry--move">${time} ${name} <span class="combat-log__action-type combat-log__action-type--move">Movimiento</span> <span class="combat-log__move-path">${cell(entry.fromCell)}${arrow}${cell(entry.toCell)}</span></div>`;
+    }
     return `<div class="combat-log__entry">${time} ${name} se movió de ${cell(entry.fromCell)} a ${cell(entry.toCell)}.</div>`;
   }
   if (entry.type === 'place') {

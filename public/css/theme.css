@@ -2017,6 +2017,66 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
   padding-left: 1.2rem;
 }
 
+.board-turn-actions .btn.is-active {
+  border-color: var(--swrp-gold, #ffd700);
+  color: var(--swrp-gold, #ffd700);
+  box-shadow: 0 0 0 1px rgba(255, 215, 0, 0.35);
+}
+
+.board-attack-tools--disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.combat-log__entry--move {
+  line-height: 1.5;
+}
+
+.combat-log__action-type {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 0.1rem 0.45rem;
+  border-radius: 0.25rem;
+  margin: 0 0.15rem;
+  vertical-align: middle;
+}
+
+.combat-log__action-type--move {
+  color: #7dffb3;
+  background: rgba(57, 255, 20, 0.12);
+  border: 1px solid rgba(57, 255, 20, 0.35);
+}
+
+.combat-log__action-type--attack {
+  color: #ff8a80;
+  background: rgba(255, 23, 68, 0.12);
+  border: 1px solid rgba(255, 23, 68, 0.35);
+}
+
+.combat-log__move-path {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.combat-log__arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--swrp-gold, #ffd700);
+  background: rgba(255, 215, 0, 0.12);
+  border: 1px solid rgba(255, 215, 0, 0.35);
+}
+
 .board-turn-btn.is-queued {
   outline: 1px dashed rgba(255, 215, 0, 0.45);
 }

@@ -198,11 +198,9 @@ function resolveActiveActor(ctx, activeSelect) {
   return null;
 }
 
-function canUseCombatActions(board, isGM, userId) {
+function canUseNarrative(board) {
   if (!board.combatStarted || board.initiativeOpen) return false;
-  if (isGM) return true;
-  const turn = board.activeTurn;
-  return turn?.kind === 'player' && turn.userId === userId;
+  return board.canControlActiveTurn();
 }
 
 function skillTypeKey(type) {
@@ -444,8 +442,51 @@ export function initBoardCombatUi(ctx) {
   const initiativeCompleteBtn = document.getElementById('board-initiative-complete');
   const advanceTurnBtn = document.getElementById('board-advance-turn');
   const endCombatBtn = document.getElementById('board-end-combat');
+  const turnActionsPanel = document.getElementById('board-turn-actions');
+  const actionStatusEl = document.getElementById('board-action-status');
+  const actionMoveBtn = document.getElementById('board-action-mode-move');
+  const actionAttackBtn = document.getElementById('board-action-mode-attack');
+  const attackToolsEl = document.getElementById('board-attack-tools');
 
   let mentionAtIndex = null;
+
+  function syncTurnActionUi() {
+    const inCombat = board.combatStarted && !board.initiativeOpen;
+    const hasControl = board.canControlActiveTurn();
+    const used = board.getActionsUsed();
+
+    turnActionsPanel?.classList.toggle('d-none', !inCombat || !hasControl);
+    advanceTurnBtn?.classList.toggle('d-none', !board.canUserAdvanceTurn());
+
+    if (actionStatusEl) {
+      actionStatusEl.textContent = `Acciones: ${used}/2`;
+    }
+
+    const canPickMore = hasControl && used < 2;
+    if (actionMoveBtn) {
+      actionMoveBtn.disabled = !canPickMore;
+      actionMoveBtn.classList.toggle('is-active', board.turnActions.activeMode === 'move');
+    }
+    if (actionAttackBtn) {
+      actionAttackBtn.disabled = !canPickMore;
+      actionAttackBtn.classList.toggle('is-active', board.turnActions.activeMode === 'attack');
+    }
+
+    const attackReady = board.canUseAttackActions();
+    attackToolsEl?.classList.toggle('board-attack-tools--disabled', !attackReady);
+    diceForm?.querySelectorAll('input, select, button').forEach((el) => {
+      el.disabled = !attackReady;
+    });
+    skillsList?.querySelectorAll('.board-skill-btn').forEach((btn) => {
+      btn.disabled = !attackReady;
+    });
+  }
+
+  function syncCombatControls() {
+    const combatEnded = board.combatStarted && isCombatEnded(board.tokens);
+    endCombatBtn?.classList.toggle('d-none', !isGM || !combatEnded);
+    syncTurnActionUi();
+  }
 
   function refreshInitiativeUi() {
     const order = computeInitiativeOrder(board.initiativeLog, members, board.tokens);
@@ -456,10 +497,9 @@ export function initBoardCombatUi(ctx) {
   }
 
   function syncCombatControls() {
-    const inCombat = board.combatStarted && !board.initiativeOpen;
     const combatEnded = board.combatStarted && isCombatEnded(board.tokens);
-    advanceTurnBtn?.classList.toggle('d-none', !isGM || !inCombat || !board.turnOrder.length);
     endCombatBtn?.classList.toggle('d-none', !isGM || !combatEnded);
+    syncTurnActionUi();
   }
 
   function syncPanelsVisibility() {
@@ -492,8 +532,8 @@ export function initBoardCombatUi(ctx) {
     refreshInitiativeCharacterSelect(ctx, initiativeSelect);
     const { actor: char } = resolveActiveActor(ctx, activeSelect) || {};
     renderSkillsList(skillsList, char, async (skill) => {
-      if (!canUseCombatActions(board, isGM, user.uid)) {
-        await swrpAlert({ title: 'Fuera de turno', message: 'Solo puedes usar habilidades en tu turno.' });
+      if (!board.canUseAttackActions()) {
+        await swrpAlert({ title: 'Acción no disponible', message: 'Elige «Atacar» para usar habilidades.' });
         return;
       }
       const resolved = resolveActiveActor(ctx, activeSelect);
@@ -502,6 +542,8 @@ export function initBoardCombatUi(ctx) {
         return;
       }
       await board.appendLog(logEntrySkill(resolved.actor, skill, resolved.cell));
+      await board.consumeAttackAction();
+      syncTurnActionUi();
     });
     syncPanelsVisibility();
     syncCombatControls();
@@ -559,6 +601,11 @@ export function initBoardCombatUi(ctx) {
   board.onInitiativeStateChange = () => {
     syncPanelsVisibility();
     refreshAll();
+  };
+
+  board.onTurnActionsChange = () => {
+    syncTurnActionUi();
+    board.render();
   };
 
   const prevOnInitiativeLog = board.onInitiativeLogChange;
@@ -640,6 +687,30 @@ export function initBoardCombatUi(ctx) {
     refreshAll();
   });
 
+  actionMoveBtn?.addEventListener('click', async () => {
+    if (!board.canUseMoveMode()) {
+      await swrpAlert({
+        title: 'Sin acciones',
+        message: 'Ya has usado tus 2 acciones este turno.'
+      });
+      return;
+    }
+    await board.selectActionMode('move');
+    syncTurnActionUi();
+  });
+
+  actionAttackBtn?.addEventListener('click', async () => {
+    if (!board.canUseAttackMode()) {
+      await swrpAlert({
+        title: 'Sin acciones',
+        message: 'Ya has usado tus 2 acciones este turno.'
+      });
+      return;
+    }
+    await board.selectActionMode('attack');
+    syncTurnActionUi();
+  });
+
   advanceTurnBtn?.addEventListener('click', async () => {
     await board.advanceTurn();
     refreshAll();
@@ -660,8 +731,8 @@ export function initBoardCombatUi(ctx) {
 
   diceForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (!canUseCombatActions(board, isGM, user.uid)) {
-      await swrpAlert({ title: 'Fuera de turno', message: 'Solo puedes tirar dados en tu turno.' });
+    if (!board.canUseAttackActions()) {
+      await swrpAlert({ title: 'Acción no disponible', message: 'Elige «Atacar» para lanzar dados.' });
       return;
     }
     const resolved = resolveActiveActor(ctx, activeSelect);
@@ -682,6 +753,8 @@ export function initBoardCombatUi(ctx) {
     try {
       const roll = rollDice(notation, attackMod);
       await board.appendLog(logEntryDice(char, roll, label, cell));
+      await board.consumeAttackAction();
+      syncTurnActionUi();
     } catch (err) {
       await swrpAlert({ title: 'Error en tirada', message: err.message });
     }
@@ -689,8 +762,8 @@ export function initBoardCombatUi(ctx) {
 
   actionForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (!canUseCombatActions(board, isGM, user.uid)) {
-      await swrpAlert({ title: 'Fuera de turno', message: 'Solo puedes registrar acciones en tu turno.' });
+    if (!canUseNarrative(board)) {
+      await swrpAlert({ title: 'Fuera de turno', message: 'Solo puedes registrar acciones narrativas en tu turno.' });
       return;
     }
     const text = document.getElementById('board-action-text').value.trim();
@@ -707,13 +780,15 @@ export function initBoardCombatUi(ctx) {
   activeSelect?.addEventListener('change', () => {
     const { actor: char } = resolveActiveActor(ctx, activeSelect) || {};
     renderSkillsList(skillsList, char, async (skill) => {
-      if (!canUseCombatActions(board, isGM, user.uid)) {
-        await swrpAlert({ title: 'Fuera de turno', message: 'Solo puedes usar habilidades en tu turno.' });
+      if (!board.canUseAttackActions()) {
+        await swrpAlert({ title: 'Acción no disponible', message: 'Elige «Atacar» para usar habilidades.' });
         return;
       }
       const resolved = resolveActiveActor(ctx, activeSelect);
       if (!resolved?.actor) return;
       await board.appendLog(logEntrySkill(resolved.actor, skill, resolved.cell));
+      await board.consumeAttackAction();
+      syncTurnActionUi();
     });
   });
 
