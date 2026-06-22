@@ -86,6 +86,7 @@ function normalizeTurnActions(value) {
     activeMode: value.activeMode === 'move' || value.activeMode === 'attack' ? value.activeMode : null
   };
 }
+const CELL = 48;
 const DEFAULT_COLS = 24;
 const DEFAULT_ROWS = 16;
 const MIN_GRID = 4;
