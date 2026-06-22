@@ -1906,9 +1906,14 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
 }
 
 .board-sidebar-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 6;
   justify-content: flex-start;
   border-bottom-color: var(--swrp-border);
   flex-wrap: nowrap;
+  background: var(--swrp-bg-deep, #07080d);
+  padding-top: 0.15rem;
 }
 
 .board-sidebar-tabs .nav-link {

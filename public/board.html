@@ -101,7 +101,10 @@
             </form>
           </section>
           <section class="swrp-panel mb-3" id="board-initiative-panel">
-            <h2 class="swrp-panel__title">Tirada de iniciativa</h2>
+            <div class="d-flex justify-content-between align-items-center gap-2 mb-2 flex-wrap">
+              <h2 class="swrp-panel__title mb-0">Tirada de iniciativa</h2>
+              <button type="button" id="board-goto-setup" class="btn btn-sm btn-swrp btn-swrp-ghost d-none">Configurar tablero</button>
+            </div>
             <p class="small text-muted mb-2">Disponible antes de iniciar el combate. Puedes repetir tiradas si una habilidad lo permite.</p>
             <label class="form-label small" for="board-initiative-character">Personaje</label>
             <select class="form-select form-select-sm mb-2" id="board-initiative-character"></select>
@@ -403,6 +406,7 @@
       const tabsEl = document.getElementById('board-sidebar-tabs');
       const combateEl = document.getElementById('board-sidebar-combate');
       const opcionesEl = document.getElementById('board-sidebar-opciones');
+      const gotoSetupBtn = document.getElementById('board-goto-setup');
 
       function showTab(tabName) {
         combateEl?.classList.toggle('d-none', tabName !== 'combate');
@@ -412,21 +416,40 @@
         });
       }
 
-      if (!isGM) {
-        tabsEl?.classList.add('d-none');
-        combateEl?.classList.remove('d-none');
-        opcionesEl?.classList.add('d-none');
-        return;
+      function setGmTabsVisible(visible) {
+        tabsEl?.classList.toggle('d-none', !visible);
       }
 
-      tabsEl?.classList.remove('d-none');
-      showTab('combate');
+      function syncGmSidebar(board, { forceSetup = false } = {}) {
+        if (!isGM || !board) return;
+        setGmTabsVisible(true);
+        const preCombat = !board.combatStarted;
+        const betweenRounds = board.combatStarted && board.initiativeOpen;
+        gotoSetupBtn?.classList.toggle('d-none', !preCombat && !betweenRounds);
+        if (preCombat || forceSetup) {
+          showTab('opciones');
+        }
+      }
+
+      if (!isGM) {
+        setGmTabsVisible(false);
+        combateEl?.classList.remove('d-none');
+        opcionesEl?.classList.add('d-none');
+        return { showTab, syncGmSidebar: () => {} };
+      }
+
+      setGmTabsVisible(true);
+      showTab('opciones');
 
       tabsEl?.addEventListener('click', (e) => {
         const tab = e.target.closest('[data-board-tab]');
         if (!tab) return;
         showTab(tab.dataset.boardTab);
       });
+
+      gotoSetupBtn?.addEventListener('click', () => showTab('opciones'));
+
+      return { showTab, syncGmSidebar };
     }
 
     const { user, profile } = await requireAuth();
@@ -447,8 +470,8 @@
         window.location.href = partyPageUrl(partyId);
       } else {
         const members = await loadPartyMembers(partyId);
-        const isGM = isPartyGMUser(members, user.uid);
         const member = members.find((m) => m.userId === user.uid);
+        const isGM = isPartyGMUser(members, user.uid) || member?.playMode === 'gm';
         const userCharacterSourceId = member?.characterId || null;
         roster = await loadPartyRoster(partyId);
         await loadCompendiumData();
@@ -460,12 +483,12 @@
         const gridColsInput = document.getElementById('grid-cols');
         const gridRowsInput = document.getElementById('grid-rows');
 
-        initBoardSidebar(isGM);
+        const boardSidebar = initBoardSidebar(isGM);
 
         const boardHint = document.getElementById('board-board-hint');
         if (boardHint) {
           boardHint.textContent = isGM
-            ? 'Clic izquierdo: control de chapa · Clic derecho: carta · En tu turno: elige Movimiento o Atacar (2 acciones).'
+            ? 'Configura el tablero en «Opciones» antes de la iniciativa. Clic izquierdo: control · Clic derecho: carta.'
             : 'Clic en una chapa para ver la carta. En tu turno: Movimiento o Atacar, luego «Siguiente turno».';
         }
 
@@ -487,7 +510,11 @@
             initiativeOrderEl: document.getElementById('board-initiative-order'),
             onTokenClick: openTokenCard,
             onMapUrlChange: (url) => { mapUrlInput.value = url || ''; },
-            onCombatStateChange: (started) => syncCombatUi(started, isGM),
+            onCombatStateChange: (started) => {
+              syncCombatUi(started, isGM);
+              boardSidebar.syncGmSidebar(board, { forceSetup: !started });
+            },
+            onInitiativeStateChange: () => boardSidebar.syncGmSidebar(board),
             onGridSizeChange: (cols, rows) => {
               gridColsInput.value = cols;
               gridRowsInput.value = rows;
@@ -498,6 +525,7 @@
         await board.loadState();
         board.watchState();
         syncCombatUi(board.combatStarted, isGM);
+        boardSidebar.syncGmSidebar(board);
 
         if (isGM) {
           initBoardPage({

@@ -130,6 +130,7 @@ export class TacticalBoard {
     this.onTokensChange = options.onTokensChange || (() => {});
     this.onMapUrlChange = options.onMapUrlChange || (() => {});
     this.onCombatStateChange = options.onCombatStateChange || (() => {});
+    this.onInitiativeStateChange = options.onInitiativeStateChange || (() => {});
     this.onGridSizeChange = options.onGridSizeChange || (() => {});
     this.onGMTokenControl = options.onGMTokenControl || (() => {});
     this.onActiveTurnChange = options.onActiveTurnChange || (() => {});

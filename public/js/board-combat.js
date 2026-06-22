@@ -598,7 +598,9 @@ export function initBoardCombatUi(ctx) {
 
   board.onActiveTurnChange = () => refreshAll();
 
+  const prevOnInitiativeStateChange = board.onInitiativeStateChange;
   board.onInitiativeStateChange = () => {
+    prevOnInitiativeStateChange?.();
     syncPanelsVisibility();
     refreshAll();
   };
