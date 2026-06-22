@@ -87,6 +87,15 @@
               <button type="submit" class="btn btn-sm btn-swrp btn-swrp-ghost w-100">Registrar acción</button>
             </form>
           </section>
+          <section class="swrp-panel mb-3" id="board-initiative-panel">
+            <h2 class="swrp-panel__title">Tirada de iniciativa</h2>
+            <p class="small text-muted mb-2">Disponible antes de iniciar el combate. Puedes repetir tiradas si una habilidad lo permite.</p>
+            <label class="form-label small" for="board-initiative-character">Personaje</label>
+            <select class="form-select form-select-sm mb-2" id="board-initiative-character"></select>
+            <button type="button" id="board-initiative-roll" class="btn btn-sm btn-swrp btn-swrp-primary w-100 mb-2">Tirar D20</button>
+            <textarea class="form-control form-control-sm board-initiative-log" id="board-initiative-log" rows="6" readonly
+              placeholder="Las tiradas de iniciativa aparecerán aquí…"></textarea>
+          </section>
           <p id="board-combat-hint" class="small text-muted mb-3">Inicia el combate para activar dados, turnos y habilidades.</p>
           <section class="swrp-panel">
             <h2 class="swrp-panel__title">Log de Combate</h2>
@@ -457,6 +466,7 @@
             colLabelsEl: document.getElementById('board-col-labels'),
             rowLabelsEl: document.getElementById('board-row-labels'),
             tooltipEl: document.getElementById('board-token-tooltip'),
+            initiativeLogEl: document.getElementById('board-initiative-log'),
             onTokenClick: openTokenCard,
             onMapUrlChange: (url) => { mapUrlInput.value = url || ''; },
             onCombatStateChange: (started) => syncCombatUi(started, isGM),

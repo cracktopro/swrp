@@ -216,6 +216,70 @@ function renderSkillsList(container, character, onUse) {
   });
 }
 
+function refreshInitiativeCharacterSelect(ctx, selectEl) {
+  if (!selectEl) return;
+  const { board, isGM, roster, userCharacterSourceId } = ctx;
+
+  if (isGM) {
+    const options = [{ id: '__enemies__', label: 'Enemigos (GM)' }];
+    board.tokens.forEach((t) => {
+      options.push({
+        id: t.id,
+        label: `${t.name} (${cellLabel(t.col, t.row)})`
+      });
+    });
+    const onBoardCharIds = new Set(
+      board.tokens.filter((t) => t.kind === 'character').map((t) => t.sourceId)
+    );
+    roster
+      .filter((c) => !onBoardCharIds.has(c.id))
+      .forEach((c) => options.push({ id: c.id, label: c.name }));
+
+    selectEl.innerHTML = options.length
+      ? options.map((o) => `<option value="${o.id}">${escapeHtml(o.label)}</option>`).join('')
+      : '<option value="">— Sin opciones —</option>';
+    selectEl.disabled = false;
+    return;
+  }
+
+  const token = board.tokens.find(
+    (t) => t.kind === 'character' && t.sourceId === userCharacterSourceId
+  );
+  selectEl.innerHTML = token
+    ? `<option value="${token.id}">${escapeHtml(token.name)} (${cellLabel(token.col, token.row)})</option>`
+    : '<option value="">— Tu personaje no está en el tablero —</option>';
+  selectEl.disabled = true;
+}
+
+function resolveInitiativeActor(ctx, selectEl) {
+  const { board, isGM, roster } = ctx;
+  if (!selectEl?.value) return null;
+
+  if (isGM && selectEl.value === '__enemies__') {
+    return {
+      actor: { name: 'Enemigos', class: 'soldado', color: '#ff1744' },
+      cell: null
+    };
+  }
+
+  if (isGM) {
+    const token = board.tokens.find((t) => t.id === selectEl.value);
+    if (token) return actorFromToken(token);
+    const char = roster.find((c) => c.id === selectEl.value);
+    if (char) {
+      const meta = getClassMeta(char.class);
+      return { actor: { ...char, color: meta.color }, cell: null };
+    }
+    return null;
+  }
+
+  const token = board.tokens.find((t) => t.id === selectEl.value);
+  if (token?.kind === 'character' && token.sourceId === ctx.userCharacterSourceId) {
+    return actorFromToken(token);
+  }
+  return null;
+}
+
 function refreshActiveCharacterSelect(ctx, selectEl) {
   if (!selectEl) return;
   const { board, isGM, roster, userCharacterSourceId } = ctx;
@@ -271,6 +335,9 @@ export function initBoardCombatUi(ctx) {
   const activeSelect = document.getElementById('board-active-character');
   const skillsList = document.getElementById('board-skills-list');
   const combatHint = document.getElementById('board-combat-hint');
+  const initiativePanel = document.getElementById('board-initiative-panel');
+  const initiativeSelect = document.getElementById('board-initiative-character');
+  const initiativeRollBtn = document.getElementById('board-initiative-roll');
 
   let mentionAtIndex = null;
 
@@ -312,6 +379,7 @@ export function initBoardCombatUi(ctx) {
     const started = board.combatStarted;
     combatPanel?.classList.toggle('d-none', !started);
     turnPanel?.classList.toggle('d-none', !started);
+    initiativePanel?.classList.toggle('d-none', started);
     document.getElementById('board-turn-assign-hint')?.classList.toggle('d-none', !isGM);
     turnListEl?.classList.toggle('d-none', !isGM);
     if (combatHint) {
@@ -323,6 +391,7 @@ export function initBoardCombatUi(ctx) {
     turnOptions = buildTurnOptions(members, board.tokens);
     syncTurnUi(board.activeTurn, turnOptions, turnBannerEl, turnListEl, isGM);
     refreshActiveCharacterSelect(ctx, activeSelect);
+    refreshInitiativeCharacterSelect(ctx, initiativeSelect);
     const { actor: char } = resolveActiveActor(ctx, activeSelect) || {};
     renderSkillsList(skillsList, char, async (skill) => {
       if (!canUseCombatActions(board, isGM, user.uid)) {
@@ -368,6 +437,32 @@ export function initBoardCombatUi(ctx) {
     if (turn.sourceId === '') turn.sourceId = null;
     if (turn.tokenId === '') turn.tokenId = null;
     await board.setActiveTurn(turn);
+  });
+
+  initiativeRollBtn?.addEventListener('click', async () => {
+    if (board.combatStarted) {
+      await swrpAlert({
+        title: 'Combate en curso',
+        message: 'La tirada de iniciativa solo está disponible antes de iniciar el combate.'
+      });
+      return;
+    }
+    const resolved = resolveInitiativeActor(ctx, initiativeSelect);
+    if (!resolved?.actor) {
+      await swrpAlert({
+        title: 'Sin actor',
+        message: isGM
+          ? 'Selecciona un personaje o Enemigos para tirar iniciativa.'
+          : 'Tu personaje debe estar en el tablero para tirar iniciativa.'
+      });
+      return;
+    }
+    try {
+      const roll = rollDice('1d20', 0);
+      await board.appendInitiativeRoll(resolved.actor, roll);
+    } catch (err) {
+      await swrpAlert({ title: 'Error en tirada', message: err.message });
+    }
   });
 
   diceForm?.addEventListener('submit', async (e) => {

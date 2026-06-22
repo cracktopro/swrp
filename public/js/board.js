@@ -17,7 +17,7 @@ import {
   FACING_DIRS
 } from './board-vision.js';
 import { swrpConfirm } from './swrp-dialog.js';
-import { renderDiceResultHtml } from './dice.js';
+import { formatRollResult, renderDiceResultHtml } from './dice.js';
 import {
   buildBoardTokenMap,
   buildRosterMap,
@@ -81,6 +81,8 @@ export class TacticalBoard {
     this.ctx = canvas.getContext('2d');
     this.tokenLayer = tokenLayer;
     this.logEl = logEl;
+    this.initiativeLogEl = options.initiativeLogEl || null;
+    this.initiativeLog = [];
     this.colLabelsEl = options.colLabelsEl || null;
     this.rowLabelsEl = options.rowLabelsEl || null;
     this.tooltipEl = options.tooltipEl || null;
@@ -180,14 +182,18 @@ export class TacticalBoard {
       }
       this.applyGridDimensions();
       this.render();
+      this.initiativeLog = data.initiativeLog || [];
       this.renderLog(data.log || []);
+      this.renderInitiativeLog(this.initiativeLog);
     } else {
       this.tokens = [];
       this.combatStarted = false;
       this.activeTurn = null;
+      this.initiativeLog = [];
       this.applyGridDimensions();
       this.render();
       this.renderLog([]);
+      this.renderInitiativeLog([]);
     }
     this.onCombatStateChange(this.combatStarted);
     this.onActiveTurnChange(this.activeTurn);
@@ -224,7 +230,9 @@ export class TacticalBoard {
       } else if (!gridChanged) {
         this.render();
       }
+      this.initiativeLog = data.initiativeLog || [];
       this.renderLog(data.log || []);
+      this.renderInitiativeLog(this.initiativeLog);
       this.onCombatStateChange(this.combatStarted);
       this.onActiveTurnChange(this.activeTurn);
       this.onTokensChange(this.tokens);
@@ -369,14 +377,26 @@ export class TacticalBoard {
     if (!this.isGM || !this.combatStarted) return;
     const ok = await swrpConfirm({
       title: 'Borrar historial',
-      message: '¿Borrar todo el historial del combate?',
+      message: '¿Borrar el historial y reiniciar la partida? El combate volverá al estado previo al inicio.',
       confirmText: 'Borrar',
       cancelText: 'Cancelar',
       danger: true
     });
     if (!ok) return;
-    await this.saveState({ log: [] });
+    this.combatStarted = false;
+    this.activeTurn = null;
+    this.initiativeLog = [];
+    await this.saveState({
+      combatStarted: false,
+      activeTurn: null,
+      log: [],
+      initiativeLog: []
+    });
     this.renderLog([]);
+    this.renderInitiativeLog([]);
+    this.onCombatStateChange(false);
+    this.onActiveTurnChange(null);
+    this.renderTokenLayer();
   }
 
   tokenOnBoard(sourceId, kind) {
@@ -620,6 +640,37 @@ export class TacticalBoard {
     if (this.tooltipEl) this.tooltipEl.hidden = true;
   }
 
+  async appendInitiativeRoll(actor, roll) {
+    if (this.combatStarted) return;
+    const entry = {
+      actorName: actor.name,
+      roll,
+      rollLabel: 'Iniciativa ',
+      time: timeLabel()
+    };
+    const refDoc = doc(db, 'parties', this.partyId, 'state', 'board');
+    const snap = await getDoc(refDoc);
+    const current = snap.exists() ? snap.data() : {};
+    const initiativeLog = [...(current.initiativeLog || []), stripUndefinedDeep(entry)];
+    await setDoc(refDoc, { initiativeLog, updatedAt: serverTimestamp() }, { merge: true });
+    this.initiativeLog = initiativeLog;
+    this.renderInitiativeLog(initiativeLog);
+  }
+
+  renderInitiativeLog(entries) {
+    if (!this.initiativeLogEl) return;
+    const lines = (entries || []).map((entry) => {
+      if (typeof entry === 'string') return entry;
+      return formatRollResult(
+        entry.actorName,
+        entry.roll,
+        entry.rollLabel || 'Iniciativa '
+      );
+    });
+    this.initiativeLogEl.value = lines.join('\n');
+    this.initiativeLogEl.scrollTop = this.initiativeLogEl.scrollHeight;
+  }
+
   async appendLog(entry, { force = false } = {}) {
     if (!force && !this.combatStarted) return;
     const refDoc = doc(db, 'parties', this.partyId, 'state', 'board');
@@ -645,7 +696,10 @@ export class TacticalBoard {
         activeTurn: partial.activeTurn !== undefined
           ? partial.activeTurn
           : (this.activeTurn ?? current.activeTurn ?? null),
-        log: partial.log !== undefined ? partial.log : (current.log || [])
+        log: partial.log !== undefined ? partial.log : (current.log || []),
+        initiativeLog: partial.initiativeLog !== undefined
+          ? partial.initiativeLog
+          : (current.initiativeLog || [])
       }),
       updatedAt: serverTimestamp()
     };

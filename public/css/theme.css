@@ -189,6 +189,7 @@ body.swrp-app *::-webkit-scrollbar-corner {
 
 .swrp-scrollbar-thin,
 .combat-log,
+.board-initiative-log,
 .swrp-card__skills-list {
   scrollbar-width: thin;
   scrollbar-color: var(--swrp-scrollbar-thumb) var(--swrp-scrollbar-track);
@@ -196,6 +197,7 @@ body.swrp-app *::-webkit-scrollbar-corner {
 
 .swrp-scrollbar-thin::-webkit-scrollbar,
 .combat-log::-webkit-scrollbar,
+.board-initiative-log::-webkit-scrollbar,
 .swrp-card__skills-list::-webkit-scrollbar {
   width: var(--swrp-scrollbar-size-thin);
   height: var(--swrp-scrollbar-size-thin);
@@ -1991,6 +1993,14 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
   overflow-y: auto;
   font-size: 0.82rem;
   line-height: 1.45;
+}
+
+.board-initiative-log {
+  font-family: monospace;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  resize: vertical;
+  min-height: 7rem;
 }
 
 .combat-log__entry {
