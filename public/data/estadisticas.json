@@ -1,0 +1,1084 @@
+{
+  "Hoja1": [
+    {
+      "nivel": 1,
+      "clase": "Jedi Guardian",
+      "Puntos de Golpe": 60,
+      "Defensa": 15,
+      "Ataque": 6,
+      "Daño": 20,
+      "Fuerza": 1
+    },
+    {
+      "nivel": 2,
+      "clase": "Jedi Guardian",
+      "Puntos de Golpe": 60,
+      "Defensa": 15,
+      "Ataque": 6,
+      "Daño": 20,
+      "Fuerza": 1
+    },
+    {
+      "nivel": 3,
+      "clase": "Jedi Guardian",
+      "Puntos de Golpe": 60,
+      "Defensa": 16,
+      "Ataque": 6,
+      "Daño": 20,
+      "Fuerza": 1
+    },
+    {
+      "nivel": 4,
+      "clase": "Jedi Guardian",
+      "Puntos de Golpe": 70,
+      "Defensa": 16,
+      "Ataque": 7,
+      "Daño": 20,
+      "Fuerza": 1
+    },
+    {
+      "nivel": 5,
+      "clase": "Jedi Guardian",
+      "Puntos de Golpe": 70,
+      "Defensa": 16,
+      "Ataque": 7,
+      "Daño": 20,
+      "Fuerza": 1
+    },
+    {
+      "nivel": 6,
+      "clase": "Jedi Guardian",
+      "Puntos de Golpe": 70,
+      "Defensa": 16,
+      "Ataque": 7,
+      "Daño": 20,
+      "Fuerza": 1
+    },
+    {
+      "nivel": 7,
+      "clase": "Jedi Guardian",
+      "Puntos de Golpe": 70,
+      "Defensa": 17,
+      "Ataque": 7,
+      "Daño": 20,
+      "Fuerza": 1
+    },
+    {
+      "nivel": 8,
+      "clase": "Jedi Guardian",
+      "Puntos de Golpe": 80,
+      "Defensa": 17,
+      "Ataque": 8,
+      "Daño": 20,
+      "Fuerza": 1
+    },
+    {
+      "nivel": 9,
+      "clase": "Jedi Guardian",
+      "Puntos de Golpe": 80,
+      "Defensa": 17,
+      "Ataque": 8,
+      "Daño": 20,
+      "Fuerza": 2
+    },
+    {
+      "nivel": 10,
+      "clase": "Jedi Guardian",
+      "Puntos de Golpe": 80,
+      "Defensa": 17,
+      "Ataque": 8,
+      "Daño": 20,
+      "Fuerza": 2
+    },
+    {
+      "nivel": 11,
+      "clase": "Jedi Guardian",
+      "Puntos de Golpe": 80,
+      "Defensa": 18,
+      "Ataque": 8,
+      "Daño": 20,
+      "Fuerza": 2
+    },
+    {
+      "nivel": 12,
+      "clase": "Jedi Guardian",
+      "Puntos de Golpe": 90,
+      "Defensa": 18,
+      "Ataque": 9,
+      "Daño": 20,
+      "Fuerza": 2
+    },
+    {
+      "nivel": 13,
+      "clase": "Jedi Guardian",
+      "Puntos de Golpe": 90,
+      "Defensa": 18,
+      "Ataque": 9,
+      "Daño": 20,
+      "Fuerza": 2
+    },
+    {
+      "nivel": 14,
+      "clase": "Jedi Guardian",
+      "Puntos de Golpe": 90,
+      "Defensa": 19,
+      "Ataque": 9,
+      "Daño": 20,
+      "Fuerza": 2
+    },
+    {
+      "nivel": 15,
+      "clase": "Jedi Guardian",
+      "Puntos de Golpe": 90,
+      "Defensa": 19,
+      "Ataque": 10,
+      "Daño": 20,
+      "Fuerza": 2
+    },
+    {
+      "nivel": 16,
+      "clase": "Jedi Guardian",
+      "Puntos de Golpe": 100,
+      "Defensa": 19,
+      "Ataque": 10,
+      "Daño": 20,
+      "Fuerza": 2
+    },
+    {
+      "nivel": 17,
+      "clase": "Jedi Guardian",
+      "Puntos de Golpe": 100,
+      "Defensa": 20,
+      "Ataque": 10,
+      "Daño": 20,
+      "Fuerza": 2
+    },
+    {
+      "nivel": 18,
+      "clase": "Jedi Guardian",
+      "Puntos de Golpe": 100,
+      "Defensa": 20,
+      "Ataque": 11,
+      "Daño": 20,
+      "Fuerza": 2
+    },
+    {
+      "nivel": 19,
+      "clase": "Jedi Guardian",
+      "Puntos de Golpe": 110,
+      "Defensa": 20,
+      "Ataque": 11,
+      "Daño": 20,
+      "Fuerza": 3
+    },
+    {
+      "nivel": 20,
+      "clase": "Jedi Guardian",
+      "Puntos de Golpe": 110,
+      "Defensa": 21,
+      "Ataque": 12,
+      "Daño": 20,
+      "Fuerza": 3
+    },
+    {
+      "nivel": 1,
+      "clase": "Jedi Consul",
+      "Puntos de Golpe": 50,
+      "Defensa": 14,
+      "Ataque": 4,
+      "Daño": 20,
+      "Fuerza": 2
+    },
+    {
+      "nivel": 2,
+      "clase": "Jedi Consul",
+      "Puntos de Golpe": 50,
+      "Defensa": 15,
+      "Ataque": 6,
+      "Daño": 20,
+      "Fuerza": 2
+    },
+    {
+      "nivel": 3,
+      "clase": "Jedi Consul",
+      "Puntos de Golpe": 50,
+      "Defensa": 15,
+      "Ataque": 6,
+      "Daño": 20,
+      "Fuerza": 2
+    },
+    {
+      "nivel": 4,
+      "clase": "Jedi Consul",
+      "Puntos de Golpe": 50,
+      "Defensa": 15,
+      "Ataque": 6,
+      "Daño": 20,
+      "Fuerza": 2
+    },
+    {
+      "nivel": 5,
+      "clase": "Jedi Consul",
+      "Puntos de Golpe": 60,
+      "Defensa": 15,
+      "Ataque": 6,
+      "Daño": 20,
+      "Fuerza": 2
+    },
+    {
+      "nivel": 6,
+      "clase": "Jedi Consul",
+      "Puntos de Golpe": 60,
+      "Defensa": 16,
+      "Ataque": 6,
+      "Daño": 20,
+      "Fuerza": 3
+    },
+    {
+      "nivel": 7,
+      "clase": "Jedi Consul",
+      "Puntos de Golpe": 60,
+      "Defensa": 16,
+      "Ataque": 7,
+      "Daño": 20,
+      "Fuerza": 3
+    },
+    {
+      "nivel": 8,
+      "clase": "Jedi Consul",
+      "Puntos de Golpe": 60,
+      "Defensa": 16,
+      "Ataque": 7,
+      "Daño": 20,
+      "Fuerza": 3
+    },
+    {
+      "nivel": 9,
+      "clase": "Jedi Consul",
+      "Puntos de Golpe": 60,
+      "Defensa": 17,
+      "Ataque": 7,
+      "Daño": 20,
+      "Fuerza": 3
+    },
+    {
+      "nivel": 10,
+      "clase": "Jedi Consul",
+      "Puntos de Golpe": 70,
+      "Defensa": 17,
+      "Ataque": 7,
+      "Daño": 20,
+      "Fuerza": 3
+    },
+    {
+      "nivel": 11,
+      "clase": "Jedi Consul",
+      "Puntos de Golpe": 70,
+      "Defensa": 17,
+      "Ataque": 8,
+      "Daño": 20,
+      "Fuerza": 3
+    },
+    {
+      "nivel": 12,
+      "clase": "Jedi Consul",
+      "Puntos de Golpe": 70,
+      "Defensa": 17,
+      "Ataque": 8,
+      "Daño": 20,
+      "Fuerza": 4
+    },
+    {
+      "nivel": 13,
+      "clase": "Jedi Consul",
+      "Puntos de Golpe": 70,
+      "Defensa": 18,
+      "Ataque": 8,
+      "Daño": 20,
+      "Fuerza": 4
+    },
+    {
+      "nivel": 14,
+      "clase": "Jedi Consul",
+      "Puntos de Golpe": 70,
+      "Defensa": 18,
+      "Ataque": 8,
+      "Daño": 20,
+      "Fuerza": 4
+    },
+    {
+      "nivel": 15,
+      "clase": "Jedi Consul",
+      "Puntos de Golpe": 80,
+      "Defensa": 18,
+      "Ataque": 9,
+      "Daño": 20,
+      "Fuerza": 4
+    },
+    {
+      "nivel": 16,
+      "clase": "Jedi Consul",
+      "Puntos de Golpe": 80,
+      "Defensa": 19,
+      "Ataque": 9,
+      "Daño": 20,
+      "Fuerza": 4
+    },
+    {
+      "nivel": 17,
+      "clase": "Jedi Consul",
+      "Puntos de Golpe": 80,
+      "Defensa": 19,
+      "Ataque": 9,
+      "Daño": 20,
+      "Fuerza": 5
+    },
+    {
+      "nivel": 18,
+      "clase": "Jedi Consul",
+      "Puntos de Golpe": 80,
+      "Defensa": 19,
+      "Ataque": 10,
+      "Daño": 20,
+      "Fuerza": 5
+    },
+    {
+      "nivel": 19,
+      "clase": "Jedi Consul",
+      "Puntos de Golpe": 90,
+      "Defensa": 20,
+      "Ataque": 10,
+      "Daño": 20,
+      "Fuerza": 5
+    },
+    {
+      "nivel": 20,
+      "clase": "Jedi Consul",
+      "Puntos de Golpe": 90,
+      "Defensa": 20,
+      "Ataque": 10,
+      "Daño": 20,
+      "Fuerza": 5
+    },
+    {
+      "nivel": 1,
+      "clase": "Soldado",
+      "Puntos de Golpe": 70,
+      "Defensa": 16,
+      "Ataque": 5,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 2,
+      "clase": "Soldado",
+      "Puntos de Golpe": 70,
+      "Defensa": 16,
+      "Ataque": 5,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 3,
+      "clase": "Soldado",
+      "Puntos de Golpe": 70,
+      "Defensa": 16,
+      "Ataque": 5,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 4,
+      "clase": "Soldado",
+      "Puntos de Golpe": 70,
+      "Defensa": 16,
+      "Ataque": 6,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 5,
+      "clase": "Soldado",
+      "Puntos de Golpe": 70,
+      "Defensa": 17,
+      "Ataque": 6,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 6,
+      "clase": "Soldado",
+      "Puntos de Golpe": 80,
+      "Defensa": 17,
+      "Ataque": 6,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 7,
+      "clase": "Soldado",
+      "Puntos de Golpe": 80,
+      "Defensa": 17,
+      "Ataque": 6,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 8,
+      "clase": "Soldado",
+      "Puntos de Golpe": 80,
+      "Defensa": 18,
+      "Ataque": 6,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 9,
+      "clase": "Soldado",
+      "Puntos de Golpe": 80,
+      "Defensa": 18,
+      "Ataque": 7,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 10,
+      "clase": "Soldado",
+      "Puntos de Golpe": 90,
+      "Defensa": 18,
+      "Ataque": 7,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 11,
+      "clase": "Soldado",
+      "Puntos de Golpe": 90,
+      "Defensa": 18,
+      "Ataque": 7,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 12,
+      "clase": "Soldado",
+      "Puntos de Golpe": 90,
+      "Defensa": 19,
+      "Ataque": 7,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 13,
+      "clase": "Soldado",
+      "Puntos de Golpe": 100,
+      "Defensa": 19,
+      "Ataque": 8,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 14,
+      "clase": "Soldado",
+      "Puntos de Golpe": 100,
+      "Defensa": 19,
+      "Ataque": 8,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 15,
+      "clase": "Soldado",
+      "Puntos de Golpe": 100,
+      "Defensa": 20,
+      "Ataque": 8,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 16,
+      "clase": "Soldado",
+      "Puntos de Golpe": 110,
+      "Defensa": 20,
+      "Ataque": 8,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 17,
+      "clase": "Soldado",
+      "Puntos de Golpe": 110,
+      "Defensa": 20,
+      "Ataque": 9,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 18,
+      "clase": "Soldado",
+      "Puntos de Golpe": 110,
+      "Defensa": 21,
+      "Ataque": 9,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 19,
+      "clase": "Soldado",
+      "Puntos de Golpe": 120,
+      "Defensa": 21,
+      "Ataque": 9,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 20,
+      "clase": "Soldado",
+      "Puntos de Golpe": 120,
+      "Defensa": 21,
+      "Ataque": 10,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 1,
+      "clase": "Especialista Técnico",
+      "Puntos de Golpe": 50,
+      "Defensa": 13,
+      "Ataque": 3,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 2,
+      "clase": "Especialista Técnico",
+      "Puntos de Golpe": 50,
+      "Defensa": 14,
+      "Ataque": 5,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 3,
+      "clase": "Especialista Técnico",
+      "Puntos de Golpe": 50,
+      "Defensa": 14,
+      "Ataque": 6,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 4,
+      "clase": "Especialista Técnico",
+      "Puntos de Golpe": 50,
+      "Defensa": 14,
+      "Ataque": 6,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 5,
+      "clase": "Especialista Técnico",
+      "Puntos de Golpe": 60,
+      "Defensa": 14,
+      "Ataque": 6,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 6,
+      "clase": "Especialista Técnico",
+      "Puntos de Golpe": 60,
+      "Defensa": 15,
+      "Ataque": 6,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 7,
+      "clase": "Especialista Técnico",
+      "Puntos de Golpe": 60,
+      "Defensa": 15,
+      "Ataque": 6,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 8,
+      "clase": "Especialista Técnico",
+      "Puntos de Golpe": 60,
+      "Defensa": 15,
+      "Ataque": 7,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 9,
+      "clase": "Especialista Técnico",
+      "Puntos de Golpe": 60,
+      "Defensa": 15,
+      "Ataque": 7,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 10,
+      "clase": "Especialista Técnico",
+      "Puntos de Golpe": 70,
+      "Defensa": 16,
+      "Ataque": 7,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 11,
+      "clase": "Especialista Técnico",
+      "Puntos de Golpe": 70,
+      "Defensa": 16,
+      "Ataque": 7,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 12,
+      "clase": "Especialista Técnico",
+      "Puntos de Golpe": 70,
+      "Defensa": 16,
+      "Ataque": 8,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 13,
+      "clase": "Especialista Técnico",
+      "Puntos de Golpe": 70,
+      "Defensa": 16,
+      "Ataque": 8,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 14,
+      "clase": "Especialista Técnico",
+      "Puntos de Golpe": 70,
+      "Defensa": 17,
+      "Ataque": 8,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 15,
+      "clase": "Especialista Técnico",
+      "Puntos de Golpe": 80,
+      "Defensa": 17,
+      "Ataque": 8,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 16,
+      "clase": "Especialista Técnico",
+      "Puntos de Golpe": 80,
+      "Defensa": 17,
+      "Ataque": 9,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 17,
+      "clase": "Especialista Técnico",
+      "Puntos de Golpe": 80,
+      "Defensa": 18,
+      "Ataque": 9,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 18,
+      "clase": "Especialista Técnico",
+      "Puntos de Golpe": 80,
+      "Defensa": 18,
+      "Ataque": 9,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 19,
+      "clase": "Especialista Técnico",
+      "Puntos de Golpe": 90,
+      "Defensa": 18,
+      "Ataque": 10,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 20,
+      "clase": "Especialista Técnico",
+      "Puntos de Golpe": 90,
+      "Defensa": 18,
+      "Ataque": 10,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 1,
+      "clase": "Contrabandista",
+      "Puntos de Golpe": 60,
+      "Defensa": 14,
+      "Ataque": 4,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 2,
+      "clase": "Contrabandista",
+      "Puntos de Golpe": 60,
+      "Defensa": 14,
+      "Ataque": 5,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 3,
+      "clase": "Contrabandista",
+      "Puntos de Golpe": 60,
+      "Defensa": 14,
+      "Ataque": 5,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 4,
+      "clase": "Contrabandista",
+      "Puntos de Golpe": 60,
+      "Defensa": 15,
+      "Ataque": 5,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 5,
+      "clase": "Contrabandista",
+      "Puntos de Golpe": 60,
+      "Defensa": 15,
+      "Ataque": 5,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 6,
+      "clase": "Contrabandista",
+      "Puntos de Golpe": 60,
+      "Defensa": 15,
+      "Ataque": 6,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 7,
+      "clase": "Contrabandista",
+      "Puntos de Golpe": 70,
+      "Defensa": 15,
+      "Ataque": 6,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 8,
+      "clase": "Contrabandista",
+      "Puntos de Golpe": 70,
+      "Defensa": 16,
+      "Ataque": 6,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 9,
+      "clase": "Contrabandista",
+      "Puntos de Golpe": 70,
+      "Defensa": 16,
+      "Ataque": 6,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 10,
+      "clase": "Contrabandista",
+      "Puntos de Golpe": 70,
+      "Defensa": 16,
+      "Ataque": 6,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 11,
+      "clase": "Contrabandista",
+      "Puntos de Golpe": 80,
+      "Defensa": 16,
+      "Ataque": 7,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 12,
+      "clase": "Contrabandista",
+      "Puntos de Golpe": 80,
+      "Defensa": 17,
+      "Ataque": 7,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 13,
+      "clase": "Contrabandista",
+      "Puntos de Golpe": 80,
+      "Defensa": 17,
+      "Ataque": 7,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 14,
+      "clase": "Contrabandista",
+      "Puntos de Golpe": 80,
+      "Defensa": 17,
+      "Ataque": 7,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 15,
+      "clase": "Contrabandista",
+      "Puntos de Golpe": 90,
+      "Defensa": 18,
+      "Ataque": 8,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 16,
+      "clase": "Contrabandista",
+      "Puntos de Golpe": 90,
+      "Defensa": 18,
+      "Ataque": 8,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 17,
+      "clase": "Contrabandista",
+      "Puntos de Golpe": 90,
+      "Defensa": 18,
+      "Ataque": 8,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 18,
+      "clase": "Contrabandista",
+      "Puntos de Golpe": 90,
+      "Defensa": 19,
+      "Ataque": 8,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 19,
+      "clase": "Contrabandista",
+      "Puntos de Golpe": 100,
+      "Defensa": 19,
+      "Ataque": 9,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 20,
+      "clase": "Contrabandista",
+      "Puntos de Golpe": 100,
+      "Defensa": 19,
+      "Ataque": 9,
+      "Daño": 20,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 1,
+      "clase": "Noble",
+      "Puntos de Golpe": 40,
+      "Defensa": 11,
+      "Ataque": 2,
+      "Daño": 10,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 2,
+      "clase": "Noble",
+      "Puntos de Golpe": 50,
+      "Defensa": 13,
+      "Ataque": 4,
+      "Daño": 10,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 3,
+      "clase": "Noble",
+      "Puntos de Golpe": 50,
+      "Defensa": 13,
+      "Ataque": 4,
+      "Daño": 10,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 4,
+      "clase": "Noble",
+      "Puntos de Golpe": 50,
+      "Defensa": 13,
+      "Ataque": 4,
+      "Daño": 10,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 5,
+      "clase": "Noble",
+      "Puntos de Golpe": 50,
+      "Defensa": 13,
+      "Ataque": 4,
+      "Daño": 10,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 6,
+      "clase": "Noble",
+      "Puntos de Golpe": 50,
+      "Defensa": 14,
+      "Ataque": 4,
+      "Daño": 10,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 7,
+      "clase": "Noble",
+      "Puntos de Golpe": 50,
+      "Defensa": 14,
+      "Ataque": 5,
+      "Daño": 10,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 8,
+      "clase": "Noble",
+      "Puntos de Golpe": 50,
+      "Defensa": 14,
+      "Ataque": 5,
+      "Daño": 10,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 9,
+      "clase": "Noble",
+      "Puntos de Golpe": 60,
+      "Defensa": 14,
+      "Ataque": 5,
+      "Daño": 10,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 10,
+      "clase": "Noble",
+      "Puntos de Golpe": 60,
+      "Defensa": 14,
+      "Ataque": 5,
+      "Daño": 10,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 11,
+      "clase": "Noble",
+      "Puntos de Golpe": 60,
+      "Defensa": 15,
+      "Ataque": 5,
+      "Daño": 10,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 12,
+      "clase": "Noble",
+      "Puntos de Golpe": 60,
+      "Defensa": 15,
+      "Ataque": 5,
+      "Daño": 10,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 13,
+      "clase": "Noble",
+      "Puntos de Golpe": 60,
+      "Defensa": 15,
+      "Ataque": 6,
+      "Daño": 10,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 14,
+      "clase": "Noble",
+      "Puntos de Golpe": 70,
+      "Defensa": 15,
+      "Ataque": 6,
+      "Daño": 10,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 15,
+      "clase": "Noble",
+      "Puntos de Golpe": 70,
+      "Defensa": 16,
+      "Ataque": 6,
+      "Daño": 10,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 16,
+      "clase": "Noble",
+      "Puntos de Golpe": 70,
+      "Defensa": 16,
+      "Ataque": 6,
+      "Daño": 10,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 17,
+      "clase": "Noble",
+      "Puntos de Golpe": 70,
+      "Defensa": 16,
+      "Ataque": 6,
+      "Daño": 10,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 18,
+      "clase": "Noble",
+      "Puntos de Golpe": 80,
+      "Defensa": 17,
+      "Ataque": 7,
+      "Daño": 10,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 19,
+      "clase": "Noble",
+      "Puntos de Golpe": 80,
+      "Defensa": 17,
+      "Ataque": 7,
+      "Daño": 10,
+      "Fuerza": "N/A"
+    },
+    {
+      "nivel": 20,
+      "clase": "Noble",
+      "Puntos de Golpe": 80,
+      "Defensa": 17,
+      "Ataque": 7,
+      "Daño": 10,
+      "Fuerza": "N/A"
+    }
+  ]
+}

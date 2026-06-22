@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="img/Logo%20SW-RP.png" type="image/png">
+  <title>SWRP — Partida</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="css/theme.css" rel="stylesheet">
+  <link href="css/character-card.css" rel="stylesheet">
+</head>
+<body class="swrp-app">
+  <div id="swrp-nav"></div>
+  <main class="container-fluid py-3" id="party-main" hidden>
+    <div class="d-flex justify-content-between align-items-center mb-3 px-2 flex-wrap gap-2">
+      <div>
+        <h1 id="party-title" class="h5 mb-0">Partida</h1>
+        <small id="party-meta" class="text-muted"></small>
+      </div>
+      <div class="d-flex gap-2 flex-wrap">
+        <a id="board-link" href="#" class="btn btn-sm btn-swrp btn-swrp-ghost">Tablero VTT</a>
+        <a href="compendium.html" class="btn btn-sm btn-swrp btn-swrp-ghost">Compendio</a>
+        <a href="dashboard.html" class="btn btn-sm btn-swrp btn-swrp-ghost">Salir</a>
+      </div>
+    </div>
+
+    <div class="split-pane px-2">
+      <section class="swrp-panel d-flex flex-column" style="min-height:70vh;">
+        <h2 class="swrp-panel__title">Foro Narrativo</h2>
+        <div id="posts-feed" class="flex-grow-1 overflow-auto mb-3" style="max-height:55vh;"></div>
+        <form id="narrative-form" class="mt-auto">
+          <textarea class="form-control mb-2" id="narrative-text" rows="3"
+            placeholder="Narrativa… @ mencionar · [C]color[/C] · [img]URL[/img]"></textarea>
+          <p class="small text-muted mb-2">Sin personaje activo = texto situacional (sin nombre). Los dados sí requieren personaje.</p>
+          <button type="submit" class="btn btn-swrp btn-swrp-primary btn-sm">Publicar</button>
+        </form>
+      </section>
+
+      <section class="swrp-panel">
+        <h2 class="swrp-panel__title">Consola de Dados</h2>
+        <form id="dice-form" class="mb-3">
+          <div class="row g-2 mb-2">
+            <div class="col-4">
+              <label class="form-label">Dado</label>
+              <select class="form-select" id="dice-type">
+                <option value="1d20">D20</option>
+                <option value="1d6">D6</option>
+                <option value="2d6">2D6</option>
+              </select>
+            </div>
+            <div class="col-4">
+              <label class="form-label">Modificador</label>
+              <input type="number" class="form-control" id="dice-mod" value="0">
+            </div>
+            <div class="col-4">
+              <label class="form-label">Etiqueta</label>
+              <input type="text" class="form-control" id="dice-label" placeholder="Ataque">
+            </div>
+          </div>
+          <button type="submit" class="btn btn-swrp btn-swrp-primary">Lanzar</button>
+        </form>
+        <p class="small text-muted">
+          El resultado se publica en el foro con el nombre de tu personaje activo.
+        </p>
+        <hr>
+        <h3 class="h6 text-gold">Mi participación</h3>
+        <div class="mb-2">
+          <label class="form-label" for="role-mode">Modo</label>
+          <select class="form-select mb-2" id="role-mode"></select>
+        </div>
+        <div class="mb-2" id="role-char-wrap">
+          <label class="form-label" for="role-character">Personaje asignado</label>
+          <select class="form-select mb-2" id="role-character"></select>
+        </div>
+        <button type="button" id="role-save" class="btn btn-sm btn-swrp btn-swrp-ghost w-100 mb-3">Guardar participación</button>
+        <h3 class="h6 text-gold">Personaje activo en el foro</h3>
+        <select class="form-select mb-2" id="active-character"></select>
+        <div id="active-card-preview"></div>
+      </section>
+    </div>
+  </main>
+
+  <div id="join-screen" class="container py-5 d-none">
+    <div class="swrp-panel mx-auto" style="max-width:520px;">
+      <h2 class="swrp-panel__title">Unirse a la partida</h2>
+      <p id="join-party-name" class="text-gold mb-3"></p>
+      <div class="mb-3">
+        <label class="form-label" for="join-mode">¿Cómo participarás?</label>
+        <select class="form-select" id="join-mode"></select>
+      </div>
+      <div class="mb-3" id="join-char-wrap">
+        <label class="form-label" for="join-character">Personaje</label>
+        <select class="form-select" id="join-character"></select>
+      </div>
+      <button type="button" id="join-submit" class="btn btn-swrp btn-swrp-primary w-100">Unirme a la partida</button>
+    </div>
+  </div>
+
+  <div id="party-loading" class="swrp-page-loading">Cargando partida…</div>
+  <div id="party-error" class="container py-5 d-none">
+    <div class="swrp-panel text-center" style="max-width:520px;margin:0 auto;">
+      <h2 class="h5 text-gold">No se pudo abrir la partida</h2>
+      <p id="party-error-msg" class="text-muted mb-3"></p>
+      <a href="dashboard.html" class="btn btn-swrp btn-swrp-primary">Volver al Dashboard</a>
+    </div>
+  </div>
+
+  <div class="modal fade" id="mentionModal" tabindex="-1" aria-labelledby="mentionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+      <div class="modal-content swrp-modal-card">
+        <div class="modal-header border-0 pb-0">
+          <h5 class="modal-title text-gold" id="mentionModalLabel">Mencionar jugador</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body pt-2" id="mention-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="charModal" tabindex="-1" aria-labelledby="charModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content swrp-modal-card">
+        <div class="modal-header border-0 pb-0">
+          <h5 class="modal-title text-gold" id="charModalLabel">Carta de personaje</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body pt-2 swrp-card-host" id="char-modal-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script type="module">
+    import { renderNavbar } from './js/navbar.js';
+    import { requireAuth, isAdmin } from './js/auth.js';
+    import { getPartyIdFromUrl, rememberPartyId, boardPageUrl } from './js/party-url.js';
+    import { initPartyPage } from './js/party-page.js';
+    import { renderCharacterCard } from './js/character-card.js';
+
+    const charModal = new bootstrap.Modal(document.getElementById('charModal'));
+    const mentionModal = new bootstrap.Modal(document.getElementById('mentionModal'));
+    const charModalBody = document.getElementById('char-modal-body');
+    const narrativeText = document.getElementById('narrative-text');
+
+    function openCharacterModal(character) {
+      charModalBody.innerHTML = '';
+      charModalBody.appendChild(renderCharacterCard(character));
+      document.getElementById('charModalLabel').textContent = character.name;
+      charModal.show();
+    }
+
+    function showError(message) {
+      document.getElementById('party-loading').classList.add('d-none');
+      document.getElementById('party-main').hidden = true;
+      document.getElementById('join-screen').classList.add('d-none');
+      document.getElementById('party-error-msg').textContent = message;
+      document.getElementById('party-error').classList.remove('d-none');
+    }
+
+    function showJoin(party) {
+      document.getElementById('party-loading').classList.add('d-none');
+      document.getElementById('party-main').hidden = true;
+      document.getElementById('join-screen').classList.remove('d-none');
+      document.getElementById('join-party-name').textContent = party.name;
+    }
+
+    function showMain() {
+      document.getElementById('party-loading').classList.add('d-none');
+      document.getElementById('join-screen').classList.add('d-none');
+      document.getElementById('party-main').hidden = false;
+    }
+
+    function setPartyHeader(party, member, userId) {
+      document.getElementById('party-title').textContent = party.name;
+      const roleLabel = member.playMode === 'gm' ? 'GM' : 'Jugador';
+      document.getElementById('party-meta').textContent =
+        `${party.type} · Fase: ${party.phase || 'narrative'} · ${roleLabel}`;
+      document.getElementById('board-link').href = boardPageUrl(getPartyIdFromUrl());
+    }
+
+    async function initParty() {
+      const partyId = getPartyIdFromUrl();
+      if (!partyId) {
+        window.location.href = 'dashboard.html';
+        return;
+      }
+      rememberPartyId(partyId);
+
+      let user;
+      let profile;
+      try {
+        ({ user, profile } = await requireAuth());
+      } catch {
+        return;
+      }
+
+      renderNavbar('party', user, { isAdmin: isAdmin(profile) });
+
+      try {
+        await initPartyPage({
+          user,
+          profile,
+          partyId,
+          ui: {
+            showError,
+            showJoin,
+            showMain,
+            setPartyHeader,
+            charModal,
+            mentionModal,
+            narrativeText,
+            openCharacterModal
+          }
+        });
+      } catch (err) {
+        console.error(err);
+        showError(err.message || 'Error desconocido.');
+      }
+    }
+
+    initParty();
+  </script>
+</body>
+</html>

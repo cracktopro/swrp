@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="img/Logo%20SW-RP.png" type="image/png">
+  <title>SWRP — Creador de Personaje</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="css/theme.css" rel="stylesheet">
+  <link href="css/character-card.css" rel="stylesheet">
+</head>
+<body class="swrp-app">
+  <div id="swrp-nav"></div>
+  <main class="container py-4">
+    <ul class="nav nav-tabs swrp-board-tabs mb-3 d-none" id="creator-tabs">
+      <li class="nav-item">
+        <button type="button" class="nav-link active" id="tab-hero" data-creator-mode="hero">Personajes</button>
+      </li>
+      <li class="nav-item">
+        <button type="button" class="nav-link" id="tab-npc" data-creator-mode="npc">NPCs</button>
+      </li>
+    </ul>
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <section class="swrp-panel">
+          <h2 class="swrp-panel__title" id="form-title">Creador de Personaje</h2>
+          <div id="save-alert" class="alert alert-swrp d-none" role="alert"></div>
+          <form id="char-form">
+            <div class="mb-3">
+              <label class="form-label" for="char-name">Nombre</label>
+              <input type="text" class="form-control" id="char-name" required maxlength="40">
+            </div>
+            <div class="row g-2 mb-3">
+              <div class="col-md-6">
+                <label class="form-label" for="char-class">Clase</label>
+                <select class="form-select" id="char-class"></select>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label" for="char-level">Nivel</label>
+                <input type="number" class="form-control" id="char-level" min="1" max="20" value="1">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label" for="char-species">Especie</label>
+                <select class="form-select" id="char-species"></select>
+              </div>
+            </div>
+            <div id="stats-readout" class="mb-2"></div>
+            <div id="stats-edit-wrap" class="mb-3 d-none">
+              <label class="form-label">Estadísticas (editables para NPC)</label>
+              <div class="row g-2">
+                <div class="col-4 col-md"><label class="form-label small">P.Golpe</label><input type="number" class="form-control form-control-sm" id="stat-hp" min="0"></div>
+                <div class="col-4 col-md"><label class="form-label small">Defensa</label><input type="number" class="form-control form-control-sm" id="stat-defense" min="0"></div>
+                <div class="col-4 col-md"><label class="form-label small">Ataque</label><input type="number" class="form-control form-control-sm" id="stat-attack"></div>
+                <div class="col-4 col-md"><label class="form-label small">Daño</label><input type="number" class="form-control form-control-sm" id="stat-damage" min="0"></div>
+                <div class="col-4 col-md"><label class="form-label small">Fuerza</label><input type="number" class="form-control form-control-sm" id="stat-force" placeholder="—"></div>
+              </div>
+              <button type="button" class="btn btn-sm btn-swrp btn-swrp-ghost mt-2" id="btn-load-base-stats">Restaurar stats de clase</button>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="portrait-url">URL del retrato</label>
+              <input type="url" class="form-control" id="portrait-url"
+                placeholder="https://ejemplo.com/mi-personaje.png">
+              <p class="form-text text-muted small mb-2">
+                Enlace directo https (PNG, JPG, WebP…).
+              </p>
+              <img id="portrait-preview" class="d-none" style="max-width:120px;border:1px solid #444" alt="Vista previa del retrato">
+              <p id="portrait-preview-error" class="small text-warning d-none mb-0">
+                No se pudo cargar la imagen.
+              </p>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Habilidades de combate</label>
+              <div id="skills-picker"></div>
+            </div>
+            <button type="submit" id="save-btn" class="btn btn-swrp btn-swrp-primary">Guardar Personaje</button>
+          </form>
+        </section>
+      </div>
+      <div class="col-lg-6">
+        <div class="card-preview-wrap swrp-card-host">
+          <p class="text-gold small text-center mb-2">VISTA PREVIA</p>
+          <div id="card-preview"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    import { renderNavbar } from './js/navbar.js';
+    import { requireAuth, isAdmin } from './js/auth.js';
+    import { loadCompendiumData } from './js/compendium-store.js';
+    import { initCharacterCreator } from './js/character-creator.js';
+    import { getCharacterIdFromQuery } from './js/character-url.js';
+
+    const { user, profile } = await requireAuth();
+    renderNavbar('characters', user, { isAdmin: isAdmin(profile) });
+    await loadCompendiumData();
+
+    const params = new URLSearchParams(window.location.search);
+    const characterId = getCharacterIdFromQuery() || null;
+    const npcId = params.get('npc') || null;
+    const userIsAdmin = isAdmin(profile);
+
+    if (npcId && !userIsAdmin) {
+      window.location.href = 'dashboard.html';
+    } else {
+      if (characterId) {
+        document.getElementById('form-title').textContent = 'Editar Personaje';
+        document.getElementById('save-btn').textContent = 'Guardar cambios';
+      } else if (npcId) {
+        document.getElementById('form-title').textContent = 'Editar NPC';
+        document.getElementById('save-btn').textContent = 'Guardar cambios';
+      }
+
+      await initCharacterCreator(user.uid, {
+        characterId,
+        npcId,
+        isAdmin: userIsAdmin
+      });
+    }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -1,0 +1,466 @@
+{
+  "Hoja1": [
+    {
+      "nombre": "¡Mira esto!",
+      "nivel": "Siempre",
+      "tipo_habilidad": "Rol",
+      "descripcion": "El contrabandista es capaz de encontrar pistas ocultas (11+).",
+      "clase": "Contrabandista"
+    },
+    {
+      "nombre": "Tirador Experto",
+      "nivel": 1,
+      "tipo_habilidad": "Pasiva",
+      "descripcion": "Si no se mueve en su turno, +10 Daño.",
+      "clase": "Contrabandista"
+    },
+    {
+      "nombre": "Disparo de oportunidad",
+      "nivel": 1,
+      "tipo_habilidad": "Pasiva",
+      "descripcion": "Si realiza ataque contra enemigo no activado, +4 Ataque +10 Daño.",
+      "clase": "Contrabandista"
+    },
+    {
+      "nombre": "Reconocimiento",
+      "nivel": 1,
+      "tipo_habilidad": "Activa",
+      "descripcion": "En tirada de iniciativa, haz dos tiradas, elige la mejor.",
+      "clase": "Contrabandista"
+    },
+    {
+      "nombre": "Disparo preciso",
+      "nivel": 5,
+      "tipo_habilidad": "Activa",
+      "descripcion": "Ignora las coberturas de los enemigos.",
+      "clase": "Contrabandista"
+    },
+    {
+      "nombre": "Inyección de bacta",
+      "nivel": 5,
+      "tipo_habilidad": "Activa",
+      "descripcion": "Una vez por batalla, este personaje puede curar 10 de daño a un aliado.",
+      "clase": "Contrabandista"
+    },
+    {
+      "nombre": "Engañar",
+      "nivel": 5,
+      "tipo_habilidad": "Activa",
+      "descripcion": "Este personaje puede engañar a un enemigo cercano, haciendole perder su turno.",
+      "clase": "Contrabandista"
+    },
+    {
+      "nombre": "Evadir",
+      "nivel": 10,
+      "tipo_habilidad": "Pasiva",
+      "descripcion": "Cuando es acertado por un ataque a distancia, lo evita con 11+.",
+      "clase": "Contrabandista"
+    },
+    {
+      "nombre": "Cobertura ventajosa",
+      "nivel": 10,
+      "tipo_habilidad": "Pasiva",
+      "descripcion": "Gana +6 de defensa por estar en cobertura, en lugar de +4.",
+      "clase": "Contrabandista"
+    },
+    {
+      "nombre": "Esquiva asombrosa",
+      "nivel": 15,
+      "tipo_habilidad": "Activa",
+      "descripcion": "Una vez por batalla, puede elegir ignorar un daño recibido.",
+      "clase": "Contrabandista"
+    },
+    {
+      "nombre": "Suerte extrema",
+      "nivel": 15,
+      "tipo_habilidad": "Pasiva",
+      "descripcion": "Cuando este personaje vaya a ser derrotado, hace una tirada 11+. Si supera, permanece vivo con 10 de vida.",
+      "clase": "Contrabandista"
+    },
+    {
+      "nombre": "Piratear sistema",
+      "nivel": "Siempre",
+      "tipo_habilidad": "Rol",
+      "descripcion": "El especialista puede tratar de piratear sistemas informáticos, consolas, vehículos...(11+).",
+      "clase": "Especialista Técnico"
+    },
+    {
+      "nombre": "Piratear",
+      "nivel": 1,
+      "tipo_habilidad": "Activa",
+      "descripcion": "Cierra/Abre una puerta a distancia.",
+      "clase": "Especialista Técnico"
+    },
+    {
+      "nombre": "Paquete explosivo",
+      "nivel": 1,
+      "tipo_habilidad": "Activa",
+      "descripcion": "Destroza una puerta a distancia, pasando a ser un espacio libre.",
+      "clase": "Especialista Técnico"
+    },
+    {
+      "nombre": "Reparación",
+      "nivel": 1,
+      "tipo_habilidad": "Activa",
+      "descripcion": "Elimina efecto de arma pesada rota, o cura 10 de daño a un droide.",
+      "clase": "Especialista Técnico"
+    },
+    {
+      "nombre": "Primeros Auxilios",
+      "nivel": 5,
+      "tipo_habilidad": "Activa",
+      "descripcion": "Una vez por batalla, el especialista puede curar 20 de daño.",
+      "clase": "Especialista Técnico"
+    },
+    {
+      "nombre": "Interferencia",
+      "nivel": 5,
+      "tipo_habilidad": "Activa",
+      "descripcion": "Una vez por batalla, droides y personajes con armas montadas, pierden su turno.",
+      "clase": "Especialista Técnico"
+    },
+    {
+      "nombre": "Arma de iones",
+      "nivel": 5,
+      "tipo_habilidad": "Pasiva",
+      "descripcion": "Gana +10 Daño contra droides.",
+      "clase": "Especialista Técnico"
+    },
+    {
+      "nombre": "Minas",
+      "nivel": 10,
+      "tipo_habilidad": "Pasiva",
+      "descripcion": "Cuando un enemigo llega al combate cuerpo a cuerpo, recibe 20 de daño, salvable a 11+.",
+      "clase": "Especialista Técnico"
+    },
+    {
+      "nombre": "Sabotaje",
+      "nivel": 10,
+      "tipo_habilidad": "Pasiva",
+      "descripcion": "Enemigos con armas pesadas hacen daño normal.",
+      "clase": "Especialista Técnico"
+    },
+    {
+      "nombre": "Descarga eléctrica",
+      "nivel": 15,
+      "tipo_habilidad": "Activa",
+      "descripcion": "Provoca parálisis en un objetivo dentro de alcance, haciendole perder su turno.",
+      "clase": "Especialista Técnico"
+    },
+    {
+      "nombre": "Aturdidor Sónico",
+      "nivel": 15,
+      "tipo_habilidad": "Activa",
+      "descripcion": "Objetivo y personajes adyacentes realizan tirada 11+. Si no lo superan pierden su turno.",
+      "clase": "Especialista Técnico"
+    },
+    {
+      "nombre": "Usar la Fuerza",
+      "nivel": "Siempre",
+      "tipo_habilidad": "Rol",
+      "descripcion": "Los jedi pueden realizar una acción mediante el uso de la Fuerza (sentir, mover objetos, truco mental, etc...) (11+).",
+      "clase": "Jedi Consul"
+    },
+    {
+      "nombre": "Truco Mental",
+      "nivel": 1,
+      "tipo_habilidad": "Activa",
+      "descripcion": "Gasta 1 punto de Fuerza y el objetivo (vivo) pierde su turno, salvación 11+.",
+      "clase": "Jedi Consul"
+    },
+    {
+      "nombre": "Desvio con sable de luz",
+      "nivel": 1,
+      "tipo_habilidad": "Activa",
+      "descripcion": "Gasta 1 punto de fuerza y repele ataque a distancia con 11+",
+      "clase": "Jedi Consul"
+    },
+    {
+      "nombre": "Empujón de la Fuerza",
+      "nivel": 1,
+      "tipo_habilidad": "Activa",
+      "descripcion": "Gasta 1 punto de Fuerza, hace 10 de Daño a enemigos cercanos y los aleja.",
+      "clase": "Jedi Consul"
+    },
+    {
+      "nombre": "Alterar Fuerza",
+      "nivel": 5,
+      "tipo_habilidad": "Activa",
+      "descripcion": "Gasta 1 punto de Fuerza y repite la tirada el enemigo.",
+      "clase": "Jedi Consul"
+    },
+    {
+      "nombre": "Lanzamiento de sable",
+      "nivel": 5,
+      "tipo_habilidad": "Activa",
+      "descripcion": "Gasta 1 punto de Fuerza, e inflinge 20 de daño a un enemigo a distancia.",
+      "clase": "Jedi Consul"
+    },
+    {
+      "nombre": "Curación de la Fuerza I",
+      "nivel": 5,
+      "tipo_habilidad": "Activa",
+      "descripcion": "Gasta 1 punto de Fuerza, cura 20 de vida propia o a un aliado.",
+      "clase": "Jedi Consul"
+    },
+    {
+      "nombre": "Curación de la Fuerza II",
+      "nivel": 10,
+      "tipo_habilidad": "Activa",
+      "descripcion": "Gasta 2 punto de Fuerza, cura 30 de vida propia o a un aliado.",
+      "clase": "Jedi Consul"
+    },
+    {
+      "nombre": "Absorber Fuerza",
+      "nivel": 10,
+      "tipo_habilidad": "Activa",
+      "descripcion": "Gasta 2 puntos de Fuerza, y cancela un poder de la Fuerza usado por un enemigo.",
+      "clase": "Jedi Consul"
+    },
+    {
+      "nombre": "Renovar Fuerza",
+      "nivel": 15,
+      "tipo_habilidad": "Pasiva",
+      "descripcion": "Gana 1 punto de Fuerza en su turno.",
+      "clase": "Jedi Consul"
+    },
+    {
+      "nombre": "Maestro de la Fuerza",
+      "nivel": 15,
+      "tipo_habilidad": "Pasiva",
+      "descripcion": "Este personaje puede usar hasta 2 habilidades de la Fuerza por turno.",
+      "clase": "Jedi Consul"
+    },
+    {
+      "nombre": "Usar la Fuerza",
+      "nivel": "Siempre",
+      "tipo_habilidad": "Rol",
+      "descripcion": "Los jedi pueden realizar una acción mediante el uso de la Fuerza (sentir, mover objetos, truco mental, etc...) (11+).",
+      "clase": "Jedi Guardian"
+    },
+    {
+      "nombre": "Barrido con sable de luz",
+      "nivel": 1,
+      "tipo_habilidad": "Activa",
+      "descripcion": "Gasta 1 punto de fuerza, y atacas a cada enemigo adyacente.",
+      "clase": "Jedi Guardian"
+    },
+    {
+      "nombre": "Salto de Fuerza",
+      "nivel": 1,
+      "tipo_habilidad": "Activa",
+      "descripcion": "Gasta 1 punto de Fuerza, y este personaje puede mover el doble de su distancia.",
+      "clase": "Jedi Guardian"
+    },
+    {
+      "nombre": "Precisión con sable laser",
+      "nivel": 1,
+      "tipo_habilidad": "Activa",
+      "descripcion": "Gasta 1 punto de Fuerza y gana +10 Daño durante un turno.",
+      "clase": "Jedi Guardian"
+    },
+    {
+      "nombre": "Ataque Doble",
+      "nivel": 5,
+      "tipo_habilidad": "Activa",
+      "descripcion": "Puede realizar dos ataques en un mismo turno, pero no puede realizar acción de movimiento.",
+      "clase": "Jedi Guardian"
+    },
+    {
+      "nombre": "Bloqueo con sable de luz",
+      "nivel": 5,
+      "tipo_habilidad": "Activa",
+      "descripcion": "Gasta 1 punto de fuerza y repele ataque cuerpo a cuerpo con 11+.",
+      "clase": "Jedi Guardian"
+    },
+    {
+      "nombre": "Respuesta rápida",
+      "nivel": 5,
+      "tipo_habilidad": "Pasiva",
+      "descripcion": "Si el personaje es alcanzado por un ataque, éste hace un ataque automático (salvable con +11).",
+      "clase": "Jedi Guardian"
+    },
+    {
+      "nombre": "Ataque Furioso",
+      "nivel": 10,
+      "tipo_habilidad": "Activa",
+      "descripcion": "Mueve el doble de distancia y realiza un ataque.",
+      "clase": "Jedi Guardian"
+    },
+    {
+      "nombre": "Ataque Poderoso",
+      "nivel": 10,
+      "tipo_habilidad": "Pasiva",
+      "descripcion": "Gana +10 Daño.",
+      "clase": "Jedi Guardian"
+    },
+    {
+      "nombre": "Duelista",
+      "nivel": 15,
+      "tipo_habilidad": "Pasiva",
+      "descripcion": "Gana +4 Defensa cuando es atacado por un sable de luz.",
+      "clase": "Jedi Guardian"
+    },
+    {
+      "nombre": "Destrozar",
+      "nivel": 15,
+      "tipo_habilidad": "Pasiva",
+      "descripcion": "Si dos ataques del personaje en mismo turno impactan, el segundo recibe +10 Daño.",
+      "clase": "Jedi Guardian"
+    },
+    {
+      "nombre": "Persuadir",
+      "nivel": "Siempre",
+      "tipo_habilidad": "Rol",
+      "descripcion": "El noble puede tratar de persuadir a otro personaje, para solventar una situación mediante el diálogo. (11+).",
+      "clase": "Noble"
+    },
+    {
+      "nombre": "Relación",
+      "nivel": 1,
+      "tipo_habilidad": "Activa",
+      "descripcion": "Este personaje puede solicitar que una unidad amiga realice un ataque extra.",
+      "clase": "Noble"
+    },
+    {
+      "nombre": "Ataque móvil",
+      "nivel": 1,
+      "tipo_habilidad": "Activa",
+      "descripcion": "Puede atacar para salir de la cobertura pesada, y volver a ella.",
+      "clase": "Noble"
+    },
+    {
+      "nombre": "Coordinar",
+      "nivel": 1,
+      "tipo_habilidad": "Pasiva",
+      "descripcion": "Suma +2 a la tirada de iniciativa de los aliados.",
+      "clase": "Noble"
+    },
+    {
+      "nombre": "Medpack",
+      "nivel": 5,
+      "tipo_habilidad": "Activa",
+      "descripcion": "Una vez por batalla, el noble puede curar 20 de daño.",
+      "clase": "Noble"
+    },
+    {
+      "nombre": "Guardaespaldas",
+      "nivel": 5,
+      "tipo_habilidad": "Pasiva",
+      "descripcion": "Si este personaje va a recibir daño, un personaje aliado cercano puede elegir recibirlo.",
+      "clase": "Noble"
+    },
+    {
+      "nombre": "Averiguar intenciones",
+      "nivel": 5,
+      "tipo_habilidad": "Pasiva",
+      "descripcion": "Si este personaje va a recibir daño, puede hacer una tirada de salvación con 11+.",
+      "clase": "Noble"
+    },
+    {
+      "nombre": "Inspirar",
+      "nivel": 10,
+      "tipo_habilidad": "Pasiva",
+      "descripcion": "Aliados cercanos +4 Ataque.",
+      "clase": "Noble"
+    },
+    {
+      "nombre": "Disparo desmoralizador",
+      "nivel": 10,
+      "tipo_habilidad": "Activa",
+      "descripcion": "A cambio de no hacer daño con un impacto exitoso, el objetivo que lo sufre adquiere una penalización de -5 a la Defensa hasta el final del combate.",
+      "clase": "Noble"
+    },
+    {
+      "nombre": "Coraje",
+      "nivel": 15,
+      "tipo_habilidad": "Activa",
+      "descripcion": "Una vez por combate, puedes repetir tirada. Esta segunda tirada va con +4 al Ataque.",
+      "clase": "Noble"
+    },
+    {
+      "nombre": "Voz Resonante",
+      "nivel": 15,
+      "tipo_habilidad": "Pasiva",
+      "descripcion": "Aliados cercanos +10 Daño.",
+      "clase": "Noble"
+    },
+    {
+      "nombre": "Visión Aumentada",
+      "nivel": "siempre",
+      "tipo_habilidad": "Rol",
+      "descripcion": "El soldado dispone de una experiencia en combate que le permite rastrear huellas, o buscar signos de presencia de enemigos. (11+).",
+      "clase": "Soldado"
+    },
+    {
+      "nombre": "Ataque Doble",
+      "nivel": 1,
+      "tipo_habilidad": "Activa",
+      "descripcion": "Puede realizar dos ataques en un mismo turno, pero no puede realizar acción de movimiento.",
+      "clase": "Soldado"
+    },
+    {
+      "nombre": "Granadas 10",
+      "nivel": 1,
+      "tipo_habilidad": "Activa",
+      "descripcion": "Ataque a distancia, 10 de daño a objetivo, y a adyacentes (salvan 11+).",
+      "clase": "Soldado"
+    },
+    {
+      "nombre": "Ataque móvil",
+      "nivel": 1,
+      "tipo_habilidad": "Activa",
+      "descripcion": "Puede atacar para salir de la cobertura pesada, y volver a ella.",
+      "clase": "Soldado"
+    },
+    {
+      "nombre": "Ataque en ráfaga",
+      "nivel": 5,
+      "tipo_habilidad": "Pasiva",
+      "descripcion": "Cuando consigue crítico, puede realizar otro ataque.",
+      "clase": "Soldado"
+    },
+    {
+      "nombre": "Disparo Preciso",
+      "nivel": 5,
+      "tipo_habilidad": "Activa",
+      "descripcion": "Ignora las coberturas de los enemigos.",
+      "clase": "Soldado"
+    },
+    {
+      "nombre": "Arma pesada",
+      "nivel": 5,
+      "tipo_habilidad": "Pasiva",
+      "descripcion": "Gana +10 daño pero no puede moverse en ese turno.",
+      "clase": "Soldado"
+    },
+    {
+      "nombre": "Granadas 20",
+      "nivel": 10,
+      "tipo_habilidad": "Activa",
+      "descripcion": "Ataque a distancia, 20 de daño a objetivo, y a adyacentes (salvan 11+).",
+      "clase": "Soldado"
+    },
+    {
+      "nombre": "Acondicionamiento",
+      "nivel": 10,
+      "tipo_habilidad": "Pasiva",
+      "descripcion": "Mientras el personaje tenga al menos la mitad de vida, gana +2 Ataque y +2 Defensa.",
+      "clase": "Soldado"
+    },
+    {
+      "nombre": "Armadura pesada",
+      "nivel": 15,
+      "tipo_habilidad": "Pasiva",
+      "descripcion": "El daño máximo recibido por turno para este personaje es 40.",
+      "clase": "Soldado"
+    },
+    {
+      "nombre": "Lanzallamas",
+      "nivel": 15,
+      "tipo_habilidad": "Activa",
+      "descripcion": "Ataque a distancia corto. Hace 20 de daño a un objetivo, y a los cercanos.",
+      "clase": "Soldado"
+    }
+  ]
+}

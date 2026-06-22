@@ -1,0 +1,442 @@
+.swrp-card {
+  --card-accent: #00e5ff;
+  --card-glow: rgba(0, 229, 255, 0.45);
+  --card-glow-soft: rgba(0, 229, 255, 0.15);
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+  background: linear-gradient(160deg, #0a0b0f 0%, #14161c 40%, #0d0e12 100%);
+  border: 2px solid rgba(212, 175, 55, 0.35);
+  padding: 0.75rem;
+  font-family: var(--font-body);
+  color: #fff;
+  box-shadow:
+    0 0 30px var(--card-glow-soft),
+    inset 0 0 40px rgba(0, 0, 0, 0.5);
+}
+
+.swrp-card.theme-guardian {
+  --card-accent: #00e5ff;
+  --card-glow: rgba(0, 229, 255, 0.5);
+  --card-glow-soft: rgba(0, 229, 255, 0.12);
+}
+
+.swrp-card.theme-consul {
+  --card-accent: #39ff14;
+  --card-glow: rgba(57, 255, 20, 0.5);
+  --card-glow-soft: rgba(57, 255, 20, 0.12);
+}
+
+.swrp-card.theme-soldado {
+  --card-accent: #ff0055;
+  --card-glow: rgba(255, 0, 85, 0.5);
+  --card-glow-soft: rgba(255, 0, 85, 0.12);
+}
+
+.swrp-card.theme-tecnico {
+  --card-accent: #ff3366;
+  --card-glow: rgba(255, 51, 102, 0.5);
+  --card-glow-soft: rgba(255, 51, 102, 0.12);
+}
+
+.swrp-card.theme-contrabandista {
+  --card-accent: #b24bf3;
+  --card-glow: rgba(178, 75, 243, 0.55);
+  --card-glow-soft: rgba(178, 75, 243, 0.15);
+}
+
+.swrp-card.theme-noble {
+  --card-accent: #d4af37;
+  --card-glow: rgba(212, 175, 55, 0.5);
+  --card-glow-soft: rgba(212, 175, 55, 0.12);
+}
+
+.swrp-card.theme-sith-guardian {
+  --card-accent: #ff1744;
+  --card-glow: rgba(255, 23, 68, 0.5);
+  --card-glow-soft: rgba(255, 23, 68, 0.12);
+}
+
+.swrp-card.theme-sith-consul {
+  --card-accent: #c44dff;
+  --card-glow: rgba(196, 77, 255, 0.5);
+  --card-glow-soft: rgba(196, 77, 255, 0.12);
+}
+
+.swrp-card.theme-cazarrecompensas {
+  --card-accent: #ff9100;
+  --card-glow: rgba(255, 145, 0, 0.5);
+  --card-glow-soft: rgba(255, 145, 0, 0.12);
+}
+
+.swrp-card__species {
+  margin: 0.15rem 0 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--swrp-text-muted, rgba(255, 255, 255, 0.55));
+}
+
+.swrp-skill-badge {
+  display: inline-block;
+  padding: 0.1rem 0.4rem;
+  margin-right: 0.35rem;
+  border-radius: 2px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.swrp-skill-badge--rol {
+  background: rgba(186, 104, 255, 0.35);
+  color: #e1b3ff;
+  border: 1px solid rgba(186, 104, 255, 0.5);
+}
+
+.swrp-skill-badge--pasiva {
+  background: rgba(255, 213, 79, 0.28);
+  color: #ffe082;
+  border: 1px solid rgba(255, 213, 79, 0.45);
+}
+
+.swrp-skill-badge--activa {
+  background: rgba(255, 105, 120, 0.28);
+  color: #ff8a95;
+  border: 1px solid rgba(255, 105, 120, 0.45);
+}
+
+.swrp-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--card-accent);
+  box-shadow: 0 0 12px var(--card-glow-soft);
+  margin-bottom: 0.65rem;
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 4px,
+      rgba(255, 255, 255, 0.02) 4px,
+      rgba(255, 255, 255, 0.02) 8px
+    ),
+    rgba(0, 0, 0, 0.4);
+}
+
+.swrp-card__header-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.swrp-card__copy-id {
+  font-size: 0.68rem;
+  padding: 0.15rem 0.45rem;
+  white-space: nowrap;
+}
+
+.swrp-card__name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.swrp-card__class {
+  margin: 0.15rem 0 0;
+  color: var(--swrp-gold);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.swrp-card__level {
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.swrp-card__level-label {
+  display: block;
+  font-size: 0.65rem;
+  color: var(--swrp-gold);
+  letter-spacing: 0.15em;
+  margin-bottom: 0.2rem;
+}
+
+.swrp-card__body {
+  display: grid;
+  grid-template-columns: 40% 1fr;
+  gap: 0.5rem;
+  align-items: stretch;
+  min-height: 300px;
+}
+
+.swrp-card__left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-height: 0;
+  min-width: 0;
+}
+
+.swrp-card__stats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.swrp-card__stat-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.swrp-card__stat-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--swrp-gold);
+  letter-spacing: 0.05em;
+  min-width: 4.2rem;
+  padding: 0.2rem 0.35rem;
+  background: rgba(0, 0, 0, 0.6);
+  border-left: 2px solid var(--card-accent);
+}
+
+.swrp-card__stat-bar {
+  height: 1.4rem;
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      rgba(0, 0, 0, 0.3),
+      rgba(0, 0, 0, 0.3) 3px,
+      var(--card-glow-soft) 3px,
+      var(--card-glow-soft) 6px
+    );
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.swrp-card__hex {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.85rem;
+  clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+  background: rgba(0, 0, 0, 0.85);
+  border: 2px solid var(--card-accent);
+  box-shadow: 0 0 10px var(--card-glow);
+}
+
+.swrp-card__hex--level {
+  width: 2.6rem;
+  height: 2.6rem;
+  font-size: 1rem;
+}
+
+.swrp-card__skills-panel {
+  border: 2px solid var(--card-accent);
+  box-shadow:
+    0 0 16px var(--card-glow),
+    inset 0 0 30px rgba(0, 0, 0, 0.6);
+  padding: 0.6rem 0.75rem;
+  background: rgba(0, 0, 0, 0.75);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 18px), calc(100% - 18px) 100%, 0 100%);
+  overflow: hidden;
+  min-height: 260px;
+}
+
+.swrp-card__skills-title {
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  margin: 0 0 0.5rem;
+  color: #fff;
+}
+
+.swrp-card__force {
+  color: var(--swrp-gold);
+  font-size: 0.85rem;
+  margin: 0 0 0.5rem;
+}
+
+.swrp-card__skills-list {
+  font-size: 0.78rem;
+  line-height: 1.35;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.swrp-card__skill {
+  margin-bottom: 0.5rem;
+}
+
+.swrp-card__skill strong {
+  color: var(--swrp-gold);
+}
+
+.swrp-card__skill .skill-type {
+  color: var(--card-accent);
+}
+
+.swrp-card__skill.skill-role .skill-type,
+.swrp-card__skill.skill-role strong:first-child {
+  color: var(--card-accent);
+}
+
+.swrp-card__portrait {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  min-height: 0;
+  overflow: hidden;
+  margin: 0;
+  padding-top: 0.25rem;
+}
+
+.swrp-card__portrait img {
+  max-width: 100%;
+  max-height: 175px;
+  width: auto;
+  height: auto;
+  display: block;
+  object-fit: contain;
+  object-position: bottom left;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.8));
+  mask-image: linear-gradient(to bottom, black 80%, transparent 100%);
+}
+
+.swrp-card__footer {
+  margin-top: 0.5rem;
+  text-align: center;
+  padding: 0.35rem;
+  border-top: 1px solid rgba(212, 175, 55, 0.2);
+}
+
+.swrp-card__logo {
+  display: block;
+  max-width: 92%;
+  max-height: 56px;
+  width: auto;
+  height: auto;
+  margin: 0 auto;
+  object-fit: contain;
+  opacity: 0.95;
+}
+
+.swrp-card--mini .swrp-card__logo {
+  max-height: 36px;
+}
+
+.swrp-card--mini {
+  max-width: 280px;
+  font-size: 0.85rem;
+}
+
+.swrp-card--mini .swrp-card__body {
+  min-height: 180px;
+}
+
+.swrp-card--mini .swrp-card__portrait img {
+  max-width: 90px;
+}
+
+.swrp-card--mini .swrp-card__skills-list {
+  max-height: 120px;
+}
+
+.card-preview-wrap {
+  position: sticky;
+  top: 1rem;
+}
+
+/* ── Tarjeta NPC (compendio / tablero) ── */
+.npcs-grid .swrp-card--npc {
+  max-width: 100%;
+  margin: 0;
+}
+
+.card-preview-wrap .swrp-card {
+  max-width: 420px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.swrp-card__badge-npc {
+  display: inline-block;
+  flex-shrink: 0;
+  font-family: var(--font-display);
+  font-size: 0.55rem;
+  letter-spacing: 0.15em;
+  padding: 0.15rem 0.4rem;
+  color: var(--swrp-gold);
+  border: 1px solid rgba(212, 175, 55, 0.45);
+  background: rgba(0, 0, 0, 0.65);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  vertical-align: middle;
+}
+
+.swrp-card-host {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.swrp-card-host .swrp-card {
+  max-width: 420px;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.npcs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.25rem;
+}
+
+@media (max-width: 768px) {
+  .swrp-card__body {
+    grid-template-columns: 1fr;
+  }
+
+  .swrp-card__left {
+    order: 1;
+  }
+
+  .swrp-card__skills-panel {
+    order: 2;
+    min-height: 200px;
+  }
+
+  .swrp-card__portrait img {
+    max-height: 140px;
+  }
+}
+
+.swrp-card .text-muted,
+.swrp-card .form-text {
+  color: rgba(184, 200, 218, 0.78) !important;
+}

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="img/Logo%20SW-RP.png" type="image/png">
+  <title>SWRP — Opciones de administración</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="css/theme.css" rel="stylesheet">
+</head>
+<body class="swrp-app">
+  <div id="swrp-nav"></div>
+  <main class="container py-4">
+    <div id="admin-panel-wrap"></div>
+  </main>
+
+  <script type="module">
+    import { renderNavbar } from './js/navbar.js';
+    import { requireAuth, isAdmin } from './js/auth.js';
+    import { loadAllUsers, renderAdminPanel, setUserAdminRole } from './js/admin.js';
+
+    const { user, profile } = await requireAuth();
+    if (!isAdmin(profile)) {
+      window.location.href = 'dashboard.html';
+    } else {
+      renderNavbar('admin', user, { isAdmin: true });
+
+      async function refreshAdminPanel() {
+        const users = await loadAllUsers();
+        renderAdminPanel(users, document.getElementById('admin-panel-wrap'), {
+          currentUserId: user.uid,
+          onToggleAdmin: async (targetUser, makeAdmin) => {
+            const action = makeAdmin ? 'otorgar' : 'quitar';
+            if (!confirm(`¿${action} permisos de admin a «${targetUser.username || targetUser.email}»?`)) return;
+            try {
+              await setUserAdminRole(profile, targetUser.id, makeAdmin);
+              await refreshAdminPanel();
+            } catch (err) {
+              alert(err.message);
+            }
+          }
+        });
+      }
+
+      await refreshAdminPanel();
+    }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

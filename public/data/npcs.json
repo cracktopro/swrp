@@ -1,0 +1,16 @@
+{
+  "Hoja1": [
+    {
+      "npc_id": 0,
+      "nombre": "Obi-Wan Kenobi",
+      "imagen": "https://i.ibb.co/SXc1WWtj/MCDSTWA-FE060-1617028393.webp",
+      "nivel": 10,
+      "Clase": "Jedi Guardian",
+      "Puntos de Golpe": 80,
+      "Defensa": 17,
+      "Ataque": 8,
+      "Daño": 20,
+      "Fuerza": 2
+    }
+  ]
+}

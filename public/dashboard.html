@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="img/Logo%20SW-RP.png" type="image/png">
+  <title>SWRP — Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="css/theme.css" rel="stylesheet">
+  <link href="css/character-card.css" rel="stylesheet">
+</head>
+<body class="swrp-app">
+  <div id="swrp-nav"></div>
+  <main class="container py-4">
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <section class="swrp-panel">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="swrp-panel__title mb-0">Mis Personajes</h2>
+            <a href="character-create" class="btn btn-sm btn-swrp btn-swrp-primary">+ Nuevo</a>
+          </div>
+          <div id="characters-panel"><p class="text-muted">Cargando...</p></div>
+        </section>
+      </div>
+      <div class="col-lg-6">
+        <section class="swrp-panel">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="swrp-panel__title mb-0">Partidas</h2>
+            <button id="btn-new-party" class="btn btn-sm btn-swrp btn-swrp-ghost d-none">+ Partida</button>
+          </div>
+          <div id="parties-list" class="swrp-party-list"><p class="text-muted">Cargando...</p></div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <div class="modal fade" id="partyModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content swrp-modal-card">
+        <div class="modal-header border-secondary border-opacity-25">
+          <h5 class="modal-title">Nueva Partida</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label" for="party-name">Nombre</label>
+            <input type="text" class="form-control" id="party-name">
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="party-type">Tipo</label>
+            <select class="form-select" id="party-type">
+              <option value="Campaña">Campaña</option>
+              <option value="Escaramuza">Escaramuza</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="party-image-url">URL imagen de la tarjeta</label>
+            <input type="url" class="form-control" id="party-image-url" placeholder="https://ejemplo.com/portada.png">
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="party-description">Descripción</label>
+            <textarea class="form-control" id="party-description" rows="3" placeholder="Breve resumen de la partida…"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer border-secondary border-opacity-25">
+          <button type="button" class="btn btn-swrp btn-swrp-ghost" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" id="party-create" class="btn btn-swrp btn-swrp-primary">Crear</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="partyEditModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content swrp-modal-card">
+        <div class="modal-header border-secondary border-opacity-25">
+          <h5 class="modal-title">Opciones de partida</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="party-edit-id">
+          <div class="mb-3">
+            <label class="form-label" for="party-edit-name">Nombre</label>
+            <input type="text" class="form-control" id="party-edit-name">
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="party-edit-type">Tipo</label>
+            <select class="form-select" id="party-edit-type">
+              <option value="Campaña">Campaña</option>
+              <option value="Escaramuza">Escaramuza</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="party-edit-image-url">URL imagen de la tarjeta</label>
+            <input type="url" class="form-control" id="party-edit-image-url" placeholder="https://ejemplo.com/portada.png">
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="party-edit-description">Descripción</label>
+            <textarea class="form-control" id="party-edit-description" rows="3"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer border-secondary border-opacity-25">
+          <button type="button" class="btn btn-swrp btn-swrp-ghost" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" id="party-save" class="btn btn-swrp btn-swrp-primary">Guardar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { renderNavbar } from './js/navbar.js';
+    import { requireAuth, isAdmin } from './js/auth.js';
+    import {
+      loadUserCharacters,
+      loadUserPartyIds,
+      loadAllParties,
+      createParty,
+      updateParty,
+      openParty,
+      deleteCharacter,
+      deleteParty,
+      renderCharacterPanel,
+      renderPartyCard
+    } from './js/dashboard.js';
+
+    const { user, profile } = await requireAuth();
+    const userIsAdmin = isAdmin(profile);
+    renderNavbar('dashboard', user, { isAdmin: userIsAdmin });
+    if (userIsAdmin) {
+      document.getElementById('btn-new-party').classList.remove('d-none');
+    }
+
+    const charsPanel = document.getElementById('characters-panel');
+    const partiesEl = document.getElementById('parties-list');
+    let charPanelController = null;
+    let joinedPartyIds = new Set();
+
+    async function refreshCharacters() {
+      const characters = await loadUserCharacters(user.uid);
+      const previousId = charPanelController?.getSelected()?.id;
+      charPanelController = renderCharacterPanel(characters, charsPanel, {
+        onDelete: async (char) => {
+          if (!confirm(`¿Eliminar a «${char.name}»? Esta acción no se puede deshacer.`)) return;
+          try {
+            await deleteCharacter(user.uid, char.id);
+            await refreshCharacters();
+          } catch (err) {
+            alert('Error: ' + err.message);
+          }
+        }
+      });
+      if (previousId && charPanelController) {
+        charPanelController.setSelected(previousId);
+      }
+    }
+
+    async function refreshParties() {
+      joinedPartyIds = new Set(await loadUserPartyIds(user.uid));
+      const parties = await loadAllParties();
+      partiesEl.innerHTML = '';
+      if (!parties.length) {
+        partiesEl.innerHTML = '<p class="text-muted">No hay partidas disponibles.</p>';
+        return;
+      }
+      parties.forEach((p) => renderPartyCard(p, user.uid, partiesEl, {
+        isAdmin: userIsAdmin,
+        isMember: joinedPartyIds.has(p.id),
+        onEdit: userIsAdmin ? openPartyEditModal : null,
+        onDelete: userIsAdmin ? async (party) => {
+          if (!confirm(`¿Eliminar la partida «${party.name}»? Se perderán los mensajes del foro.`)) return;
+          try {
+            await deleteParty(profile, party.id);
+            await refreshParties();
+          } catch (err) {
+            alert('Error: ' + err.message);
+          }
+        } : null
+      }));
+    }
+
+    const partyModal = new bootstrap.Modal(document.getElementById('partyModal'));
+    const partyEditModal = new bootstrap.Modal(document.getElementById('partyEditModal'));
+
+    function openPartyEditModal(party) {
+      document.getElementById('party-edit-id').value = party.id;
+      document.getElementById('party-edit-name').value = party.name || '';
+      document.getElementById('party-edit-type').value = party.type || 'Campaña';
+      document.getElementById('party-edit-image-url').value = party.imageUrl || '';
+      document.getElementById('party-edit-description').value = party.description || '';
+      partyEditModal.show();
+    }
+
+    document.getElementById('btn-new-party').addEventListener('click', () => {
+      if (!userIsAdmin) return;
+      document.getElementById('party-name').value = '';
+      document.getElementById('party-type').value = 'Campaña';
+      document.getElementById('party-image-url').value = '';
+      document.getElementById('party-description').value = '';
+      partyModal.show();
+    });
+
+    document.getElementById('party-create').addEventListener('click', async () => {
+      const name = document.getElementById('party-name').value.trim();
+      const type = document.getElementById('party-type').value;
+      const imageUrl = document.getElementById('party-image-url').value.trim();
+      const description = document.getElementById('party-description').value.trim();
+      if (!userIsAdmin) return;
+      if (!name) return;
+      const btn = document.getElementById('party-create');
+      btn.disabled = true;
+      try {
+        const id = await createParty(profile, { name, type, imageUrl, description });
+        partyModal.hide();
+        openParty(id);
+      } catch (err) {
+        alert('Error al crear la partida: ' + err.message);
+        btn.disabled = false;
+      }
+    });
+
+    document.getElementById('party-save').addEventListener('click', async () => {
+      const partyId = document.getElementById('party-edit-id').value;
+      const name = document.getElementById('party-edit-name').value.trim();
+      const type = document.getElementById('party-edit-type').value;
+      const imageUrl = document.getElementById('party-edit-image-url').value.trim();
+      const description = document.getElementById('party-edit-description').value.trim();
+      if (!userIsAdmin) return;
+      if (!name) return;
+      const btn = document.getElementById('party-save');
+      btn.disabled = true;
+      try {
+        await updateParty(profile, partyId, { name, type, imageUrl, description });
+        partyEditModal.hide();
+        await refreshParties();
+      } catch (err) {
+        alert('Error al guardar: ' + err.message);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    await refreshCharacters();
+    await refreshParties();
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

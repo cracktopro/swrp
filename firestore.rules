@@ -1,0 +1,84 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol_global == 'Admin';
+    }
+
+    function isPartyMember(partyId) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/parties/$(partyId)/members/$(request.auth.uid));
+    }
+
+    function memberDoc(partyId) {
+      return get(/databases/$(database)/documents/parties/$(partyId)/members/$(request.auth.uid)).data;
+    }
+
+    function isPartyGM(partyId) {
+      return isPartyMember(partyId) && memberDoc(partyId).playMode == 'gm';
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
+    }
+
+    match /characters/{charId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isOwner(resource.data.userId);
+    }
+
+    match /npcs/{npcId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /compendium/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /parties/{partyId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+
+      match /members/{memberId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn()
+          && request.auth.uid == memberId
+          && request.resource.data.userId == request.auth.uid;
+        allow update: if isSignedIn()
+          && (request.auth.uid == memberId || isPartyGM(partyId));
+        allow delete: if isAdmin() || isPartyGM(partyId) || request.auth.uid == memberId;
+      }
+
+      match /posts/{postId} {
+        allow read: if isPartyMember(partyId);
+        allow create: if isPartyMember(partyId)
+          && request.resource.data.authorId == request.auth.uid;
+      }
+
+      match /state/{docId} {
+        allow read: if isPartyMember(partyId);
+        allow write: if isPartyMember(partyId);
+      }
+    }
+
+    match /{path=**}/members/{memberId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+  }
+}
