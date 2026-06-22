@@ -17,7 +17,7 @@ import {
   FACING_DIRS
 } from './board-vision.js';
 import { swrpConfirm } from './swrp-dialog.js';
-import { formatRollResult, renderDiceResultHtml } from './dice.js';
+import { renderDiceResultHtml } from './dice.js';
 import {
   buildBoardTokenMap,
   buildRosterMap,
@@ -82,7 +82,11 @@ export class TacticalBoard {
     this.tokenLayer = tokenLayer;
     this.logEl = logEl;
     this.initiativeLogEl = options.initiativeLogEl || null;
+    this.initiativeOrderEl = options.initiativeOrderEl || null;
     this.initiativeLog = [];
+    this.initiativeOpen = true;
+    this.turnOrder = [];
+    this.turnOrderIndex = 0;
     this.colLabelsEl = options.colLabelsEl || null;
     this.rowLabelsEl = options.rowLabelsEl || null;
     this.tooltipEl = options.tooltipEl || null;
@@ -170,6 +174,9 @@ export class TacticalBoard {
       this.tokens = (data.tokens || []).map((t) => normalizeBoardToken({ ...t }));
       this.combatStarted = !!data.combatStarted;
       this.activeTurn = data.activeTurn ?? null;
+      this.initiativeOpen = data.initiativeOpen ?? !data.combatStarted;
+      this.turnOrder = data.turnOrder || [];
+      this.turnOrderIndex = data.turnOrderIndex ?? 0;
       if (data.grid?.cols) this.cols = clampGrid(data.grid.cols);
       if (data.grid?.rows) this.rows = clampGrid(data.grid.rows);
       this.tokens = this.tokens.filter(
@@ -189,6 +196,9 @@ export class TacticalBoard {
       this.tokens = [];
       this.combatStarted = false;
       this.activeTurn = null;
+      this.initiativeOpen = true;
+      this.turnOrder = [];
+      this.turnOrderIndex = 0;
       this.initiativeLog = [];
       this.applyGridDimensions();
       this.render();
@@ -196,6 +206,7 @@ export class TacticalBoard {
       this.renderInitiativeLog([]);
     }
     this.onCombatStateChange(this.combatStarted);
+    this.onInitiativeStateChange?.(this.initiativeOpen);
     this.onActiveTurnChange(this.activeTurn);
     this.onTokensChange(this.tokens);
   }
@@ -208,6 +219,9 @@ export class TacticalBoard {
       this.tokens = (data.tokens || []).map((t) => normalizeBoardToken({ ...t }));
       this.combatStarted = !!data.combatStarted;
       this.activeTurn = data.activeTurn ?? null;
+      this.initiativeOpen = data.initiativeOpen ?? !data.combatStarted;
+      this.turnOrder = data.turnOrder || [];
+      this.turnOrderIndex = data.turnOrderIndex ?? 0;
       let gridChanged = false;
       if (data.grid?.cols && data.grid.cols !== this.cols) {
         this.cols = clampGrid(data.grid.cols);
@@ -233,7 +247,11 @@ export class TacticalBoard {
       this.initiativeLog = data.initiativeLog || [];
       this.renderLog(data.log || []);
       this.renderInitiativeLog(this.initiativeLog);
+      this.renderInitiativeOrderPreview(
+        this.turnOrder.length ? this.turnOrder : null
+      );
       this.onCombatStateChange(this.combatStarted);
+      this.onInitiativeStateChange?.(this.initiativeOpen);
       this.onActiveTurnChange(this.activeTurn);
       this.onTokensChange(this.tokens);
     });
@@ -307,15 +325,116 @@ export class TacticalBoard {
   async startCombat() {
     if (!this.isGM || this.combatStarted) return;
     this.combatStarted = true;
-    await this.saveState({ combatStarted: true });
+    this.initiativeOpen = false;
+    await this.saveState({ combatStarted: true, initiativeOpen: false });
     await this.appendLog(logEntrySystem('inició el combate'), { force: true });
     this.onCombatStateChange(true);
+    this.onInitiativeStateChange?.(this.initiativeOpen);
+  }
+
+  async completeInitiative(turnOrder) {
+    if (!this.isGM || !this.initiativeOpen || !turnOrder?.length) return;
+    const wasStarted = this.combatStarted;
+    this.combatStarted = true;
+    this.initiativeOpen = false;
+    this.turnOrder = turnOrder;
+    this.turnOrderIndex = 0;
+    this.activeTurn = turnOrder[0];
+    this.initiativeLog = [];
+    await this.saveState({
+      combatStarted: true,
+      initiativeOpen: false,
+      turnOrder,
+      turnOrderIndex: 0,
+      activeTurn: this.activeTurn,
+      initiativeLog: []
+    });
+    this.renderInitiativeLog([]);
+    this.renderInitiativeOrderPreview(null);
+    if (!wasStarted) {
+      await this.appendLog(logEntrySystem('inició el combate'), { force: true });
+    }
+    const orderLabels = turnOrder.map((t) => t.label).join(' → ');
+    await this.appendLog(logEntrySystem(`Orden de iniciativa: ${orderLabels}`));
+    if (wasStarted && this.activeTurn?.label) {
+      await this.appendLog(logEntrySystem(`cede el turno a ${this.activeTurn.label}`));
+    }
+    this.onCombatStateChange(true);
+    this.onInitiativeStateChange?.(this.initiativeOpen);
+    this.onActiveTurnChange(this.activeTurn);
+    this.renderTokenLayer();
+  }
+
+  async advanceTurn() {
+    if (!this.isGM || !this.combatStarted || !this.turnOrder.length) return;
+    const prevIndex = this.turnOrderIndex;
+    const cycleCompleted = prevIndex === this.turnOrder.length - 1;
+    if (cycleCompleted) {
+      this.initiativeOpen = true;
+      this.initiativeLog = [];
+      this.activeTurn = null;
+      await this.appendLog(logEntrySystem('fin del ciclo de turnos — nueva tirada de iniciativa'));
+      await this.saveState({
+        initiativeOpen: true,
+        initiativeLog: [],
+        activeTurn: null
+      });
+      this.renderInitiativeLog([]);
+      this.onInitiativeStateChange?.(this.initiativeOpen);
+      this.onActiveTurnChange(null);
+      this.renderTokenLayer();
+      return;
+    }
+    const nextIndex = prevIndex + 1;
+    this.turnOrderIndex = nextIndex;
+    this.activeTurn = this.turnOrder[nextIndex];
+    await this.saveState({
+      activeTurn: this.activeTurn,
+      turnOrderIndex: this.turnOrderIndex
+    });
+    if (this.activeTurn?.label) {
+      await this.appendLog(logEntrySystem(`cede el turno a ${this.activeTurn.label}`));
+    }
+    this.onActiveTurnChange(this.activeTurn);
+    this.renderTokenLayer();
+  }
+
+  async endCombat() {
+    if (!this.isGM || !this.combatStarted) return;
+    this.combatStarted = false;
+    this.initiativeOpen = true;
+    this.activeTurn = null;
+    this.turnOrder = [];
+    this.turnOrderIndex = 0;
+    this.initiativeLog = [];
+    await this.saveState({
+      combatStarted: false,
+      initiativeOpen: true,
+      activeTurn: null,
+      turnOrder: [],
+      turnOrderIndex: 0,
+      initiativeLog: []
+    });
+    await this.appendLog(logEntrySystem('finalizó el combate'), { force: true });
+    this.renderInitiativeLog([]);
+    this.renderInitiativeOrderPreview(null);
+    this.onCombatStateChange(false);
+    this.onInitiativeStateChange?.(this.initiativeOpen);
+    this.onActiveTurnChange(null);
+    this.renderTokenLayer();
   }
 
   async setActiveTurn(turn) {
     if (!this.isGM) return;
     this.activeTurn = turn || null;
-    await this.saveState({ activeTurn: this.activeTurn });
+    if (this.turnOrder.length && turn) {
+      const idx = this.turnOrder.findIndex((t) => turnKeyFromTurn(t) === turnKeyFromTurn(turn));
+      if (idx >= 0) this.turnOrderIndex = idx;
+    }
+    await this.saveState({
+      activeTurn: this.activeTurn,
+      turnOrderIndex: this.turnOrderIndex
+    });
     if (this.combatStarted && turn?.label) {
       await this.appendLog(logEntrySystem(`cede el turno a ${turn.label}`));
     }
@@ -385,16 +504,24 @@ export class TacticalBoard {
     if (!ok) return;
     this.combatStarted = false;
     this.activeTurn = null;
+    this.initiativeOpen = true;
+    this.turnOrder = [];
+    this.turnOrderIndex = 0;
     this.initiativeLog = [];
     await this.saveState({
       combatStarted: false,
       activeTurn: null,
+      initiativeOpen: true,
+      turnOrder: [],
+      turnOrderIndex: 0,
       log: [],
       initiativeLog: []
     });
     this.renderLog([]);
     this.renderInitiativeLog([]);
+    this.renderInitiativeOrderPreview(null);
     this.onCombatStateChange(false);
+    this.onInitiativeStateChange?.(this.initiativeOpen);
     this.onActiveTurnChange(null);
     this.renderTokenLayer();
   }
@@ -640,14 +767,21 @@ export class TacticalBoard {
     if (this.tooltipEl) this.tooltipEl.hidden = true;
   }
 
-  async appendInitiativeRoll(actor, roll) {
-    if (this.combatStarted) return;
-    const entry = {
-      actorName: actor.name,
+  async appendInitiativeRoll(actorMeta, roll) {
+    if (!this.initiativeOpen) return;
+    const entry = stripUndefinedDeep({
+      actorKey: actorMeta.actorKey,
+      actorName: actorMeta.name,
+      actorClass: actorMeta.class || null,
+      actorColor: actorMeta.color || null,
+      kind: actorMeta.kind,
+      userId: actorMeta.userId ?? null,
+      sourceId: actorMeta.sourceId ?? null,
+      tokenId: actorMeta.tokenId ?? null,
       roll,
       rollLabel: 'Iniciativa ',
       time: timeLabel()
-    };
+    });
     const refDoc = doc(db, 'parties', this.partyId, 'state', 'board');
     const snap = await getDoc(refDoc);
     const current = snap.exists() ? snap.data() : {};
@@ -655,20 +789,41 @@ export class TacticalBoard {
     await setDoc(refDoc, { initiativeLog, updatedAt: serverTimestamp() }, { merge: true });
     this.initiativeLog = initiativeLog;
     this.renderInitiativeLog(initiativeLog);
+    this.onInitiativeLogChange?.();
   }
 
   renderInitiativeLog(entries) {
     if (!this.initiativeLogEl) return;
-    const lines = (entries || []).map((entry) => {
-      if (typeof entry === 'string') return entry;
-      return formatRollResult(
-        entry.actorName,
-        entry.roll,
-        entry.rollLabel || 'Iniciativa '
-      );
-    });
-    this.initiativeLogEl.value = lines.join('\n');
+    const list = entries || [];
+    if (!list.length) {
+      this.initiativeLogEl.innerHTML = '<p class="small text-muted mb-0">Las tiradas de iniciativa aparecerán aquí…</p>';
+      return;
+    }
+    this.initiativeLogEl.innerHTML = list.map((entry) => {
+      if (typeof entry === 'string') {
+        return `<div class="board-initiative-log__line">${escapeHtml(entry)}</div>`;
+      }
+      return `<div class="board-initiative-log__line">${renderInitiativeLineHtml(entry)}</div>`;
+    }).join('');
     this.initiativeLogEl.scrollTop = this.initiativeLogEl.scrollHeight;
+  }
+
+  renderInitiativeOrderPreview(order) {
+    if (!this.initiativeOrderEl) return;
+    if (!order?.length) {
+      this.initiativeOrderEl.classList.add('d-none');
+      this.initiativeOrderEl.innerHTML = '';
+      return;
+    }
+    this.initiativeOrderEl.classList.remove('d-none');
+    this.initiativeOrderEl.innerHTML = `
+      <p class="small text-gold mb-1">Orden del primer turno</p>
+      <ol class="board-initiative-order__list mb-0">
+        ${order.map((item) => {
+          const color = item.color || getClassMeta(item.class).color;
+          return `<li><span style="color:${escapeHtml(color)}">${escapeHtml(item.label)}</span> <span class="text-muted">(${item.initiativeTotal})</span></li>`;
+        }).join('')}
+      </ol>`;
   }
 
   async appendLog(entry, { force = false } = {}) {
@@ -699,7 +854,16 @@ export class TacticalBoard {
         log: partial.log !== undefined ? partial.log : (current.log || []),
         initiativeLog: partial.initiativeLog !== undefined
           ? partial.initiativeLog
-          : (current.initiativeLog || [])
+          : (current.initiativeLog || []),
+        initiativeOpen: partial.initiativeOpen !== undefined
+          ? partial.initiativeOpen
+          : (this.initiativeOpen ?? current.initiativeOpen ?? true),
+        turnOrder: partial.turnOrder !== undefined
+          ? partial.turnOrder
+          : (this.turnOrder ?? current.turnOrder ?? []),
+        turnOrderIndex: partial.turnOrderIndex !== undefined
+          ? partial.turnOrderIndex
+          : (this.turnOrderIndex ?? current.turnOrderIndex ?? 0)
       }),
       updatedAt: serverTimestamp()
     };
@@ -850,6 +1014,11 @@ export class TacticalBoard {
   }
 }
 
+function turnKeyFromTurn(turn) {
+  if (!turn) return '';
+  return `${turn.kind}:${turn.userId || ''}:${turn.sourceId || ''}:${turn.tokenId || ''}`;
+}
+
 export function logEntrySystem(message) {
   return {
     time: timeLabel(),
@@ -934,6 +1103,23 @@ export function getTokenHp(token) {
   const max = getTokenMaxHp(token);
   const hp = token.characterSnapshot?.hp ?? token.hp;
   return hp == null ? max : Number(hp);
+}
+
+export function isCombatEnded(tokens) {
+  const enemies = tokens.filter((t) => t.side === 'enemy');
+  const allies = tokens.filter((t) => t.side !== 'enemy');
+  const enemiesDefeated = enemies.length > 0 && enemies.every((t) => getTokenHp(t) <= 0);
+  const alliesDefeated = allies.length > 0 && allies.every((t) => getTokenHp(t) <= 0);
+  return enemiesDefeated || alliesDefeated;
+}
+
+function renderInitiativeLineHtml(entry) {
+  const color = entry.actorColor || getClassMeta(entry.actorClass).color;
+  const who = `<span class="board-initiative__actor" style="color:${escapeHtml(color)}">[${escapeHtml(entry.actorName)}]</span>`;
+  const roll = entry.roll;
+  const label = entry.rollLabel || 'Iniciativa ';
+  const modPart = roll.modifier ? ` ${roll.modifier >= 0 ? '+' : ''}${roll.modifier}` : '';
+  return `${who} ${escapeHtml(label.trim())}${escapeHtml(roll.notation)}${modPart} = <strong>${roll.total}</strong>`;
 }
 
 export function getHealthBarSegments(hp, maxHp) {

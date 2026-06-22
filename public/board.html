@@ -48,9 +48,11 @@
         <div id="board-sidebar-combate">
           <section class="swrp-panel mb-3 d-none" id="board-turn-panel">
             <h2 class="swrp-panel__title">Control de turnos</h2>
-            <p id="board-turn-assign-hint" class="small text-muted mb-2 d-none">Asigna el turno activo del combate.</p>
+            <p id="board-turn-assign-hint" class="small text-muted mb-2 d-none">Orden de iniciativa activo. Avanza con «Siguiente turno» o asigna manualmente.</p>
             <p id="board-turn-banner" class="board-turn-banner board-turn-banner--idle small mb-2">Sin turno asignado</p>
             <div id="board-turn-list" class="board-turn-list"></div>
+            <button type="button" id="board-advance-turn" class="btn btn-sm btn-swrp btn-swrp-primary w-100 mt-2 d-none">Siguiente turno</button>
+            <button type="button" id="board-end-combat" class="btn btn-sm btn-swrp btn-swrp-danger w-100 mt-2 d-none">Finalizar combate</button>
           </section>
           <section class="swrp-panel mb-3 d-none" id="board-combat-panel">
             <h2 class="swrp-panel__title">Combate en curso</h2>
@@ -92,15 +94,19 @@
             <p class="small text-muted mb-2">Disponible antes de iniciar el combate. Puedes repetir tiradas si una habilidad lo permite.</p>
             <label class="form-label small" for="board-initiative-character">Personaje</label>
             <select class="form-select form-select-sm mb-2" id="board-initiative-character"></select>
-            <button type="button" id="board-initiative-roll" class="btn btn-sm btn-swrp btn-swrp-primary w-100 mb-2">Tirar D20</button>
-            <textarea class="form-control form-control-sm board-initiative-log" id="board-initiative-log" rows="6" readonly
-              placeholder="Las tiradas de iniciativa aparecerán aquí…"></textarea>
+            <div class="d-flex gap-2 mb-2">
+              <button type="button" id="board-initiative-roll" class="btn btn-sm btn-swrp btn-swrp-primary flex-grow-1">Tirar D20</button>
+              <button type="button" id="board-initiative-complete" class="btn btn-sm btn-swrp btn-swrp-ghost flex-grow-1 d-none">Completar</button>
+            </div>
+            <div id="board-initiative-log" class="board-initiative-log swrp-scrollbar-thin" role="log"
+              aria-live="polite"></div>
+            <div id="board-initiative-order" class="board-initiative-order mt-2 d-none"></div>
           </section>
           <p id="board-combat-hint" class="small text-muted mb-3">Inicia el combate para activar dados, turnos y habilidades.</p>
           <section class="swrp-panel">
             <h2 class="swrp-panel__title">Log de Combate</h2>
             <p id="combat-idle-msg" class="small text-muted mb-2">El combate aún no ha comenzado. El GM debe iniciarlo.</p>
-            <button type="button" id="start-combat" class="btn btn-sm btn-swrp btn-swrp-primary w-100 mb-2 d-none">Iniciar combate</button>
+            <button type="button" id="start-combat" class="btn btn-sm btn-swrp btn-swrp-primary w-100 mb-2 d-none" hidden>Iniciar combate</button>
             <div id="combat-log" class="combat-log d-none"></div>
             <button type="button" id="clear-log" class="btn btn-sm btn-swrp btn-swrp-ghost mt-2 w-100 d-none">Borrar historial</button>
           </section>
@@ -467,6 +473,7 @@
             rowLabelsEl: document.getElementById('board-row-labels'),
             tooltipEl: document.getElementById('board-token-tooltip'),
             initiativeLogEl: document.getElementById('board-initiative-log'),
+            initiativeOrderEl: document.getElementById('board-initiative-order'),
             onTokenClick: openTokenCard,
             onMapUrlChange: (url) => { mapUrlInput.value = url || ''; },
             onCombatStateChange: (started) => syncCombatUi(started, isGM),

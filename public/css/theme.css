@@ -1999,8 +1999,26 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
   font-family: monospace;
   font-size: 0.78rem;
   line-height: 1.45;
-  resize: vertical;
   min-height: 7rem;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.35rem;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.board-initiative-log__line {
+  padding: 0.15rem 0;
+}
+
+.board-initiative-order__list {
+  font-size: 0.82rem;
+  padding-left: 1.2rem;
+}
+
+.board-turn-btn.is-queued {
+  outline: 1px dashed rgba(255, 215, 0, 0.45);
 }
 
 .combat-log__entry {
