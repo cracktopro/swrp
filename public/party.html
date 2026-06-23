@@ -69,8 +69,9 @@
           <select class="form-select mb-2" id="role-mode"></select>
         </div>
         <div class="mb-2" id="role-char-wrap">
-          <label class="form-label" for="role-character">Personaje asignado</label>
+          <label class="form-label" for="role-character" id="role-char-label">Personaje asignado</label>
           <select class="form-select mb-2" id="role-character"></select>
+          <p class="small text-muted mb-0" id="role-char-hint"></p>
         </div>
         <button type="button" id="role-save" class="btn btn-sm btn-swrp btn-swrp-ghost w-100 mb-3">Guardar participación</button>
         <h3 class="h6 text-gold">Personaje activo en el foro</h3>
@@ -89,8 +90,9 @@
         <select class="form-select" id="join-mode"></select>
       </div>
       <div class="mb-3" id="join-char-wrap">
-        <label class="form-label" for="join-character">Personaje</label>
+        <label class="form-label" for="join-character" id="join-char-label">Personaje</label>
         <select class="form-select" id="join-character"></select>
+        <p class="small text-muted mb-0 mt-1" id="join-char-hint"></p>
       </div>
       <button type="button" id="join-submit" class="btn btn-swrp btn-swrp-primary w-100">Unirme a la partida</button>
     </div>

@@ -1,5 +1,5 @@
 import { tokenFromCharacter, tokenFromNpc } from './party-members.js';
-import { cellLabel, CELL, getTokenHp, getTokenMaxHp } from './board.js';
+import { cellLabel, CELL, getTokenHp, getTokenMaxHp, getTokenForce, tokenHasForceStat, updateHealthBarElement } from './board.js';
 import {
   drawVisionConeOnCanvas,
   facingLabel,
@@ -198,6 +198,25 @@ export function initBoardPage(ctx) {
   let addSelection = null;
   let miniBoard = null;
   let addFiltersReady = false;
+  let ctrlHpInputReady = false;
+
+  function setupCtrlHpPreview() {
+    if (ctrlHpInputReady) return;
+    const hpInput = document.getElementById('ctrl-token-hp');
+    const maxHpEl = document.getElementById('ctrl-token-max-hp');
+    if (!hpInput) return;
+    hpInput.addEventListener('input', () => {
+      const maxHp = parseInt(maxHpEl?.textContent, 10) || 1;
+      let hp = parseInt(hpInput.value, 10);
+      if (Number.isNaN(hp)) hp = 0;
+      updateHealthBarElement(document.getElementById('ctrl-token-hp-bar'), hp, maxHp);
+    });
+    ctrlHpInputReady = true;
+  }
+
+  function updateCtrlHpBar(hp, maxHp) {
+    updateHealthBarElement(document.getElementById('ctrl-token-hp-bar'), hp, maxHp);
+  }
 
   function setupAddFilters() {
     if (addFiltersReady) return;
@@ -276,7 +295,7 @@ export function initBoardPage(ctx) {
       visionStatus.textContent = hasVision
         ? getIconLabel('vision')
         : getIconLabel('no_vision');
-      if (resetBtn) resetBtn.disabled = !hasVision;
+      if (resetBtn) resetBtn.disabled = !token.alerted;
     }
 
     const facing = token.facing || 'left';
@@ -291,6 +310,22 @@ export function initBoardPage(ctx) {
       maxHpEl.textContent = String(maxHp);
       hpInput.max = String(maxHp);
       hpInput.value = String(getTokenHp(token));
+      updateCtrlHpBar(getTokenHp(token), maxHp);
+    }
+    setupCtrlHpPreview();
+
+    const forceWrap = document.getElementById('ctrl-force-wrap');
+    const forceInput = document.getElementById('ctrl-token-force');
+    const hasForce = tokenHasForceStat(token);
+    forceWrap?.classList.toggle('d-none', !hasForce);
+    if (hasForce && forceInput) {
+      const currentForce = getTokenForce(token);
+      forceInput.value = currentForce == null ? '0' : String(currentForce);
+    }
+
+    const coverInput = document.getElementById('ctrl-token-cover');
+    if (coverInput) {
+      coverInput.checked = token.inCover === true;
     }
   }
 
@@ -306,10 +341,18 @@ export function initBoardPage(ctx) {
     const side = document.getElementById('ctrl-side-enemy').checked ? 'enemy' : 'ally';
     const facingBtn = document.querySelector('#ctrl-facing-wrap [data-facing].active');
     const facing = facingBtn?.dataset.facing || token.facing || 'left';
-    await board.updateTokenProperties(token.id, { side, facing });
+    const inCover = document.getElementById('ctrl-token-cover')?.checked === true;
+    await board.updateTokenProperties(token.id, { side, facing, inCover });
     const hpVal = parseInt(document.getElementById('ctrl-token-hp')?.value, 10);
     if (!Number.isNaN(hpVal)) {
       await board.updateTokenHp(token.id, hpVal);
+    }
+    const forceInput = document.getElementById('ctrl-token-force');
+    if (tokenHasForceStat(token) && forceInput) {
+      const forceVal = parseInt(forceInput.value, 10);
+      if (!Number.isNaN(forceVal)) {
+        await board.updateTokenForce(token.id, forceVal);
+      }
     }
     controlModal?.hide();
     renderActiveTokensList();

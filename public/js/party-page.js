@@ -52,10 +52,36 @@ export async function initPartyPage({ user, profile, partyId, ui }) {
 
   const roleMode = document.getElementById('role-mode');
   const roleChar = document.getElementById('role-character');
-  const roleCharWrap = document.getElementById('role-char-wrap');
   const roleSave = document.getElementById('role-save');
   const activeSelect = document.getElementById('active-character');
   const preview = document.getElementById('active-card-preview');
+
+  const roleCharLabel = document.getElementById('role-char-label');
+  const roleCharHint = document.getElementById('role-char-hint');
+
+  function buildCharacterOptions(characters, { optional } = {}) {
+    const empty = optional ? '<option value="">— Ninguno —</option>' : '';
+    const list = characters.length
+      ? characters.map((c) => `<option value="${c.id}">${c.name}</option>`).join('')
+      : '<option value="">— Crea un personaje primero —</option>';
+    return empty + list;
+  }
+
+  function syncRoleCharUi() {
+    const isGmMode = roleMode.value === 'gm';
+    roleCharLabel.textContent = isGmMode
+      ? 'Mi personaje en la partida (opcional)'
+      : 'Personaje asignado';
+    roleCharHint.textContent = isGmMode
+      ? 'Si eliges uno, podrás colocarlo en el tablero y jugarlo en combate.'
+      : '';
+    roleChar.innerHTML = buildCharacterOptions(userCharacters, { optional: isGmMode });
+    if (member.characterId && userCharacters.some((c) => c.id === member.characterId)) {
+      roleChar.value = member.characterId;
+    } else if (isGmMode) {
+      roleChar.value = '';
+    }
+  }
 
   function syncRoleForm() {
     const gmTaken = getPartyGM(members);
@@ -64,11 +90,7 @@ export async function initPartyPage({ user, profile, partyId, ui }) {
       <option value="character">Jugar con personaje</option>
       ${canPickGM ? '<option value="gm">Actuar como GM</option>' : ''}`;
     roleMode.value = member.playMode || 'character';
-    roleChar.innerHTML = userCharacters
-      .map((c) => `<option value="${c.id}">${c.name}</option>`)
-      .join('');
-    if (member.characterId) roleChar.value = member.characterId;
-    roleCharWrap.classList.toggle('d-none', roleMode.value === 'gm');
+    syncRoleCharUi();
   }
 
   function refreshActiveSelect() {
@@ -78,6 +100,10 @@ export async function initPartyPage({ user, profile, partyId, ui }) {
       activeSelect.innerHTML =
         '<option value="">— GM (sin personaje / situacional) —</option>' +
         partyRoster.map((c) => `<option value="${c.id}">${c.name}</option>`).join('');
+      if (member.characterId && partyRoster.some((c) => c.id === member.characterId)) {
+        activeSelect.value = member.characterId;
+      }
+      activeSelect.disabled = false;
     } else {
       const mine = memberToActiveCharacter(member);
       activeSelect.innerHTML = mine
@@ -105,16 +131,17 @@ export async function initPartyPage({ user, profile, partyId, ui }) {
   syncRoleForm();
   refreshActiveSelect();
 
-  roleMode.addEventListener('change', () => {
-    roleCharWrap.classList.toggle('d-none', roleMode.value === 'gm');
-  });
+  roleMode.addEventListener('change', syncRoleCharUi);
 
   roleSave.addEventListener('click', async () => {
     try {
       const playMode = roleMode.value;
-      const character = playMode === 'character'
-        ? userCharacters.find((c) => c.id === roleChar.value)
-        : null;
+      const charId = roleChar.value;
+      const character = charId ? userCharacters.find((c) => c.id === charId) : null;
+      if (playMode === 'character' && !character) {
+        alert('Selecciona un personaje.');
+        return;
+      }
       await updatePartyMembership(partyId, user.uid, user, profile, { playMode, character });
       member = await getPartyMember(partyId, user.uid);
       members = await loadPartyMembers(partyId);
@@ -208,8 +235,9 @@ export async function initPartyPage({ user, profile, partyId, ui }) {
 
 async function setupJoinFlow(partyId, user, profile, party, ui, onJoined) {
   const joinMode = document.getElementById('join-mode');
-  const joinCharWrap = document.getElementById('join-char-wrap');
   const joinChar = document.getElementById('join-character');
+  const joinCharLabel = document.getElementById('join-char-label');
+  const joinCharHint = document.getElementById('join-char-hint');
   const joinSubmit = document.getElementById('join-submit');
   const joinPartyName = document.getElementById('join-party-name');
 
@@ -223,21 +251,35 @@ async function setupJoinFlow(partyId, user, profile, party, ui, onJoined) {
     <option value="character">Con uno de mis personajes</option>
     ${hasGM ? '' : '<option value="gm">Como GM de la partida</option>'}`;
 
-  joinChar.innerHTML = characters.length
-    ? characters.map((c) => `<option value="${c.id}">${c.name}</option>`).join('')
-    : '<option value="">— Crea un personaje primero —</option>';
+  function buildJoinCharacterOptions({ optional } = {}) {
+    const empty = optional ? '<option value="">— Ninguno —</option>' : '';
+    const list = characters.length
+      ? characters.map((c) => `<option value="${c.id}">${c.name}</option>`).join('')
+      : '<option value="">— Crea un personaje primero —</option>';
+    return empty + list;
+  }
 
-  joinMode.addEventListener('change', () => {
-    joinCharWrap.classList.toggle('d-none', joinMode.value === 'gm');
-  });
-  joinCharWrap.classList.toggle('d-none', joinMode.value === 'gm');
+  function syncJoinCharUi() {
+    const isGmMode = joinMode.value === 'gm';
+    joinCharLabel.textContent = isGmMode
+      ? 'Mi personaje en la partida (opcional)'
+      : 'Personaje';
+    joinCharHint.textContent = isGmMode
+      ? 'Si eliges uno, podrás colocarlo en el tablero y jugarlo en combate.'
+      : '';
+    joinChar.innerHTML = buildJoinCharacterOptions({ optional: isGmMode });
+    if (!isGmMode && characters.length) joinChar.value = characters[0].id;
+    else if (isGmMode) joinChar.value = '';
+  }
+
+  syncJoinCharUi();
+  joinMode.addEventListener('change', syncJoinCharUi);
 
   joinSubmit.onclick = async () => {
     try {
       const playMode = joinMode.value;
-      const character = playMode === 'character'
-        ? characters.find((c) => c.id === joinChar.value)
-        : null;
+      const charId = joinChar.value;
+      const character = charId ? characters.find((c) => c.id === charId) : null;
       if (playMode === 'character' && !character) {
         alert('Necesitas al menos un personaje creado.');
         return;

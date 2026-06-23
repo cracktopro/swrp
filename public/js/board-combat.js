@@ -1,4 +1,4 @@
-import { rollDice, renderDiceResultHtml } from './dice.js';
+import { rollDice, renderDiceResultHtml, showDiceRollModal } from './dice.js';
 import { findSkillById, getSkillsForClass, skillTypeBadgeClass } from './compendium-store.js';
 import { getClassMeta } from './character-card.js';
 import { swrpAlert, swrpConfirm } from './swrp-dialog.js';
@@ -7,11 +7,13 @@ import {
   logEntrySkill,
   logEntryAction,
   cellLabel,
-  isCombatEnded
+  isCombatEnded,
+  isTokenDefeated
 } from './board.js';
 import {
   insertMention,
-  renderBoardMentionPickerItem
+  renderBoardMentionPickerItem,
+  renderMentionPickerItem
 } from './party-markup.js';
 
 function escapeHtml(str) {
@@ -32,12 +34,12 @@ export function buildTurnOptions(members, tokens) {
   }];
 
   members
-    .filter((m) => m.playMode === 'character' && m.characterSnapshot && m.characterId)
+    .filter((m) => m.characterSnapshot && m.characterId)
     .forEach((m) => {
       const onBoard = tokens.find(
         (t) => t.kind === 'character' && t.sourceId === m.characterId
       );
-      if (onBoard) {
+      if (onBoard && !isTokenDefeated(onBoard)) {
         options.push({
           kind: 'player',
           label: m.characterSnapshot.name,
@@ -56,16 +58,72 @@ function turnKey(turn) {
   return `${turn.kind}:${turn.userId || ''}:${turn.sourceId || ''}:${turn.tokenId || ''}`;
 }
 
-function syncTurnUi(activeTurn, turnOptions, turnOrder, turnOrderIndex, turnBannerEl, turnListEl, isGM) {
+function getTokenForTurn(turn, tokens) {
+  if (!turn) return null;
+  if (turn.tokenId) {
+    return tokens.find((t) => t.id === turn.tokenId) || null;
+  }
+  if (turn.sourceId) {
+    return tokens.find(
+      (t) => t.sourceId === turn.sourceId
+        && (turn.kind === 'player' ? t.kind === 'character' : true)
+    ) || null;
+  }
+  return null;
+}
+
+function getTurnCell(turn, tokens) {
+  const token = getTokenForTurn(turn, tokens);
+  return token ? cellLabel(token.col, token.row) : null;
+}
+
+function renderActorNameWithCell(name, cell) {
+  if (!cell) return escapeHtml(name);
+  return `${escapeHtml(name)} <span class="board-cell-badge">${escapeHtml(cell)}</span>`;
+}
+
+function collectTokensForTurn(turn, tokens) {
+  if (!turn) return [];
+  if (turn.kind === 'enemy' && !turn.tokenId && !turn.sourceId) {
+    return tokens.filter((t) => t.side === 'enemy' && !isTokenDefeated(t));
+  }
+  const token = getTokenForTurn(turn, tokens);
+  return token && !isTokenDefeated(token) ? [token] : [];
+}
+
+function collectRotationTokens(rotation, tokens) {
+  const out = [];
+  const seen = new Set();
+  (rotation || []).forEach((turn) => {
+    collectTokensForTurn(turn, tokens).forEach((t) => {
+      if (!seen.has(t.id)) {
+        seen.add(t.id);
+        out.push(t);
+      }
+    });
+  });
+  return out;
+}
+
+function getDiceSelectTokens(ctx) {
+  const { board } = ctx;
+  if (!board.activeTurn) return null;
+  if (board.turnOrder?.length && board.isStructuredCombat()) {
+    return collectRotationTokens(board.turnOrder, board.tokens);
+  }
+  return collectTokensForTurn(board.activeTurn, board.tokens);
+}
+
+function syncTurnUi(activeTurn, turnOptions, turnOrder, turnOrderIndex, turnBannerEl, turnListEl, isGM, tokens) {
   if (turnBannerEl) {
     if (!activeTurn) {
       turnBannerEl.textContent = 'Sin turno asignado';
       turnBannerEl.className = 'board-turn-banner board-turn-banner--idle small mb-2';
     } else if (activeTurn.kind === 'enemy') {
-      turnBannerEl.textContent = `Turno activo: ${activeTurn.label || 'Enemigos'}`;
+      turnBannerEl.innerHTML = `Turno activo: ${renderActorNameWithCell(activeTurn.label || 'Enemigos', getTurnCell(activeTurn, tokens))}`;
       turnBannerEl.className = 'board-turn-banner board-turn-banner--enemy small mb-2';
     } else {
-      turnBannerEl.textContent = `Turno activo: ${activeTurn.label}`;
+      turnBannerEl.innerHTML = `Turno activo: ${renderActorNameWithCell(activeTurn.label, getTurnCell(activeTurn, tokens))}`;
       turnBannerEl.className = 'board-turn-banner board-turn-banner--player small mb-2';
     }
   }
@@ -76,7 +134,7 @@ function syncTurnUi(activeTurn, turnOptions, turnOrder, turnOrderIndex, turnBann
   turnListEl.innerHTML = options.map((opt, index) => {
     const active = turnKey(activeTurn) === turnKey(opt);
     const queued = turnOrder?.length && index === turnOrderIndex;
-    const initiative = opt.initiativeTotal != null ? ` (${opt.initiativeTotal})` : '';
+    const cell = getTurnCell(opt, tokens);
     return `
       <button type="button"
         class="board-turn-btn${active ? ' is-active' : ''}${queued ? ' is-queued' : ''}"
@@ -85,7 +143,7 @@ function syncTurnUi(activeTurn, turnOptions, turnOrder, turnOrderIndex, turnBann
         data-turn-source="${opt.sourceId || ''}"
         data-turn-token="${opt.tokenId || ''}"
         data-turn-label="${escapeHtml(opt.label)}">
-        ${escapeHtml(opt.label)}${initiative}
+        <span class="board-turn-btn__label">${renderActorNameWithCell(opt.label, cell)}</span>
       </button>`;
   }).join('');
 }
@@ -171,6 +229,17 @@ function actorFromToken(token) {
   };
 }
 
+function resolveTurnActor(ctx) {
+  const { board } = ctx;
+  const turn = board.activeTurn;
+  if (!turn) return null;
+  const token = getTokenForTurn(turn, board.tokens);
+  if (token) return actorFromToken(token);
+  const actor = board.getActiveTurnActor();
+  if (!actor) return null;
+  return { actor, cell: null };
+}
+
 function resolveActiveActor(ctx, activeSelect) {
   const { board, isGM, member, roster, userCharacterSourceId } = ctx;
   if (isGM) {
@@ -198,9 +267,49 @@ function resolveActiveActor(ctx, activeSelect) {
   return null;
 }
 
-function canUseNarrative(board) {
-  if (!board.combatStarted || board.initiativeOpen) return false;
-  return board.canControlActiveTurn();
+function canUseNarrative(board, ctx) {
+  const { isGM, userCharacterSourceId } = ctx;
+  if (board.combatStarted && board.initiativeOpen) return false;
+  if (board.canControlActiveTurn()) return true;
+  if (board.isNarrativePhase()) {
+    if (isGM) return true;
+    if (!userCharacterSourceId) return false;
+    return board.tokens.some(
+      (t) => t.kind === 'character'
+        && t.sourceId === userCharacterSourceId
+        && !isTokenDefeated(t)
+    );
+  }
+  return false;
+}
+
+function resolveNarrativeActor(ctx, activeSelect) {
+  const fromTurn = resolveTurnActor(ctx);
+  if (fromTurn?.actor) return fromTurn;
+
+  const { board, isGM, userCharacterSourceId, member } = ctx;
+
+  if (board.isNarrativePhase() && userCharacterSourceId) {
+    const token = board.tokens.find(
+      (t) => t.kind === 'character' && t.sourceId === userCharacterSourceId
+    );
+    if (token) return actorFromToken(token);
+  }
+
+  if (isGM) {
+    const fromSelect = resolveActiveActor(ctx, activeSelect);
+    if (fromSelect?.actor) return fromSelect;
+  }
+
+  if (!isGM && member?.characterSnapshot) {
+    const meta = getClassMeta(member.characterSnapshot.class);
+    return {
+      actor: { ...member.characterSnapshot, color: meta.color },
+      cell: null
+    };
+  }
+
+  return null;
 }
 
 function skillTypeKey(type) {
@@ -287,6 +396,7 @@ function refreshInitiativeCharacterSelect(ctx, selectEl) {
   if (isGM) {
     const options = [{ id: '__enemies__', label: 'Enemigos (GM)' }];
     board.tokens.forEach((t) => {
+      if (isTokenDefeated(t)) return;
       options.push({
         id: t.id,
         label: `${t.name} (${cellLabel(t.col, t.row)})`
@@ -309,9 +419,13 @@ function refreshInitiativeCharacterSelect(ctx, selectEl) {
   const token = board.tokens.find(
     (t) => t.kind === 'character' && t.sourceId === userCharacterSourceId
   );
-  selectEl.innerHTML = token
-    ? `<option value="${token.id}">${escapeHtml(token.name)} (${cellLabel(token.col, token.row)})</option>`
-    : '<option value="">— Tu personaje no está en el tablero —</option>';
+  if (token && isTokenDefeated(token)) {
+    selectEl.innerHTML = '<option value="">— Tu personaje está derrotado —</option>';
+  } else if (token) {
+    selectEl.innerHTML = `<option value="${token.id}">${escapeHtml(token.name)} (${cellLabel(token.col, token.row)})</option>`;
+  } else {
+    selectEl.innerHTML = '<option value="">— Tu personaje no está en el tablero —</option>';
+  }
   selectEl.disabled = true;
 }
 
@@ -381,14 +495,34 @@ function resolveInitiativeActor(ctx, selectEl) {
   return null;
 }
 
+function formatTokenSelectLabel(token) {
+  const cell = cellLabel(token.col, token.row);
+  return `${token.name} · ${cell}`;
+}
+
 function refreshActiveCharacterSelect(ctx, selectEl) {
   if (!selectEl) return;
   const { board, isGM, roster, userCharacterSourceId } = ctx;
+  const prev = selectEl.value;
+  const rotationPool = getDiceSelectTokens(ctx);
+
+  if (rotationPool?.length) {
+    selectEl.innerHTML = rotationPool
+      .map((t) => `<option value="${escapeHtml(t.id)}">${escapeHtml(formatTokenSelectLabel(t))}</option>`)
+      .join('');
+    if (rotationPool.some((t) => t.id === prev)) {
+      selectEl.value = prev;
+    } else {
+      selectEl.value = rotationPool[0].id;
+    }
+    selectEl.disabled = !isGM && rotationPool.length <= 1;
+    return;
+  }
 
   if (isGM) {
     const options = board.tokens.map((t) => ({
       id: t.id,
-      label: `${t.name} (${cellLabel(t.col, t.row)})`
+      label: formatTokenSelectLabel(t)
     }));
     const onBoardCharIds = new Set(
       board.tokens.filter((t) => t.kind === 'character').map((t) => t.sourceId)
@@ -398,8 +532,9 @@ function refreshActiveCharacterSelect(ctx, selectEl) {
       .forEach((c) => options.push({ id: c.id, label: c.name }));
 
     selectEl.innerHTML = options.length
-      ? options.map((o) => `<option value="${o.id}">${escapeHtml(o.label)}</option>`).join('')
+      ? options.map((o) => `<option value="${escapeHtml(o.id)}">${escapeHtml(o.label)}</option>`).join('')
       : '<option value="">— Sin chapas en tablero —</option>';
+    if (options.some((o) => o.id === prev)) selectEl.value = prev;
     selectEl.disabled = false;
     return;
   }
@@ -408,7 +543,7 @@ function refreshActiveCharacterSelect(ctx, selectEl) {
     (t) => t.kind === 'character' && t.sourceId === userCharacterSourceId
   );
   selectEl.innerHTML = token
-    ? `<option value="${token.id}">${escapeHtml(token.name)} (${cellLabel(token.col, token.row)})</option>`
+    ? `<option value="${token.id}">${escapeHtml(formatTokenSelectLabel(token))}</option>`
     : '<option value="">— Tu personaje no está en el tablero —</option>';
   selectEl.disabled = true;
 }
@@ -446,45 +581,50 @@ export function initBoardCombatUi(ctx) {
   const actionStatusEl = document.getElementById('board-action-status');
   const actionMoveBtn = document.getElementById('board-action-mode-move');
   const actionAttackBtn = document.getElementById('board-action-mode-attack');
-  const attackToolsEl = document.getElementById('board-attack-tools');
 
   let mentionAtIndex = null;
 
   function syncTurnActionUi() {
-    const inCombat = board.combatStarted && !board.initiativeOpen;
+    const narrative = board.isNarrativePhase();
+    const structured = board.isStructuredCombat();
     const hasControl = board.canControlActiveTurn();
     const used = board.getActionsUsed();
+    const showPanel = (narrative || structured) && hasControl;
 
-    turnActionsPanel?.classList.toggle('d-none', !inCombat || !hasControl);
+    turnActionsPanel?.classList.toggle('d-none', !showPanel);
     advanceTurnBtn?.classList.toggle('d-none', !board.canUserAdvanceTurn());
 
     if (actionStatusEl) {
-      actionStatusEl.textContent = `Acciones: ${used}/2`;
+      actionStatusEl.textContent = showPanel ? `Acciones: ${used}/2` : '';
     }
 
-    const canPickMore = hasControl && used < 2;
+    const modesEnabled = hasControl && used < 2;
     if (actionMoveBtn) {
-      actionMoveBtn.disabled = !canPickMore;
+      actionMoveBtn.disabled = !modesEnabled;
       actionMoveBtn.classList.toggle('is-active', board.turnActions.activeMode === 'move');
     }
     if (actionAttackBtn) {
-      actionAttackBtn.disabled = !canPickMore;
+      actionAttackBtn.textContent = narrative ? 'Ataque sorpresa' : 'Atacar';
+      actionAttackBtn.disabled = !modesEnabled;
       actionAttackBtn.classList.toggle('is-active', board.turnActions.activeMode === 'attack');
     }
 
     const attackReady = board.canUseAttackActions();
-    attackToolsEl?.classList.toggle('board-attack-tools--disabled', !attackReady);
+    const diceReady = board.canUseDiceConsole();
     diceForm?.querySelectorAll('input, select, button').forEach((el) => {
-      el.disabled = !attackReady;
+      el.disabled = !diceReady;
     });
-    skillsList?.querySelectorAll('.board-skill-btn').forEach((btn) => {
-      btn.disabled = !attackReady;
-    });
+    skillsList?.classList.toggle('board-attack-tools--disabled', !attackReady);
   }
 
   function syncCombatControls() {
-    const combatEnded = board.combatStarted && isCombatEnded(board.tokens);
-    endCombatBtn?.classList.toggle('d-none', !isGM || !combatEnded);
+    const showEnd = isGM && board.combatStarted;
+    endCombatBtn?.classList.toggle('d-none', !showEnd);
+    if (endCombatBtn && board.combatStarted && isCombatEnded(board.tokens)) {
+      endCombatBtn.classList.add('board-end-combat--suggested');
+    } else {
+      endCombatBtn?.classList.remove('board-end-combat--suggested');
+    }
     syncTurnActionUi();
   }
 
@@ -496,22 +636,29 @@ export function initBoardCombatUi(ctx) {
     }
   }
 
-  function syncCombatControls() {
-    const combatEnded = board.combatStarted && isCombatEnded(board.tokens);
-    endCombatBtn?.classList.toggle('d-none', !isGM || !combatEnded);
-    syncTurnActionUi();
-  }
-
   function syncPanelsVisibility() {
-    const started = board.combatStarted;
-    const initiativeOpen = board.initiativeOpen;
-    combatPanel?.classList.toggle('d-none', !started || initiativeOpen);
-    turnPanel?.classList.toggle('d-none', !started || initiativeOpen);
-    initiativePanel?.classList.toggle('d-none', !initiativeOpen);
-    document.getElementById('board-turn-assign-hint')?.classList.toggle('d-none', !isGM);
+    const narrative = board.isNarrativePhase();
+    const initiativePhase = board.combatStarted && board.initiativeOpen;
+    const structured = board.isStructuredCombat();
+
+    combatPanel?.classList.toggle('d-none', initiativePhase || (!narrative && !structured));
+    turnPanel?.classList.remove('d-none');
+    initiativePanel?.classList.toggle('d-none', !initiativePhase);
+
+    const narrativeHint = document.getElementById('board-narrative-hint');
+    narrativeHint?.classList.toggle('d-none', !narrative);
+
+    const turnHint = document.getElementById('board-turn-assign-hint');
+    if (turnHint) {
+      turnHint.textContent = narrative
+        ? 'Fase narrativa: 2 acciones por turno (máx. 5 casillas en movimiento). Tras usarlas, «Siguiente turno» y el GM asigna el siguiente. «Ataque sorpresa» abre el combate.'
+        : 'Asigna el turno manualmente o deja que el jugador activo gestione sus acciones.';
+      turnHint.classList.toggle('d-none', !isGM);
+    }
+
     turnListEl?.classList.toggle('d-none', !isGM);
     if (combatHint) {
-      combatHint.classList.toggle('d-none', started || !isGM);
+      combatHint.classList.toggle('d-none', board.combatStarted || !isGM);
     }
     refreshInitiativeUi();
     syncCombatControls();
@@ -526,14 +673,18 @@ export function initBoardCombatUi(ctx) {
       board.turnOrderIndex,
       turnBannerEl,
       turnListEl,
-      isGM
+      isGM,
+      board.tokens
     );
     refreshActiveCharacterSelect(ctx, activeSelect);
     refreshInitiativeCharacterSelect(ctx, initiativeSelect);
     const { actor: char } = resolveActiveActor(ctx, activeSelect) || {};
     renderSkillsList(skillsList, char, async (skill) => {
       if (!board.canUseAttackActions()) {
-        await swrpAlert({ title: 'Acción no disponible', message: 'Elige «Atacar» para usar habilidades.' });
+        const msg = board.isNarrativePhase()
+          ? 'Elige «Ataque sorpresa» para usar habilidades.'
+          : 'Elige «Atacar» para usar habilidades.';
+        await swrpAlert({ title: 'Acción no disponible', message: msg });
         return;
       }
       const resolved = resolveActiveActor(ctx, activeSelect);
@@ -541,7 +692,9 @@ export function initBoardCombatUi(ctx) {
         await swrpAlert({ title: 'Sin actor', message: 'No hay chapa activa para registrar la habilidad.' });
         return;
       }
-      await board.appendLog(logEntrySkill(resolved.actor, skill, resolved.cell));
+      await board.appendLog(logEntrySkill(resolved.actor, skill, resolved.cell), {
+        force: !board.combatStarted
+      });
       await board.consumeAttackAction();
       syncTurnActionUi();
     });
@@ -555,15 +708,29 @@ export function initBoardCombatUi(ctx) {
     const list = document.getElementById('board-mention-list');
     if (!list) return;
     list.innerHTML = '';
-    if (!board.tokens.length) {
-      list.innerHTML = '<p class="text-muted small mb-0">No hay chapas en el tablero.</p>';
-    } else {
+    const seen = new Set();
+
+    if (board.tokens.length) {
       board.tokens.forEach((token) => {
+        seen.add(token.id);
         list.appendChild(renderBoardMentionPickerItem(token, (selected) => {
           insertMention(actionText, mentionAtIndex, selected.id);
           mentionUi.modal.hide();
         }));
       });
+    }
+
+    roster.forEach((char) => {
+      if (!char?.id || seen.has(char.id)) return;
+      seen.add(char.id);
+      list.appendChild(renderMentionPickerItem(char, (selected) => {
+        insertMention(actionText, mentionAtIndex, selected.id);
+        mentionUi.modal.hide();
+      }));
+    });
+
+    if (!seen.size) {
+      list.innerHTML = '<p class="text-muted small mb-0">No hay chapas ni personajes disponibles.</p>';
     }
     mentionUi.modal.show();
   }
@@ -629,6 +796,21 @@ export function initBoardCombatUi(ctx) {
     if (turn.userId === '') turn.userId = null;
     if (turn.sourceId === '') turn.sourceId = null;
     if (turn.tokenId === '') turn.tokenId = null;
+
+    const current = board.activeTurn;
+    if (current && turnKey(current) !== turnKey(turn)) {
+      const activeName = current.label || 'el turno activo';
+      const targetName = turn.label || 'otro participante';
+      const ok = await swrpConfirm({
+        title: 'Cambiar turno activo',
+        message: `¿Confirmas asignar el turno a ${targetName}? Esta acción cortará las acciones pendientes de ${activeName}.`,
+        confirmText: 'Confirmar',
+        cancelText: 'Cancelar',
+        danger: true
+      });
+      if (!ok) return;
+    }
+
     await board.setActiveTurn(turn);
   });
 
@@ -652,6 +834,7 @@ export function initBoardCombatUi(ctx) {
     }
     try {
       const roll = rollDice('1d20', 0);
+      showDiceRollModal({ actorName: resolved.actor.name, roll, label: 'Iniciativa' });
       await board.appendInitiativeRoll({
         name: resolved.actor.name,
         class: resolved.actor.class,
@@ -721,7 +904,7 @@ export function initBoardCombatUi(ctx) {
   endCombatBtn?.addEventListener('click', async () => {
     const ok = await swrpConfirm({
       title: 'Finalizar combate',
-      message: '¿Finalizar el combate? Se habilitará una nueva tirada de iniciativa.',
+      message: '¿Finalizar el combate y volver a la fase narrativa del tablero?',
       confirmText: 'Finalizar',
       cancelText: 'Cancelar',
       danger: true
@@ -733,8 +916,11 @@ export function initBoardCombatUi(ctx) {
 
   diceForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (!board.canUseAttackActions()) {
-      await swrpAlert({ title: 'Acción no disponible', message: 'Elige «Atacar» para lanzar dados.' });
+    if (!board.canUseDiceConsole()) {
+      const msg = board.isNarrativePhase()
+        ? 'Elige «Ataque sorpresa» para lanzar dados.'
+        : 'La consola de dados no está disponible en esta fase.';
+      await swrpAlert({ title: 'Acción no disponible', message: msg });
       return;
     }
     const resolved = resolveActiveActor(ctx, activeSelect);
@@ -754,8 +940,13 @@ export function initBoardCombatUi(ctx) {
     const attackMod = label.toLowerCase().includes('ataque') ? (char.attack ?? mod) : mod;
     try {
       const roll = rollDice(notation, attackMod);
-      await board.appendLog(logEntryDice(char, roll, label, cell));
-      await board.consumeAttackAction();
+      showDiceRollModal({ actorName: char.name, roll, label });
+      await board.appendLog(logEntryDice(char, roll, label, cell), {
+        force: !board.combatStarted
+      });
+      if (board.canUseAttackActions()) {
+        await board.consumeAttackAction();
+      }
       syncTurnActionUi();
     } catch (err) {
       await swrpAlert({ title: 'Error en tirada', message: err.message });
@@ -764,18 +955,25 @@ export function initBoardCombatUi(ctx) {
 
   actionForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (!canUseNarrative(board)) {
-      await swrpAlert({ title: 'Fuera de turno', message: 'Solo puedes registrar acciones narrativas en tu turno.' });
+    if (!canUseNarrative(board, ctx)) {
+      await swrpAlert({
+        title: 'Acción no disponible',
+        message: board.isNarrativePhase()
+          ? 'Tu personaje debe estar en el tablero para registrar acciones narrativas.'
+          : 'Solo puedes registrar acciones narrativas en tu turno.'
+      });
       return;
     }
     const text = document.getElementById('board-action-text').value.trim();
     if (!text) return;
-    const resolved = resolveActiveActor(ctx, activeSelect);
+    const resolved = resolveNarrativeActor(ctx, activeSelect);
     if (!resolved?.actor) {
-      await swrpAlert({ title: 'Sin actor', message: 'Selecciona una chapa para registrar la acción.' });
+      await swrpAlert({ title: 'Sin actor', message: 'No hay personaje asignado para registrar la acción.' });
       return;
     }
-    await board.appendLog(logEntryAction(resolved.actor, text, resolved.cell));
+    await board.appendLog(logEntryAction(resolved.actor, text, resolved.cell), {
+      force: !board.combatStarted
+    });
     document.getElementById('board-action-text').value = '';
   });
 
@@ -783,12 +981,17 @@ export function initBoardCombatUi(ctx) {
     const { actor: char } = resolveActiveActor(ctx, activeSelect) || {};
     renderSkillsList(skillsList, char, async (skill) => {
       if (!board.canUseAttackActions()) {
-        await swrpAlert({ title: 'Acción no disponible', message: 'Elige «Atacar» para usar habilidades.' });
+        const msg = board.isNarrativePhase()
+          ? 'Elige «Ataque sorpresa» para usar habilidades.'
+          : 'Elige «Atacar» para usar habilidades.';
+        await swrpAlert({ title: 'Acción no disponible', message: msg });
         return;
       }
       const resolved = resolveActiveActor(ctx, activeSelect);
       if (!resolved?.actor) return;
-      await board.appendLog(logEntrySkill(resolved.actor, skill, resolved.cell));
+      await board.appendLog(logEntrySkill(resolved.actor, skill, resolved.cell), {
+        force: !board.combatStarted
+      });
       await board.consumeAttackAction();
       syncTurnActionUi();
     });

@@ -55,10 +55,18 @@ export function resolveCharacterStats(character) {
 }
 
 export function renderCharacterCard(character, options = {}) {
-  const { mini = false, showSkills = true, isNpc = false, copyMentionId = null } = options;
+  const { mini = false, showSkills = true, isNpc = false, copyMentionId = null, boardContext = null } = options;
   const char = normalizeCharacter(character, character?.id);
   const meta = getClassMeta(char.class);
   const stats = resolveCharacterStats(char);
+  const displayStats = boardContext
+    ? {
+        ...stats,
+        hp: boardContext.hp ?? stats.hp,
+        maxHp: boardContext.maxHp ?? stats.maxHp,
+        defense: boardContext.defense ?? stats.defense
+      }
+    : stats;
   const skills = (char.skills || []).map((s) =>
     typeof s === 'string' ? findSkillById(char.class, s) : s
   ).filter(Boolean);
@@ -105,10 +113,10 @@ export function renderCharacterCard(character, options = {}) {
     <div class="swrp-card__body">
       <div class="swrp-card__left">
         <div class="swrp-card__stats">
-          ${statRow('P.GOLPE', stats.hp)}
-          ${statRow('DEFENSA', stats.defense)}
+          ${statRow('P.GOLPE', displayStats.hp, boardContext?.hpDamaged ? 'swrp-card__hex--hp-damaged' : '')}
+          ${statRow('DEFENSA', displayStats.defense, boardContext?.defenseInCover ? 'swrp-card__hex--defense-cover' : '')}
           ${statRow('ATAQUE', attackFmt)}
-          ${statRow('DAÑO', stats.damage)}
+          ${statRow('DAÑO', displayStats.damage)}
         </div>
         ${char.portraitUrl ? `
           <div class="swrp-card__portrait">
@@ -170,12 +178,13 @@ export function renderNpcCard(npc) {
   );
 }
 
-function statRow(label, value) {
+function statRow(label, value, hexClass = '') {
+  const hexMods = ['swrp-card__hex--stat', hexClass].filter(Boolean).join(' ');
   return `
     <div class="swrp-card__stat-row">
       <span class="swrp-card__stat-label">${label}</span>
       <div class="swrp-card__stat-bar"></div>
-      <div class="swrp-card__hex swrp-card__hex--stat">${escapeHtml(String(value))}</div>
+      <div class="swrp-card__hex ${hexMods}">${escapeHtml(String(value))}</div>
     </div>`;
 }
 

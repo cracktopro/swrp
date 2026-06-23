@@ -86,12 +86,19 @@ export function enemySeesAlly(enemy, allies, cols, rows) {
 
 export function normalizeBoardToken(token) {
   if (!token) return token;
+  if (token.inCover === undefined) token.inCover = false;
   if (token.side === 'enemy') {
     if (!FACING_DIRS.includes(token.facing)) token.facing = 'left';
     if (token.alerted === undefined) token.alerted = false;
     if (token.visionSuppressed === undefined) token.visionSuppressed = false;
   }
   return token;
+}
+
+export function resetEnemyVisionToSpawn(token) {
+  if (!token || token.side !== 'enemy') return;
+  token.alerted = false;
+  token.visionSuppressed = false;
 }
 
 /** Marca alerted=true en enemigos que ven a un aliado. Devuelve si hubo cambios. */

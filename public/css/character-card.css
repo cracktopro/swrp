@@ -254,6 +254,18 @@
   font-size: 1rem;
 }
 
+.swrp-card__hex--defense-cover {
+  color: #7dffb3;
+  border-color: rgba(57, 255, 120, 0.85);
+  box-shadow: 0 0 10px rgba(57, 255, 120, 0.35);
+}
+
+.swrp-card__hex--hp-damaged {
+  color: #ffb3b3;
+  border-color: rgba(255, 154, 154, 0.75);
+  box-shadow: 0 0 8px rgba(255, 138, 128, 0.25);
+}
+
 .swrp-card__skills-panel {
   border: 2px solid var(--card-accent);
   box-shadow:

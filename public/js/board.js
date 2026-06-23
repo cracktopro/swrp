@@ -14,7 +14,8 @@ import {
   computeEnemyStatusIcons,
   drawVisionConeOnCanvas,
   facingLabel,
-  FACING_DIRS
+  FACING_DIRS,
+  resetEnemyVisionToSpawn
 } from './board-vision.js';
 import { swrpConfirm } from './swrp-dialog.js';
 import { renderDiceResultHtml } from './dice.js';
@@ -25,12 +26,14 @@ import {
 } from './party-markup.js';
 
 const ICON_BASE = 'icons';
+export const COVER_DEFENSE_BONUS = 4;
 
 const ENEMY_STATUS_MODIFIERS = {
   out_of_range: 'out-of-range',
   no_vision: 'no-vision',
   vision: 'vision',
-  alarm: 'alarm'
+  alarm: 'alarm',
+  cover: 'cover'
 };
 
 function uniqueBoardTokenId(template) {
@@ -69,13 +72,35 @@ function stripUndefinedDeep(value) {
 
 const MOVE_RANGE = 5;
 const MAX_TURN_ACTIONS = 2;
+const ORTHO_DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
 function defaultTurnActions() {
   return { movesUsed: 0, attacksUsed: 0, activeMode: null };
 }
 
-function chebyshevDistance(c1, r1, c2, r2) {
-  return Math.max(Math.abs(c2 - c1), Math.abs(r2 - r1));
+function computeOrthogonalReachable(fromCol, fromRow, token, tokens, cols, rows, maxRange) {
+  const blocked = new Set(
+    tokens.filter((t) => t.id !== token.id).map((t) => `${t.col},${t.row}`)
+  );
+  const reachable = new Set();
+  const queue = [[fromCol, fromRow, 0]];
+  const visited = new Set([`${fromCol},${fromRow}`]);
+
+  while (queue.length) {
+    const [c, r, dist] = queue.shift();
+    if (dist > 0) reachable.add(`${c},${r}`);
+    if (dist >= maxRange) continue;
+    for (const [dc, dr] of ORTHO_DIRS) {
+      const nc = c + dc;
+      const nr = r + dr;
+      if (nc < 0 || nc >= cols || nr < 0 || nr >= rows) continue;
+      const key = `${nc},${nr}`;
+      if (visited.has(key) || blocked.has(key)) continue;
+      visited.add(key);
+      queue.push([nc, nr, dist + 1]);
+    }
+  }
+  return reachable;
 }
 
 function normalizeTurnActions(value) {
@@ -103,7 +128,7 @@ export class TacticalBoard {
     this.initiativeLogEl = options.initiativeLogEl || null;
     this.initiativeOrderEl = options.initiativeOrderEl || null;
     this.initiativeLog = [];
-    this.initiativeOpen = true;
+    this.initiativeOpen = false;
     this.turnOrder = [];
     this.turnOrderIndex = 0;
     this.turnActions = defaultTurnActions();
@@ -195,7 +220,9 @@ export class TacticalBoard {
       this.tokens = (data.tokens || []).map((t) => normalizeBoardToken({ ...t }));
       this.combatStarted = !!data.combatStarted;
       this.activeTurn = data.activeTurn ?? null;
-      this.initiativeOpen = data.initiativeOpen ?? !data.combatStarted;
+      this.initiativeOpen = data.combatStarted
+        ? (data.initiativeOpen ?? false)
+        : false;
       this.turnOrder = data.turnOrder || [];
       this.turnOrderIndex = data.turnOrderIndex ?? 0;
       this.turnActions = normalizeTurnActions(data.turnActions);
@@ -218,7 +245,7 @@ export class TacticalBoard {
       this.tokens = [];
       this.combatStarted = false;
       this.activeTurn = null;
-      this.initiativeOpen = true;
+      this.initiativeOpen = false;
       this.turnOrder = [];
       this.turnOrderIndex = 0;
       this.turnActions = defaultTurnActions();
@@ -242,7 +269,9 @@ export class TacticalBoard {
       this.tokens = (data.tokens || []).map((t) => normalizeBoardToken({ ...t }));
       this.combatStarted = !!data.combatStarted;
       this.activeTurn = data.activeTurn ?? null;
-      this.initiativeOpen = data.initiativeOpen ?? !data.combatStarted;
+      this.initiativeOpen = data.combatStarted
+        ? (data.initiativeOpen ?? false)
+        : false;
       this.turnOrder = data.turnOrder || [];
       this.turnOrderIndex = data.turnOrderIndex ?? 0;
       this.turnActions = normalizeTurnActions(data.turnActions);
@@ -347,19 +376,45 @@ export class TacticalBoard {
     }
   }
 
-  async startCombat() {
-    if (!this.isGM || this.combatStarted) return;
+  isStructuredCombat() {
+    return this.combatStarted && !this.initiativeOpen;
+  }
+
+  isNarrativePhase() {
+    return !this.combatStarted;
+  }
+
+  async startCombat({ fromSurpriseAttack = false } = {}) {
+    if (this.combatStarted) return;
+    if (!this.isGM && !fromSurpriseAttack) return;
     this.combatStarted = true;
-    this.initiativeOpen = false;
-    await this.saveState({ combatStarted: true, initiativeOpen: false });
-    await this.appendLog(logEntrySystem('inició el combate'), { force: true });
+    this.initiativeOpen = true;
+    this.initiativeLog = [];
+    this.activeTurn = null;
+    this.turnOrder = [];
+    this.turnOrderIndex = 0;
+    this.resetTurnActions();
+    await this.saveState({
+      combatStarted: true,
+      initiativeOpen: true,
+      initiativeLog: [],
+      activeTurn: null,
+      turnOrder: [],
+      turnOrderIndex: 0,
+      turnActions: this.turnActions
+    });
+    this.renderInitiativeLog([]);
+    this.renderInitiativeOrderPreview(null);
+    await this.appendLog(logEntrySystem('abrió la tirada de iniciativa'), { force: true });
     this.onCombatStateChange(true);
     this.onInitiativeStateChange?.(this.initiativeOpen);
+    this.onActiveTurnChange(null);
+    this.renderTokenLayer();
   }
 
   async completeInitiative(turnOrder) {
     if (!this.isGM || !this.initiativeOpen || !turnOrder?.length) return;
-    const wasStarted = this.combatStarted;
+    const hadPriorTurnOrder = this.turnOrder?.length > 0;
     this.combatStarted = true;
     this.initiativeOpen = false;
     this.turnOrder = turnOrder;
@@ -378,12 +433,12 @@ export class TacticalBoard {
     });
     this.renderInitiativeLog([]);
     this.renderInitiativeOrderPreview(null);
-    if (!wasStarted) {
+    if (!hadPriorTurnOrder) {
       await this.appendLog(logEntrySystem('inició el combate'), { force: true });
     }
     const orderLabels = turnOrder.map((t) => t.label).join(' → ');
     await this.appendLog(logEntrySystem(`Orden de iniciativa: ${orderLabels}`));
-    if (wasStarted && this.activeTurn?.label) {
+    if (this.activeTurn?.label) {
       await this.appendLog(logEntrySystem(`cede el turno a ${this.activeTurn.label}`));
     }
     this.onCombatStateChange(true);
@@ -392,8 +447,34 @@ export class TacticalBoard {
     this.renderTokenLayer();
   }
 
+  isActionPhase() {
+    return this.isNarrativePhase() || this.isStructuredCombat();
+  }
+
+  usesRestrictedMovement() {
+    if (this.turnActions.activeMode !== 'move') return false;
+    if (this.isStructuredCombat()) return true;
+    if (!this.isNarrativePhase() || !this.activeTurn) return false;
+    return this.canControlActiveTurn();
+  }
+
   async advanceTurn() {
     if (!this.canUserAdvanceTurn()) return;
+    if (this.isNarrativePhase()) {
+      this.activeTurn = null;
+      this.resetTurnActions();
+      await this.appendLog(
+        logEntrySystem('fin del turno — a la espera de que el GM asigne el siguiente'),
+        { force: true }
+      );
+      await this.saveState({
+        activeTurn: null,
+        turnActions: this.turnActions
+      });
+      this.onActiveTurnChange(null);
+      this.renderTokenLayer();
+      return;
+    }
     const prevIndex = this.turnOrderIndex;
     const cycleCompleted = prevIndex === this.turnOrder.length - 1;
     if (cycleCompleted) {
@@ -431,7 +512,7 @@ export class TacticalBoard {
   async endCombat() {
     if (!this.isGM || !this.combatStarted) return;
     this.combatStarted = false;
-    this.initiativeOpen = true;
+    this.initiativeOpen = false;
     this.activeTurn = null;
     this.turnOrder = [];
     this.turnOrderIndex = 0;
@@ -439,7 +520,7 @@ export class TacticalBoard {
     this.resetTurnActions();
     await this.saveState({
       combatStarted: false,
-      initiativeOpen: true,
+      initiativeOpen: false,
       activeTurn: null,
       turnOrder: [],
       turnOrderIndex: 0,
@@ -467,8 +548,13 @@ export class TacticalBoard {
       activeTurn: this.activeTurn,
       turnOrderIndex: this.turnOrderIndex
     });
-    if (this.combatStarted && turn?.label) {
-      await this.appendLog(logEntrySystem(`cede el turno a ${turn.label}`));
+    if (turn?.label) {
+      const entry = logEntrySystem(`cede el turno a ${turn.label}`);
+      if (this.combatStarted) {
+        await this.appendLog(entry);
+      } else {
+        await this.appendLog(entry, { force: true });
+      }
     }
     this.onActiveTurnChange(this.activeTurn);
     this.renderTokenLayer();
@@ -482,6 +568,19 @@ export class TacticalBoard {
     const clamped = Math.max(0, Math.min(Number(hp) || 0, maxHp));
     if (token.characterSnapshot) {
       token.characterSnapshot.hp = clamped;
+    }
+    await this.saveState({});
+    this.render();
+    this.onTokensChange(this.tokens);
+  }
+
+  async updateTokenForce(tokenId, force) {
+    if (!this.isGM) return;
+    const token = this.tokens.find((t) => t.id === tokenId);
+    if (!token || !tokenHasForceStat(token)) return;
+    const clamped = Math.max(0, Number(force) || 0);
+    if (token.characterSnapshot) {
+      token.characterSnapshot.force = clamped;
     }
     await this.saveState({});
     this.render();
@@ -502,14 +601,22 @@ export class TacticalBoard {
   }
 
   canControlActiveTurn() {
-    if (!this.combatStarted || this.initiativeOpen || !this.activeTurn) return false;
+    if (!this.activeTurn) return false;
+    if (!this.combatStarted) {
+      if (this.activeTurn.kind === 'enemy') return this.isGM;
+      return this.activeTurn.kind === 'player' && this.activeTurn.userId === this.userId;
+    }
+    if (this.initiativeOpen) return false;
     if (this.activeTurn.kind === 'enemy') return this.isGM;
     return this.activeTurn.kind === 'player' && this.activeTurn.userId === this.userId;
   }
 
   canUserAdvanceTurn() {
-    if (!this.combatStarted || this.initiativeOpen || !this.turnOrder.length) return false;
     if (!this.isTurnActionsComplete()) return false;
+    if (this.isNarrativePhase()) {
+      return this.canControlActiveTurn();
+    }
+    if (!this.combatStarted || this.initiativeOpen || !this.turnOrder.length) return false;
     return this.canControlActiveTurn();
   }
 
@@ -531,7 +638,10 @@ export class TacticalBoard {
     await this.saveState({ turnActions: this.turnActions });
     const actor = this.getActiveTurnActor();
     if (actor && mode === 'attack') {
-      await this.appendLog(logEntryTurnAction(actor, mode));
+      const actionKey = this.isNarrativePhase() ? 'surprise' : 'attack';
+      await this.appendLog(logEntryTurnAction(actor, actionKey), {
+        force: this.isNarrativePhase()
+      });
     }
     this.onTurnActionsChange?.(this.turnActions);
     this.render();
@@ -547,11 +657,26 @@ export class TacticalBoard {
   }
 
   async consumeAttackAction() {
+    if (this.isNarrativePhase()) {
+      await this.finishSurpriseAttack();
+      return;
+    }
     this.turnActions.attacksUsed = (this.turnActions.attacksUsed || 0) + 1;
     this.turnActions.activeMode = null;
     await this.saveState({ turnActions: this.turnActions });
     this.onTurnActionsChange?.(this.turnActions);
     this.render();
+  }
+
+  async finishSurpriseAttack() {
+    if (!this.isNarrativePhase()) return;
+    this.turnActions.movesUsed = MAX_TURN_ACTIONS;
+    this.turnActions.attacksUsed = MAX_TURN_ACTIONS;
+    this.turnActions.activeMode = null;
+    await this.saveState({ turnActions: this.turnActions });
+    this.onTurnActionsChange?.(this.turnActions);
+    await this.appendLog(logEntrySystem('Ataque sorpresa — se abre la tirada de iniciativa'), { force: true });
+    await this.startCombat({ fromSurpriseAttack: true });
   }
 
   getActiveTurnActor() {
@@ -589,14 +714,38 @@ export class TacticalBoard {
 
   isCellReachableForMove(token, col, row, fromCol, fromRow) {
     if (col < 0 || col >= this.cols || row < 0 || row >= this.rows) return false;
-    if (chebyshevDistance(fromCol, fromRow, col, row) > MOVE_RANGE) return false;
-    return !this.tokens.some((t) => t.id !== token.id && t.col === col && t.row === row);
+    const reachable = computeOrthogonalReachable(
+      fromCol,
+      fromRow,
+      token,
+      this.tokens,
+      this.cols,
+      this.rows,
+      MOVE_RANGE
+    );
+    return reachable.has(`${col},${row}`);
   }
 
   canUserMoveToken(token) {
-    if (!this.combatStarted || this.initiativeOpen) {
-      return this.isGM;
+    if (isTokenDefeated(token)) return false;
+
+    if (!this.combatStarted) {
+      if (this.isGM && !this.activeTurn) return true;
+      if (!this.activeTurn) return false;
+      if (this.getActionsUsed() >= MAX_TURN_ACTIONS) return false;
+      if (this.turnActions.activeMode !== 'move') return false;
+      if (this.activeTurn.kind === 'enemy') {
+        return this.isGM && token.side === 'enemy';
+      }
+      return this.activeTurn.kind === 'player'
+        && this.activeTurn.userId === this.userId
+        && token.kind === 'character'
+        && token.sourceId === this.activeTurn.sourceId
+        && token.side !== 'enemy';
     }
+
+    if (this.initiativeOpen) return this.isGM;
+
     if (!this.canControlActiveTurn()) return false;
     if (this.turnActions.activeMode !== 'move') return false;
     if (this.getActionsUsed() >= MAX_TURN_ACTIONS) return false;
@@ -615,8 +764,13 @@ export class TacticalBoard {
     return this.turnActions.activeMode === 'attack' && this.getActionsUsed() < MAX_TURN_ACTIONS;
   }
 
+  canUseDiceConsole() {
+    if (this.isStructuredCombat()) return true;
+    return this.canUseAttackActions();
+  }
+
   isTokenActiveTurn(token) {
-    if (!this.combatStarted || !this.activeTurn) return false;
+    if (!this.activeTurn || isTokenDefeated(token)) return false;
     if (this.activeTurn.kind === 'enemy') return token.side === 'enemy';
     if (this.activeTurn.kind === 'player') {
       return token.kind === 'character' && token.sourceId === this.activeTurn.sourceId;
@@ -642,10 +796,10 @@ export class TacticalBoard {
   }
 
   async clearLog() {
-    if (!this.isGM || !this.combatStarted) return;
+    if (!this.isGM) return;
     const ok = await swrpConfirm({
       title: 'Borrar historial',
-      message: '¿Borrar el historial y reiniciar la partida? El combate volverá al estado previo al inicio.',
+      message: '¿Borrar el historial del tablero y volver a la fase narrativa?',
       confirmText: 'Borrar',
       cancelText: 'Cancelar',
       danger: true
@@ -653,7 +807,7 @@ export class TacticalBoard {
     if (!ok) return;
     this.combatStarted = false;
     this.activeTurn = null;
-    this.initiativeOpen = true;
+    this.initiativeOpen = false;
     this.turnOrder = [];
     this.turnOrderIndex = 0;
     this.initiativeLog = [];
@@ -661,7 +815,7 @@ export class TacticalBoard {
     await this.saveState({
       combatStarted: false,
       activeTurn: null,
-      initiativeOpen: true,
+      initiativeOpen: false,
       turnOrder: [],
       turnOrderIndex: 0,
       log: [],
@@ -729,13 +883,16 @@ export class TacticalBoard {
     return token;
   }
 
-  async updateTokenProperties(tokenId, { side, facing }) {
+  async updateTokenProperties(tokenId, { side, facing, inCover }) {
     if (!this.isGM) return;
     const token = this.tokens.find((t) => t.id === tokenId);
     if (!token) return;
 
     const prevFacing = token.facing;
     token.side = side === 'enemy' ? 'enemy' : 'ally';
+    if (inCover !== undefined) {
+      token.inCover = !!inCover;
+    }
     if (token.side === 'enemy') {
       token.facing = FACING_DIRS.includes(facing) ? facing : (token.facing || 'left');
       if (prevFacing !== token.facing) token.visionSuppressed = false;
@@ -754,8 +911,8 @@ export class TacticalBoard {
     if (!this.isGM) return;
     const token = this.tokens.find((t) => t.id === tokenId);
     if (!token || token.side !== 'enemy') return;
-    token.alerted = false;
-    token.visionSuppressed = true;
+    resetEnemyVisionToSpawn(token);
+    normalizeBoardToken(token);
     updateAlertedStates(this.tokens, this.cols, this.rows);
     await this.saveState({});
     this.render();
@@ -869,7 +1026,7 @@ export class TacticalBoard {
     if (col >= 0 && col < this.cols && row >= 0 && row < this.rows) {
       const fromCol = this.pointer.fromCol;
       const fromRow = this.pointer.fromRow;
-      const inRange = this.combatStarted && !this.initiativeOpen
+      const inRange = this.usesRestrictedMovement()
         ? this.isCellReachableForMove(this.pointer.token, col, row, fromCol, fromRow)
         : !this.tokens.find((t) => t.col === col && t.row === row && t.id !== this.pointer.token.id);
       if (inRange) {
@@ -887,35 +1044,36 @@ export class TacticalBoard {
 
     if (dragging) {
       if (token.col === fromCol && token.row === fromRow) return;
-      const dist = chebyshevDistance(fromCol, fromRow, token.col, token.row);
-      const isActionMove = this.combatStarted && !this.initiativeOpen
-        && this.turnActions.activeMode === 'move';
-      if (isActionMove && dist > MOVE_RANGE) {
+      const isActionMove = this.turnActions.activeMode === 'move' && this.usesRestrictedMovement();
+      if (isActionMove && !this.isCellReachableForMove(token, token.col, token.row, fromCol, fromRow)) {
         token.col = fromCol;
         token.row = fromRow;
         this.render();
         const { swrpAlert } = await import('./swrp-dialog.js');
         await swrpAlert({
           title: 'Movimiento inválido',
-          message: `Solo puedes moverte hasta ${MOVE_RANGE} casillas por acción de movimiento.`
+          message: `Solo puedes moverte hasta ${MOVE_RANGE} casillas en línea recta (sin diagonales) por acción.`
         });
         return;
       }
       await this.saveState({});
-      if (this.combatStarted) {
-        const actor = this.getActiveTurnActor();
-        if (isActionMove && actor) {
-          await this.appendLog(logEntryTokenMove(actor, {
-            fromCell: cellLabel(fromCol, fromRow),
-            toCell: cellLabel(token.col, token.row)
-          }));
-          await this.consumeMoveAction();
-        } else {
-          await this.appendLog(logEntryToken(token, 'move', {
-            fromCell: cellLabel(fromCol, fromRow),
-            toCell: cellLabel(token.col, token.row)
-          }));
-        }
+      const actor = this.getActiveTurnActor();
+      if (isActionMove && actor) {
+        await this.appendLog(logEntryTokenMove(actor, {
+          fromCell: cellLabel(fromCol, fromRow),
+          toCell: cellLabel(token.col, token.row)
+        }), { force: this.isNarrativePhase() });
+        await this.consumeMoveAction();
+      } else if (this.combatStarted && actor) {
+        await this.appendLog(logEntryToken(token, 'move', {
+          fromCell: cellLabel(fromCol, fromRow),
+          toCell: cellLabel(token.col, token.row)
+        }));
+      } else if (this.isNarrativePhase() && this.isGM && !this.activeTurn) {
+        await this.appendLog(logEntryToken(token, 'move', {
+          fromCell: cellLabel(fromCol, fromRow),
+          toCell: cellLabel(token.col, token.row)
+        }), { force: true });
       }
       this.render();
       return;
@@ -1051,11 +1209,12 @@ export class TacticalBoard {
 
   renderLog(entries) {
     if (!this.logEl) return;
-    if (!this.combatStarted) {
+    const list = entries || [];
+    if (!list.length) {
       this.logEl.innerHTML = '';
       return;
     }
-    this.logEl.innerHTML = entries.map((entry) => renderLogEntryHtml(entry, {
+    this.logEl.innerHTML = list.map((entry) => renderLogEntryHtml(entry, {
       boardTokens: this.tokens,
       roster: this.roster
     })).join('');
@@ -1098,7 +1257,8 @@ export class TacticalBoard {
   }
 
   drawMoveRange() {
-    if (this.turnActions.activeMode !== 'move' || !this.canControlActiveTurn()) return;
+    if (!this.usesRestrictedMovement()) return;
+    if (!this.canControlActiveTurn()) return;
     const ctx = this.ctx;
     const originToken = this.pointer?.dragging
       ? this.pointer.token
@@ -1122,6 +1282,7 @@ export class TacticalBoard {
   drawVisionCones() {
     const ctx = this.ctx;
     getEnemyTokens(this.tokens).forEach((enemy) => {
+      if (isTokenDefeated(enemy)) return;
       const hovered = enemy.id === this.highlightedTokenId;
       drawVisionConeOnCanvas(ctx, enemy.col, enemy.row, enemy.facing || 'left', CELL, {
         tint: hovered ? '255, 214, 0' : '0, 229, 255',
@@ -1138,14 +1299,15 @@ export class TacticalBoard {
     this.tokens.forEach((token) => {
       const initials = token.initials || nameInitials(token.name);
       const side = token.side === 'enemy' ? 'enemy' : 'ally';
+      const defeated = isTokenDefeated(token);
       const portraitUrl = getTokenPortraitUrl(token);
-      const statusHtml = side === 'enemy'
-        ? renderEnemyStatusIcons(token, this.tokens, this.cols, this.rows)
+      const statusHtml = !defeated
+        ? renderTokenStatusIcons(token, this.tokens, this.cols, this.rows)
         : '';
 
       const wrap = document.createElement('div');
       const highlighted = token.id === this.highlightedTokenId;
-      wrap.className = `swrp-board-token-wrap swrp-board-token-wrap--${side}${this.isTokenActiveTurn(token) ? ' is-active-turn' : ''}${highlighted ? ' is-highlighted' : ''}`;
+      wrap.className = `swrp-board-token-wrap swrp-board-token-wrap--${side}${defeated ? ' is-defeated' : ''}${this.isTokenActiveTurn(token) ? ' is-active-turn' : ''}${highlighted ? ' is-highlighted' : ''}`;
       wrap.style.left = `${token.col * CELL + pad}px`;
       wrap.style.top = `${token.row * CELL + pad}px`;
 
@@ -1154,14 +1316,14 @@ export class TacticalBoard {
       }
 
       const chip = document.createElement('div');
-      chip.className = `swrp-board-token swrp-board-token--${side} theme-${token.theme || 'soldado'}${this.selectedTokenId === token.id ? ' is-selected' : ''}${this.pointer?.token?.id === token.id && this.pointer.dragging ? ' is-dragging' : ''}`;
+      chip.className = `swrp-board-token swrp-board-token--${side} theme-${token.theme || 'soldado'}${defeated ? ' swrp-board-token--defeated' : ''}${this.selectedTokenId === token.id ? ' is-selected' : ''}${this.pointer?.token?.id === token.id && this.pointer.dragging ? ' is-dragging' : ''}`;
       chip.setAttribute('role', 'button');
       chip.tabIndex = 0;
       chip.style.setProperty('--token-color', token.color || '#00e5ff');
 
       const badgeEl = document.createElement('div');
       badgeEl.className = 'swrp-board-token__side-badge';
-      badgeEl.textContent = side === 'enemy' ? 'ENEMIGO' : 'ALIADO';
+      badgeEl.textContent = defeated ? 'DERROTADO' : (side === 'enemy' ? 'ENEMIGO' : 'ALIADO');
 
       const faceEl = document.createElement('div');
       faceEl.className = 'swrp-board-token__face';
@@ -1199,7 +1361,7 @@ export class TacticalBoard {
       }
       chip.addEventListener('mouseenter', (ev) => {
         if (this.pointer?.dragging) return;
-        if (side === 'enemy') this.setHighlightToken(token.id, 'token');
+        if (side === 'enemy' && !defeated) this.setHighlightToken(token.id, 'token');
         this.showTokenTooltip(token, ev.clientX, ev.clientY - 12);
       });
       chip.addEventListener('mousemove', (ev) => {
@@ -1232,7 +1394,7 @@ export function logEntrySystem(message) {
 
 export function logEntryTurnAction(actor, actionType) {
   const meta = getClassMeta(actor.class);
-  const labels = { move: 'Movimiento', attack: 'Ataque' };
+  const labels = { move: 'Movimiento', attack: 'Ataque', surprise: 'Ataque sorpresa' };
   return {
     time: timeLabel(),
     type: 'turn_action',
@@ -1341,6 +1503,42 @@ export function getTokenHp(token) {
   return hp == null ? max : Number(hp);
 }
 
+export function getTokenForce(token) {
+  const snap = token?.characterSnapshot;
+  if (snap?.force != null) return Number(snap.force);
+  const meta = getClassMeta(token?.class);
+  if (!meta.hasForce) return null;
+  const base = snap?.force ?? token?.force;
+  return base == null ? null : Number(base);
+}
+
+export function isTokenInCover(token) {
+  return token?.inCover === true;
+}
+
+export function getTokenBaseDefense(token) {
+  const snap = token?.characterSnapshot;
+  if (snap?.defense != null) return Number(snap.defense);
+  if (token?.defense != null) return Number(token.defense);
+  return 0;
+}
+
+export function getTokenEffectiveDefense(token) {
+  const base = getTokenBaseDefense(token);
+  return base + (isTokenInCover(token) ? COVER_DEFENSE_BONUS : 0);
+}
+
+export function tokenHasForceStat(token) {
+  if (!token) return false;
+  if (getClassMeta(token.class).hasForce) return true;
+  const snap = token.characterSnapshot;
+  return snap?.force != null || token.force != null;
+}
+
+export function isTokenDefeated(token) {
+  return getTokenHp(token) <= 0;
+}
+
 export function isCombatEnded(tokens) {
   const enemies = tokens.filter((t) => t.side === 'enemy');
   const allies = tokens.filter((t) => t.side !== 'enemy');
@@ -1358,21 +1556,114 @@ function renderInitiativeLineHtml(entry) {
   return `${who} ${escapeHtml(label.trim())}${escapeHtml(roll.notation)}${modPart} = <strong>${roll.total}</strong>`;
 }
 
-export function getHealthBarSegments(hp, maxHp) {
+export function getHealthBarFill(hp, maxHp) {
   const max = Math.max(1, Number(maxHp) || 1);
   const current = Math.max(0, Math.min(Number(hp) ?? max, max));
   const ratio = current / max;
+  const widthPercent = ratio * 100;
+
+  const green = { r: 57, g: 255, b: 20 };
+  const yellow = { r: 255, g: 214, b: 0 };
+  const red = { r: 255, g: 23, b: 68 };
+
+  const lerp = (a, b, t) => Math.round(a + (b - a) * t);
+  const rgb = (c) => `rgb(${c.r}, ${c.g}, ${c.b})`;
+  const mix = (c1, c2, t) => rgb({
+    r: lerp(c1.r, c2.r, t),
+    g: lerp(c1.g, c2.g, t),
+    b: lerp(c1.b, c2.b, t)
+  });
+
+  let color;
+  let glow;
+  if (ratio > 2 / 3) {
+    const t = (ratio - 2 / 3) / (1 / 3);
+    color = mix(yellow, green, t);
+    glow = 'green';
+  } else if (ratio > 1 / 3) {
+    const t = (ratio - 1 / 3) / (1 / 3);
+    color = mix(red, yellow, t);
+    glow = 'yellow';
+  } else if (ratio > 0) {
+    const t = ratio / (1 / 3);
+    color = mix({ r: 140, g: 12, b: 36 }, red, t);
+    glow = 'red';
+  } else {
+    color = rgb({ r: 80, g: 80, b: 80 });
+    glow = 'red';
+  }
+
+  return { widthPercent, color, glow, ratio };
+}
+
+const HP_PER_VISUAL_SEGMENT = 20;
+
+export function getHealthSegmentCount(maxHp) {
+  const max = Math.max(1, Number(maxHp) || 1);
+  return Math.max(1, Math.ceil(max / HP_PER_VISUAL_SEGMENT));
+}
+
+export function getSegmentFillPercent(segIndex, hp, maxHp) {
+  const max = Math.max(1, Number(maxHp) || 1);
+  const current = Math.max(0, Math.min(Number(hp) ?? max, max));
+  const segStart = segIndex * HP_PER_VISUAL_SEGMENT;
+  if (segStart >= max) return 0;
+  const segSize = Math.min(HP_PER_VISUAL_SEGMENT, max - segStart);
+  const inSeg = Math.max(0, Math.min(current - segStart, segSize));
+  return (inSeg / segSize) * 100;
+}
+
+function buildHealthBarTrackHtml(hp, maxHp, color, glow) {
+  const count = getHealthSegmentCount(maxHp);
+  const segments = [];
+  for (let i = 0; i < count; i++) {
+    const width = getSegmentFillPercent(i, hp, maxHp);
+    segments.push(
+      `<div class="swrp-hp-bar__segment">` +
+      `<div class="swrp-hp-bar__fill swrp-hp-bar__fill--${glow}" ` +
+      `style="width:${width.toFixed(2)}%;background-color:${color}"></div>` +
+      `</div>`
+    );
+  }
+  return `<div class="swrp-hp-bar__track swrp-hp-bar__track--segmented" data-segments="${count}">${segments.join('')}</div>`;
+}
+
+/** @deprecated Usar getHealthBarFill / renderHealthBarHtml */
+export function getHealthBarSegments(hp, maxHp) {
+  const { ratio } = getHealthBarFill(hp, maxHp);
+  if (ratio <= 0) return ['empty', 'empty', 'empty'];
   if (ratio > 2 / 3) return ['green', 'green', 'green'];
   if (ratio > 1 / 3) return ['yellow', 'yellow', 'empty'];
   return ['red', 'empty', 'empty'];
 }
 
+export function renderHealthBarHtml(hp, maxHp, { variant = 'token' } = {}) {
+  const { color, glow } = getHealthBarFill(hp, maxHp);
+  const variantClass = variant === 'modal' ? 'swrp-hp-bar--modal' : 'swrp-hp-bar--token';
+  return `<div class="swrp-hp-bar ${variantClass}" aria-hidden="true">${buildHealthBarTrackHtml(hp, maxHp, color, glow)}</div>`;
+}
+
+export function updateHealthBarElement(barEl, hp, maxHp) {
+  if (!barEl) return;
+  const { color, glow } = getHealthBarFill(hp, maxHp);
+  const count = getHealthSegmentCount(maxHp);
+  const track = barEl.querySelector('.swrp-hp-bar__track');
+  if (!track || Number(track.dataset.segments) !== count) {
+    barEl.innerHTML = buildHealthBarTrackHtml(hp, maxHp, color, glow);
+    return;
+  }
+  track.querySelectorAll('.swrp-hp-bar__segment').forEach((seg, i) => {
+    const fill = seg.querySelector('.swrp-hp-bar__fill');
+    if (!fill) return;
+    fill.style.width = `${getSegmentFillPercent(i, hp, maxHp).toFixed(2)}%`;
+    fill.style.backgroundColor = color;
+    fill.classList.remove('swrp-hp-bar__fill--green', 'swrp-hp-bar__fill--yellow', 'swrp-hp-bar__fill--red');
+    fill.classList.add(`swrp-hp-bar__fill--${glow}`);
+  });
+}
+
 export function renderTokenHealthBarHtml(token) {
-  const segments = getHealthBarSegments(getTokenHp(token), getTokenMaxHp(token));
-  const parts = segments.map(
-    (seg) => `<span class="swrp-token-hp__seg swrp-token-hp__seg--${seg}"></span>`
-  ).join('');
-  return `<div class="swrp-token-hp" aria-hidden="true">${parts}</div>`;
+  return renderHealthBarHtml(getTokenHp(token), getTokenMaxHp(token), { variant: 'token' });
 }
 
 export function renderLogEntryHtml(entry, context = {}) {
@@ -1439,24 +1730,36 @@ function getTokenPortraitUrl(token) {
   return token?.portraitUrl || token?.characterSnapshot?.portraitUrl || '';
 }
 
-function renderEnemyStatusIcons(token, tokens, cols, rows) {
-  const { icons, labels } = computeEnemyStatusIcons(token, tokens, cols, rows);
-  if (!icons.length) return '';
+function renderTokenStatusIcons(token, tokens, cols, rows) {
+  const items = [];
 
-  const items = icons.map((iconId, i) => {
-    const mod = ENEMY_STATUS_MODIFIERS[iconId] || iconId;
-    const label = escapeHtml(labels[i] || iconId);
-    return `
-    <span class="swrp-board-token__status-icon-wrap swrp-board-token__status-icon-wrap--${mod}" title="${label}">
+  if (token.side === 'enemy') {
+    const { icons, labels } = computeEnemyStatusIcons(token, tokens, cols, rows);
+    icons.forEach((iconId, i) => {
+      items.push({
+        iconId,
+        mod: ENEMY_STATUS_MODIFIERS[iconId] || iconId,
+        label: labels[i] || iconId
+      });
+    });
+  }
+
+  if (isTokenInCover(token)) {
+    items.push({ iconId: 'cover', mod: 'cover', label: 'A cubierto' });
+  }
+
+  if (!items.length) return '';
+
+  const inner = items.map(({ iconId, mod, label }) => `
+    <span class="swrp-board-token__status-icon-wrap swrp-board-token__status-icon-wrap--${mod}" title="${escapeHtml(label)}">
       <img
         class="swrp-board-token__status-icon"
         src="${ICON_BASE}/${iconId}.svg"
-        alt="${label}"
+        alt="${escapeHtml(label)}"
       >
-    </span>`;
-  }).join('');
+    </span>`).join('');
 
-  return `<span class="swrp-board-token__status-icons">${items}</span>`;
+  return `<span class="swrp-board-token__status-icons">${inner}</span>`;
 }
 
 export function buildTokenTooltipHtml(token, allTokens = [], cols = 0, rows = 0) {
@@ -1465,14 +1768,16 @@ export function buildTokenTooltipHtml(token, allTokens = [], cols = 0, rows = 0)
   const level = Number(token.level) || 1;
   const portraitUrl = getTokenPortraitUrl(token);
   const side = token.side === 'enemy' ? 'enemy' : 'ally';
-  const sideLabel = side === 'enemy' ? 'Enemigo' : 'Aliado';
+  const defeated = isTokenDefeated(token);
+  const sideLabel = defeated ? 'Derrotado' : (side === 'enemy' ? 'Enemigo' : 'Aliado');
+  const sideClass = defeated ? 'defeated' : side;
 
   const portraitBlock = portraitUrl
     ? `<img class="board-token-tooltip__img" src="${escapeHtml(portraitUrl)}" alt="">`
     : `<div class="board-token-tooltip__img board-token-tooltip__img--placeholder">${escapeHtml(nameInitials(token.name))}</div>`;
 
   let enemyExtra = '';
-  if (side === 'enemy' && allTokens.length) {
+  if (!defeated && side === 'enemy' && allTokens.length) {
     const { icons, labels } = computeEnemyStatusIcons(token, allTokens, cols, rows);
     const facing = token.facing || 'left';
     const statusTags = icons.map((id, i) => {
@@ -1482,6 +1787,11 @@ export function buildTokenTooltipHtml(token, allTokens = [], cols = 0, rows = 0)
     enemyExtra = `
       <span class="board-token-tooltip__facing">Mira: ${escapeHtml(facingLabel(facing))}</span>
       ${statusTags ? `<span class="board-token-tooltip__status">${statusTags}</span>` : ''}`;
+  }
+
+  let coverExtra = '';
+  if (!defeated && isTokenInCover(token)) {
+    coverExtra = `<span class="board-token-tooltip__status"><span class="board-token-tooltip__tag board-token-tooltip__tag--cover">A cubierto</span></span>`;
   }
 
   return `
@@ -1494,8 +1804,9 @@ export function buildTokenTooltipHtml(token, allTokens = [], cols = 0, rows = 0)
         </div>
         <span class="board-token-tooltip__class" style="color:${escapeHtml(meta.color)}">${escapeHtml(classLabel)}</span>
         <span class="board-token-tooltip__level" style="color:${escapeHtml(meta.color)}">Nv. ${level}</span>
-        <span class="board-token-tooltip__side board-token-tooltip__side--${side}">${sideLabel}</span>
+        <span class="board-token-tooltip__side board-token-tooltip__side--${sideClass}">${sideLabel}</span>
         ${enemyExtra}
+        ${coverExtra}
       </div>
     </div>`;
 }

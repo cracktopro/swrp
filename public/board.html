@@ -6,7 +6,7 @@
   <link rel="icon" href="img/Logo%20SW-RP.png" type="image/png">
   <title>SWRP — Tablero Táctico</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="css/theme.css?v=board-token-grid3" rel="stylesheet">
+  <link href="css/theme.css?v=board-vision-narrative" rel="stylesheet">
   <link href="css/character-card.css" rel="stylesheet">
 </head>
 <body class="swrp-app">
@@ -41,12 +41,19 @@
             <button type="button" class="nav-link active" data-board-tab="combate" role="tab">Combate</button>
           </li>
           <li class="nav-item" role="presentation">
+            <button type="button" class="nav-link" data-board-tab="log" role="tab">Log</button>
+          </li>
+          <li class="nav-item" role="presentation" id="board-sidebar-tab-opciones">
             <button type="button" class="nav-link" data-board-tab="opciones" role="tab">Opciones</button>
           </li>
         </ul>
 
         <div id="board-sidebar-combate">
-          <section class="swrp-panel mb-3 d-none" id="board-turn-panel">
+          <p id="board-narrative-hint" class="small text-muted mb-2">
+            Fase narrativa: 2 acciones por turno. Al completarlas, pulsa «Siguiente turno» y el GM asignará el siguiente.
+          </p>
+          <button type="button" id="start-combat" class="btn btn-sm btn-swrp btn-swrp-primary w-100 mb-3 d-none">Iniciar combate</button>
+          <section class="swrp-panel mb-3" id="board-turn-panel">
             <div class="d-flex justify-content-between align-items-center gap-2 mb-2 flex-wrap">
               <h2 class="swrp-panel__title mb-0">Control de turnos</h2>
               <button type="button" id="board-advance-turn" class="btn btn-sm btn-swrp btn-swrp-primary d-none">Siguiente turno</button>
@@ -105,7 +112,7 @@
               <h2 class="swrp-panel__title mb-0">Tirada de iniciativa</h2>
               <button type="button" id="board-goto-setup" class="btn btn-sm btn-swrp btn-swrp-ghost d-none">Configurar tablero</button>
             </div>
-            <p class="small text-muted mb-2">Disponible antes de iniciar el combate. Puedes repetir tiradas si una habilidad lo permite.</p>
+            <p class="small text-muted mb-2">Tras iniciar el combate, cada jugador tira iniciativa. Al completar el ciclo de turnos se repite la tirada.</p>
             <label class="form-label small" for="board-initiative-character">Personaje</label>
             <select class="form-select form-select-sm mb-2" id="board-initiative-character"></select>
             <div class="d-flex gap-2 mb-2">
@@ -116,12 +123,14 @@
               aria-live="polite"></div>
             <div id="board-initiative-order" class="board-initiative-order mt-2 d-none"></div>
           </section>
-          <p id="board-combat-hint" class="small text-muted mb-3">Inicia el combate para activar dados, turnos y habilidades.</p>
+          <p id="board-combat-hint" class="small text-muted mb-3">El GM puede iniciar el combate cuando la escena lo requiera.</p>
+        </div>
+
+        <div id="board-sidebar-log" class="d-none">
           <section class="swrp-panel">
-            <h2 class="swrp-panel__title">Log de Combate</h2>
-            <p id="combat-idle-msg" class="small text-muted mb-2">El combate aún no ha comenzado. El GM debe iniciarlo.</p>
-            <button type="button" id="start-combat" class="btn btn-sm btn-swrp btn-swrp-primary w-100 mb-2 d-none" hidden>Iniciar combate</button>
-            <div id="combat-log" class="combat-log d-none"></div>
+            <h2 class="swrp-panel__title">Log de combate</h2>
+            <p id="combat-idle-msg" class="small text-muted mb-2">Fase narrativa: las acciones del tablero se registran aquí.</p>
+            <div id="combat-log" class="combat-log"></div>
             <button type="button" id="clear-log" class="btn btn-sm btn-swrp btn-swrp-ghost mt-2 w-100 d-none">Borrar historial</button>
           </section>
         </div>
@@ -202,10 +211,19 @@
           </div>
           <div id="ctrl-hp-wrap" class="mb-3">
             <label class="form-label small mb-1" for="ctrl-token-hp">Puntos de golpe</label>
-            <div class="input-group input-group-sm">
+            <div class="input-group input-group-sm swrp-hp-input-group">
               <input type="number" class="form-control" id="ctrl-token-hp" min="0" step="1">
-              <span class="input-group-text">/ <span id="ctrl-token-max-hp">0</span></span>
+              <span class="input-group-text swrp-hp-input-group__suffix">/ <span id="ctrl-token-max-hp">0</span></span>
             </div>
+            <div id="ctrl-token-hp-bar" class="swrp-hp-bar swrp-hp-bar--modal mt-2" aria-hidden="true"></div>
+          </div>
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" id="ctrl-token-cover">
+            <label class="form-check-label small" for="ctrl-token-cover">A cubierto</label>
+          </div>
+          <div id="ctrl-force-wrap" class="mb-3 d-none">
+            <label class="form-label small mb-1" for="ctrl-token-force">Puntos de fuerza</label>
+            <input type="number" class="form-control form-control-sm" id="ctrl-token-force" min="0" step="1">
           </div>
           <div class="d-flex flex-wrap gap-2">
             <button type="button" id="btn-ctrl-view-card" class="btn btn-sm btn-swrp btn-swrp-ghost">Ver carta</button>
@@ -312,7 +330,7 @@
     import { loadParty, isPartyMember, loadPartyRoster } from './js/party.js';
     import { loadPartyMembers, isPartyGMUser } from './js/party-members.js';
     import { getPartyIdFromUrl, partyPageUrl } from './js/party-url.js';
-    import { TacticalBoard } from './js/board.js';
+    import { TacticalBoard, getTokenHp, getTokenMaxHp, getTokenEffectiveDefense, isTokenInCover } from './js/board.js';
     import { loadAllNpcs, npcToCardData } from './js/npcs.js';
     import { loadCompendiumData } from './js/compendium-store.js';
     import { renderCharacterCard, normalizeCharacter } from './js/character-card.js';
@@ -358,13 +376,29 @@
       charModalBody.appendChild(card);
     }
 
+    function buildTokenCardOptions(token, copyMentionId) {
+      const hp = getTokenHp(token);
+      const maxHp = getTokenMaxHp(token);
+      return {
+        copyMentionId,
+        boardContext: {
+          hp,
+          maxHp,
+          defense: getTokenEffectiveDefense(token),
+          defenseInCover: isTokenInCover(token),
+          hpDamaged: hp < maxHp
+        }
+      };
+    }
+
     function openTokenCard(token, { copyMentionId = token?.id } = {}) {
+      const cardOpts = buildTokenCardOptions(token, copyMentionId);
       if (token.kind === 'npc') {
         const npc = resolveNpcData(token);
         if (!npc) return;
         appendCardToModal(renderCharacterCard(
           normalizeCharacter({ ...npc, portraitUrl: npc.portraitUrl || npc.image || '' }, npc.id),
-          { isNpc: true, copyMentionId }
+          { isNpc: true, ...cardOpts }
         ));
         document.getElementById('charModalLabel').textContent = npc.name;
         charModal.show();
@@ -377,7 +411,7 @@
       }
       if (!snap) return;
       const character = normalizeCharacter(snap, snap.id || token.sourceId);
-      appendCardToModal(renderCharacterCard(character, { copyMentionId }));
+      appendCardToModal(renderCharacterCard(character, cardOpts));
       document.getElementById('charModalLabel').textContent = character.name;
       charModal.show();
     }
@@ -397,57 +431,62 @@
 
     function syncCombatUi(started, isGM) {
       document.getElementById('combat-idle-msg').classList.toggle('d-none', started);
-      document.getElementById('combat-log').classList.toggle('d-none', !started);
       document.getElementById('start-combat').classList.toggle('d-none', started || !isGM);
-      document.getElementById('clear-log').classList.toggle('d-none', !started || !isGM);
+      document.getElementById('clear-log').classList.toggle('d-none', !isGM);
     }
 
     function initBoardSidebar(isGM) {
       const tabsEl = document.getElementById('board-sidebar-tabs');
       const combateEl = document.getElementById('board-sidebar-combate');
+      const logEl = document.getElementById('board-sidebar-log');
       const opcionesEl = document.getElementById('board-sidebar-opciones');
+      const opcionesTabItem = document.getElementById('board-sidebar-tab-opciones');
       const gotoSetupBtn = document.getElementById('board-goto-setup');
+      let activeTab = 'combate';
+      let sidebarBootstrapped = false;
 
       function showTab(tabName) {
+        if (!isGM && tabName === 'opciones') tabName = 'combate';
+        activeTab = tabName;
         combateEl?.classList.toggle('d-none', tabName !== 'combate');
+        logEl?.classList.toggle('d-none', tabName !== 'log');
         opcionesEl?.classList.toggle('d-none', tabName !== 'opciones');
         tabsEl?.querySelectorAll('[data-board-tab]').forEach((btn) => {
           btn.classList.toggle('active', btn.dataset.boardTab === tabName);
         });
       }
 
-      function setGmTabsVisible(visible) {
-        tabsEl?.classList.toggle('d-none', !visible);
-      }
+      opcionesTabItem?.classList.toggle('d-none', !isGM);
+      tabsEl?.classList.remove('d-none');
 
-      function syncGmSidebar(board, { forceSetup = false } = {}) {
-        if (!isGM || !board) return;
-        setGmTabsVisible(true);
+      function syncGmSidebar(board) {
+        if (!board) return;
         const preCombat = !board.combatStarted;
         const betweenRounds = board.combatStarted && board.initiativeOpen;
-        gotoSetupBtn?.classList.toggle('d-none', !preCombat && !betweenRounds);
-        if (preCombat || forceSetup) {
-          showTab('opciones');
+        gotoSetupBtn?.classList.toggle('d-none', !isGM || (!preCombat && !betweenRounds));
+
+        if (!sidebarBootstrapped) {
+          sidebarBootstrapped = true;
+          if (isGM) {
+            activeTab = preCombat ? 'opciones' : 'combate';
+          }
         }
+        showTab(activeTab);
       }
-
-      if (!isGM) {
-        setGmTabsVisible(false);
-        combateEl?.classList.remove('d-none');
-        opcionesEl?.classList.add('d-none');
-        return { showTab, syncGmSidebar: () => {} };
-      }
-
-      setGmTabsVisible(true);
-      showTab('opciones');
 
       tabsEl?.addEventListener('click', (e) => {
         const tab = e.target.closest('[data-board-tab]');
         if (!tab) return;
+        if (!isGM && tab.dataset.boardTab === 'opciones') return;
         showTab(tab.dataset.boardTab);
       });
 
-      gotoSetupBtn?.addEventListener('click', () => showTab('opciones'));
+      gotoSetupBtn?.addEventListener('click', () => {
+        if (!isGM) return;
+        showTab('opciones');
+      });
+
+      showTab('combate');
 
       return { showTab, syncGmSidebar };
     }
@@ -488,8 +527,8 @@
         const boardHint = document.getElementById('board-board-hint');
         if (boardHint) {
           boardHint.textContent = isGM
-            ? 'Configura el tablero en «Opciones» antes de la iniciativa. Clic izquierdo: control · Clic derecho: carta.'
-            : 'Clic en una chapa para ver la carta. En tu turno: Movimiento o Atacar, luego «Siguiente turno».';
+            ? 'Fase narrativa: coloca chapas y asigna turnos. «Iniciar combate» abre la iniciativa. Clic izquierdo: control · Clic derecho: carta.'
+            : 'Fase narrativa: espera tu turno asignado por el GM. En combate: Movimiento o Atacar, luego «Siguiente turno».';
         }
 
         let board;
@@ -512,7 +551,7 @@
             onMapUrlChange: (url) => { mapUrlInput.value = url || ''; },
             onCombatStateChange: (started) => {
               syncCombatUi(started, isGM);
-              boardSidebar.syncGmSidebar(board, { forceSetup: !started });
+              boardSidebar.syncGmSidebar(board);
             },
             onInitiativeStateChange: () => boardSidebar.syncGmSidebar(board),
             onGridSizeChange: (cols, rows) => {

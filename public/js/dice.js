@@ -63,3 +63,51 @@ export function renderDiceResultHtml(roll, label = '') {
       <span class="swrp-dice__total">${roll.total}</span>
     </div>`;
 }
+
+let diceModalEl = null;
+let diceBsModal = null;
+
+function ensureDiceModal() {
+  if (diceModalEl) return;
+
+  diceModalEl = document.createElement('div');
+  diceModalEl.id = 'swrp-dice-modal';
+  diceModalEl.className = 'modal fade';
+  diceModalEl.tabIndex = -1;
+  diceModalEl.setAttribute('aria-hidden', 'true');
+  diceModalEl.innerHTML = `
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content swrp-modal-card swrp-dice-modal">
+        <div class="modal-header border-secondary border-opacity-25">
+          <h5 class="modal-title text-gold">Resultado de la tirada</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body text-center">
+          <p class="swrp-dice-modal__actor mb-3" id="swrp-dice-modal-actor"></p>
+          <div id="swrp-dice-modal-body"></div>
+        </div>
+        <div class="modal-footer border-secondary border-opacity-25 justify-content-center">
+          <button type="button" class="btn btn-swrp btn-swrp-primary" data-bs-dismiss="modal">Cerrar</button>
+        </div>
+      </div>
+    </div>`;
+
+  document.body.appendChild(diceModalEl);
+  diceBsModal = bootstrap.Modal.getOrCreateInstance(diceModalEl, { focus: true });
+}
+
+/** Modal centrado con el resultado de una tirada (solo quien lanza). */
+export function showDiceRollModal({ actorName = '', roll, label = '' } = {}) {
+  if (!roll) return;
+  ensureDiceModal();
+  const actorEl = diceModalEl.querySelector('#swrp-dice-modal-actor');
+  const bodyEl = diceModalEl.querySelector('#swrp-dice-modal-body');
+  if (actorEl) {
+    actorEl.textContent = actorName || '';
+    actorEl.hidden = !actorName;
+  }
+  if (bodyEl) {
+    bodyEl.innerHTML = renderDiceResultHtml(roll, label);
+  }
+  diceBsModal.show();
+}

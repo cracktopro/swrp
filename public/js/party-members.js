@@ -77,12 +77,14 @@ export async function joinParty(partyId, user, profile, { playMode, character })
     if (!character?.id) throw new Error('Selecciona un personaje para unirte');
   }
 
+  const { characterId, characterSnapshot } = resolveMembershipCharacter(playMode, character);
+
   const payload = {
     userId: user.uid,
     username: profile?.username || user.displayName || user.email,
     playMode,
-    characterId: playMode === 'character' ? character.id : null,
-    characterSnapshot: playMode === 'character' ? buildCharacterSnapshot(character) : null,
+    characterId,
+    characterSnapshot,
     joinedAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   };
@@ -106,26 +108,42 @@ export async function updatePartyMembership(partyId, userId, user, profile, { pl
     throw new Error('Selecciona un personaje');
   }
 
+  const { characterId, characterSnapshot } = resolveMembershipCharacter(playMode, character);
+
   await setDoc(doc(db, 'parties', partyId, 'members', userId), {
     userId,
     username: profile?.username || user.displayName || user.email,
     playMode,
-    characterId: playMode === 'character' ? character.id : null,
-    characterSnapshot: playMode === 'character' ? buildCharacterSnapshot(character) : null,
+    characterId,
+    characterSnapshot,
     updatedAt: serverTimestamp()
   }, { merge: true });
 }
 
-/** Personajes unidos a la partida (excluye al GM sin personaje). */
+/** Personajes unidos a la partida (jugadores y GM con personaje asignado). */
 export function getJoinedCharacterRoster(members) {
   return members
-    .filter((m) => m.playMode === 'character' && m.characterSnapshot?.id)
+    .filter((m) => m.characterSnapshot?.id)
     .map((m) => normalizeCharacter(m.characterSnapshot, m.characterSnapshot.id));
 }
 
 export function memberToActiveCharacter(member) {
-  if (member?.playMode !== 'character' || !member.characterSnapshot) return null;
-  return normalizeCharacter(member.characterSnapshot, member.characterId || member.characterSnapshot.id);
+  if (!member?.characterSnapshot?.id) return null;
+  return normalizeCharacter(
+    member.characterSnapshot,
+    member.characterId || member.characterSnapshot.id
+  );
+}
+
+function resolveMembershipCharacter(playMode, character) {
+  const hasChar = !!character?.id;
+  if (playMode === 'character' && !hasChar) {
+    throw new Error('Selecciona un personaje');
+  }
+  return {
+    characterId: hasChar ? character.id : null,
+    characterSnapshot: hasChar ? buildCharacterSnapshot(character) : null
+  };
 }
 
 export function tokenFromCharacter(char, kind = 'character') {
