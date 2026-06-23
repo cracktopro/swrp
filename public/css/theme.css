@@ -766,6 +766,23 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
   transform: translateY(-1px);
 }
 
+.btn-swrp-success {
+  background: linear-gradient(135deg, rgba(12, 40, 18, 0.95), rgba(20, 72, 32, 0.88));
+  border: 1px solid rgba(57, 255, 20, 0.75);
+  color: #b8ffb0;
+  box-shadow: 0 0 10px rgba(57, 255, 20, 0.22);
+}
+
+.btn-swrp-success:hover,
+.btn-swrp-success:focus,
+.btn-swrp-success:active {
+  background: linear-gradient(135deg, rgba(18, 55, 26, 0.98), rgba(28, 88, 40, 0.92));
+  border-color: rgba(57, 255, 20, 0.9);
+  box-shadow: 0 0 18px rgba(57, 255, 20, 0.38);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
 .btn-swrp-ghost {
   background: rgba(8, 12, 20, 0.72);
   border: 1px solid var(--swrp-border);

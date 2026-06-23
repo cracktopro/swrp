@@ -72,6 +72,7 @@ function stripUndefinedDeep(value) {
 
 const MOVE_RANGE = 5;
 const MAX_TURN_ACTIONS = 2;
+const MAX_ATTACKS_PER_TURN = 1;
 const ORTHO_DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
 function defaultTurnActions() {
@@ -587,6 +588,51 @@ export class TacticalBoard {
     this.onTokensChange(this.tokens);
   }
 
+  async updateTokenFromStats(tokenId, entity) {
+    if (!this.isGM || !entity) return;
+    const token = this.tokens.find((t) => t.id === tokenId);
+    if (!token) return;
+
+    const meta = getClassMeta(entity.class || entity.classKey);
+    const maxHp = Number(entity.maxHp ?? entity.hp) || 1;
+    const currentHp = Math.min(getTokenHp(token), maxHp);
+    const sourceId = token.characterSnapshot?.id || token.sourceId;
+
+    const snapshot = stripUndefinedDeep({
+      id: sourceId,
+      name: entity.name,
+      species: entity.species || 'Humanos',
+      class: entity.class || entity.classKey,
+      level: Number(entity.level) || 1,
+      type: token.characterSnapshot?.type || (token.kind === 'npc' ? 'NPC' : 'Heroe'),
+      portraitUrl: entity.portraitUrl || '',
+      skills: entity.skills || [],
+      attack: Number(entity.attack) || 0,
+      defense: Number(entity.defense) || 0,
+      damage: Number(entity.damage) || 0,
+      hp: currentHp,
+      maxHp,
+      force: entity.force ?? null
+    });
+
+    token.name = entity.name;
+    token.level = snapshot.level;
+    token.class = snapshot.class;
+    token.classLabel = meta.label;
+    token.theme = meta.theme;
+    token.color = meta.color;
+    token.portraitUrl = snapshot.portraitUrl;
+    token.characterSnapshot = cloneInstanceSnapshot(snapshot);
+
+    if (token.side === 'enemy') {
+      updateAlertedStates(this.tokens, this.cols, this.rows);
+    }
+
+    await this.saveState({});
+    this.render();
+    this.onTokensChange(this.tokens);
+  }
+
   resetTurnActions() {
     this.turnActions = defaultTurnActions();
     this.onTurnActionsChange?.(this.turnActions);
@@ -623,11 +669,14 @@ export class TacticalBoard {
   canUseAttackMode() {
     if (!this.canControlActiveTurn()) return false;
     if (this.getActionsUsed() >= MAX_TURN_ACTIONS) return false;
+    if ((this.turnActions.attacksUsed || 0) >= MAX_ATTACKS_PER_TURN) return false;
     return true;
   }
 
   canUseMoveMode() {
-    return this.canUseAttackMode();
+    if (!this.canControlActiveTurn()) return false;
+    if (this.getActionsUsed() >= MAX_TURN_ACTIONS) return false;
+    return true;
   }
 
   async selectActionMode(mode) {
@@ -661,6 +710,7 @@ export class TacticalBoard {
       await this.finishSurpriseAttack();
       return;
     }
+    if ((this.turnActions.attacksUsed || 0) >= MAX_ATTACKS_PER_TURN) return;
     this.turnActions.attacksUsed = (this.turnActions.attacksUsed || 0) + 1;
     this.turnActions.activeMode = null;
     await this.saveState({ turnActions: this.turnActions });
@@ -761,6 +811,7 @@ export class TacticalBoard {
 
   canUseAttackActions() {
     if (!this.canControlActiveTurn()) return false;
+    if ((this.turnActions.attacksUsed || 0) >= MAX_ATTACKS_PER_TURN) return false;
     return this.turnActions.activeMode === 'attack' && this.getActionsUsed() < MAX_TURN_ACTIONS;
   }
 

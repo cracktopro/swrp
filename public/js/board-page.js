@@ -10,6 +10,11 @@ import {
 import { getClassMeta } from './character-card.js';
 import { getClassList } from './game-data.js';
 import { swrpConfirm, swrpAlert } from './swrp-dialog.js';
+import {
+  ensureTokenStatsEditor,
+  loadTokenStatsEditor,
+  readTokenStatsEditor
+} from './token-stats-editor.js';
 
 function escapeHtml(str) {
   return String(str)
@@ -199,6 +204,30 @@ export function initBoardPage(ctx) {
   let miniBoard = null;
   let addFiltersReady = false;
   let ctrlHpInputReady = false;
+  let statsEditorReady = false;
+  let ctrlActiveTab = 'play';
+
+  function showCtrlTab(tabName) {
+    ctrlActiveTab = tabName;
+    document.getElementById('ctrl-tab-play')?.classList.toggle('d-none', tabName !== 'play');
+    document.getElementById('ctrl-tab-stats')?.classList.toggle('d-none', tabName !== 'stats');
+    document.querySelectorAll('#ctrl-token-tabs [data-ctrl-tab]').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.ctrlTab === tabName);
+    });
+  }
+
+  async function ensureStatsEditor() {
+    const root = document.getElementById('ctrl-stats-editor');
+    if (!root || statsEditorReady) return;
+    await ensureTokenStatsEditor(root);
+    statsEditorReady = true;
+  }
+
+  document.getElementById('ctrl-token-tabs')?.addEventListener('click', (e) => {
+    const tab = e.target.closest('[data-ctrl-tab]');
+    if (!tab) return;
+    showCtrlTab(tab.dataset.ctrlTab);
+  });
 
   function setupCtrlHpPreview() {
     if (ctrlHpInputReady) return;
@@ -329,29 +358,46 @@ export function initBoardPage(ctx) {
     }
   }
 
-  function openTokenControlModal(token) {
+  async function openTokenControlModal(token) {
     controlTokenId = token.id;
+    showCtrlTab('play');
     syncControlModalForm(token);
+    await ensureStatsEditor();
+    if (controlTokenId === token.id) {
+      loadTokenStatsEditor(token);
+    }
     controlModal?.show();
   }
 
   async function saveControlModal() {
     const token = board.tokens.find((t) => t.id === controlTokenId);
     if (!token) return;
+
+    if (statsEditorReady) {
+      const statsEntity = readTokenStatsEditor();
+      if (!statsEntity.name) {
+        await swrpAlert({ title: 'Nombre requerido', message: 'Indica un nombre en la pestaña Stats.' });
+        showCtrlTab('stats');
+        return;
+      }
+      await board.updateTokenFromStats(token.id, statsEntity);
+    }
+
+    const updated = board.tokens.find((t) => t.id === controlTokenId) || token;
     const side = document.getElementById('ctrl-side-enemy').checked ? 'enemy' : 'ally';
     const facingBtn = document.querySelector('#ctrl-facing-wrap [data-facing].active');
-    const facing = facingBtn?.dataset.facing || token.facing || 'left';
+    const facing = facingBtn?.dataset.facing || updated.facing || 'left';
     const inCover = document.getElementById('ctrl-token-cover')?.checked === true;
-    await board.updateTokenProperties(token.id, { side, facing, inCover });
+    await board.updateTokenProperties(updated.id, { side, facing, inCover });
     const hpVal = parseInt(document.getElementById('ctrl-token-hp')?.value, 10);
     if (!Number.isNaN(hpVal)) {
-      await board.updateTokenHp(token.id, hpVal);
+      await board.updateTokenHp(updated.id, hpVal);
     }
     const forceInput = document.getElementById('ctrl-token-force');
-    if (tokenHasForceStat(token) && forceInput) {
+    if (tokenHasForceStat(updated) && forceInput) {
       const forceVal = parseInt(forceInput.value, 10);
       if (!Number.isNaN(forceVal)) {
-        await board.updateTokenForce(token.id, forceVal);
+        await board.updateTokenForce(updated.id, forceVal);
       }
     }
     controlModal?.hide();

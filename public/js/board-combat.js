@@ -595,7 +595,7 @@ export function initBoardCombatUi(ctx) {
     advanceTurnBtn?.classList.toggle('d-none', !board.canUserAdvanceTurn());
 
     if (actionStatusEl) {
-      actionStatusEl.textContent = showPanel ? `Acciones: ${used}/2` : '';
+      actionStatusEl.textContent = showPanel ? `Acciones: ${used}/2 · máx. 1 ataque` : '';
     }
 
     const modesEnabled = hasControl && used < 2;
@@ -605,7 +605,8 @@ export function initBoardCombatUi(ctx) {
     }
     if (actionAttackBtn) {
       actionAttackBtn.textContent = narrative ? 'Ataque sorpresa' : 'Atacar';
-      actionAttackBtn.disabled = !modesEnabled;
+      const attackUsed = (board.turnActions.attacksUsed || 0) >= 1;
+      actionAttackBtn.disabled = !modesEnabled || attackUsed;
       actionAttackBtn.classList.toggle('is-active', board.turnActions.activeMode === 'attack');
     }
 
@@ -885,6 +886,13 @@ export function initBoardCombatUi(ctx) {
   });
 
   actionAttackBtn?.addEventListener('click', async () => {
+    if ((board.turnActions.attacksUsed || 0) >= 1) {
+      await swrpAlert({
+        title: 'Ataque ya usado',
+        message: 'Solo puedes atacar una vez por turno. Usa la otra acción para movimiento.'
+      });
+      return;
+    }
     if (!board.canUseAttackMode()) {
       await swrpAlert({
         title: 'Sin acciones',

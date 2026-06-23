@@ -169,7 +169,7 @@ export function renderPartyCard(party, userId, container, { isAdmin, isMember, o
 
   const primaryAction = isMember
     ? `<a href="${partyPageUrl(party.id)}" class="btn btn-sm btn-swrp btn-swrp-primary">Entrar</a>`
-    : `<a href="${partyPageUrl(party.id)}" class="btn btn-sm btn-swrp btn-swrp-primary">Unirse</a>`;
+    : `<a href="${partyPageUrl(party.id)}" class="btn btn-sm btn-swrp btn-swrp-success">Unirse</a>`;
 
   el.innerHTML = `
     <div class="swrp-party-card__media">${media}</div>
