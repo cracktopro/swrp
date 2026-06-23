@@ -1,7 +1,9 @@
 import {
   db,
+  collection,
   doc,
   getDoc,
+  getDocs,
   setDoc,
   onSnapshot,
   serverTimestamp
@@ -213,35 +215,52 @@ export class TacticalBoard {
     }
   }
 
+  async applyBoardData(data) {
+    if (!data) return;
+    this.tokens = (data.tokens || []).map((t) => normalizeBoardToken({ ...t }));
+    this.combatStarted = !!data.combatStarted;
+    this.activeTurn = data.activeTurn ?? null;
+    this.initiativeOpen = this.combatStarted
+      ? (data.initiativeOpen ?? false)
+      : false;
+    this.turnOrder = data.turnOrder || [];
+    this.turnOrderIndex = data.turnOrderIndex ?? 0;
+    this.turnActions = normalizeTurnActions(data.turnActions);
+    if (data.grid?.cols) this.cols = clampGrid(data.grid.cols);
+    if (data.grid?.rows) this.rows = clampGrid(data.grid.rows);
+    this.tokens = this.tokens.filter(
+      (t) => t.col >= 0 && t.col < this.cols && t.row >= 0 && t.row < this.rows
+    );
+    const mapUrl = data.mapUrl || null;
+    if (mapUrl) {
+      this._mapUrl = mapUrl;
+      this.onMapUrlChange(mapUrl);
+      await this.loadMap(mapUrl);
+    } else {
+      this._mapUrl = null;
+      this.mapImage = null;
+      this.onMapUrlChange('');
+    }
+    this.applyGridDimensions();
+    this.render();
+    this.initiativeLog = data.initiativeLog || [];
+    this.renderLog(data.log || []);
+    this.renderInitiativeLog(this.initiativeLog);
+    this.renderInitiativeOrderPreview(
+      this.turnOrder.length ? this.turnOrder : null
+    );
+    this.onCombatStateChange(this.combatStarted);
+    this.onInitiativeStateChange?.(this.initiativeOpen);
+    this.onTurnActionsChange?.(this.turnActions);
+    this.onActiveTurnChange(this.activeTurn);
+    this.onTokensChange(this.tokens);
+  }
+
   async loadState() {
     if (!this.partyId) return;
     const snap = await getDoc(doc(db, 'parties', this.partyId, 'state', 'board'));
     if (snap.exists()) {
-      const data = snap.data();
-      this.tokens = (data.tokens || []).map((t) => normalizeBoardToken({ ...t }));
-      this.combatStarted = !!data.combatStarted;
-      this.activeTurn = data.activeTurn ?? null;
-      this.initiativeOpen = data.combatStarted
-        ? (data.initiativeOpen ?? false)
-        : false;
-      this.turnOrder = data.turnOrder || [];
-      this.turnOrderIndex = data.turnOrderIndex ?? 0;
-      this.turnActions = normalizeTurnActions(data.turnActions);
-      if (data.grid?.cols) this.cols = clampGrid(data.grid.cols);
-      if (data.grid?.rows) this.rows = clampGrid(data.grid.rows);
-      this.tokens = this.tokens.filter(
-        (t) => t.col >= 0 && t.col < this.cols && t.row >= 0 && t.row < this.rows
-      );
-      if (data.mapUrl) {
-        this._mapUrl = data.mapUrl;
-        this.onMapUrlChange(data.mapUrl);
-        await this.loadMap(data.mapUrl);
-      }
-      this.applyGridDimensions();
-      this.render();
-      this.initiativeLog = data.initiativeLog || [];
-      this.renderLog(data.log || []);
-      this.renderInitiativeLog(this.initiativeLog);
+      await this.applyBoardData(snap.data());
     } else {
       this.tokens = [];
       this.combatStarted = false;
@@ -251,15 +270,94 @@ export class TacticalBoard {
       this.turnOrderIndex = 0;
       this.turnActions = defaultTurnActions();
       this.initiativeLog = [];
+      this._mapUrl = null;
+      this.mapImage = null;
+      this.onMapUrlChange('');
       this.applyGridDimensions();
       this.render();
       this.renderLog([]);
       this.renderInitiativeLog([]);
+      this.onCombatStateChange(this.combatStarted);
+      this.onInitiativeStateChange?.(this.initiativeOpen);
+      this.onActiveTurnChange(this.activeTurn);
+      this.onTokensChange(this.tokens);
     }
-    this.onCombatStateChange(this.combatStarted);
-    this.onInitiativeStateChange?.(this.initiativeOpen);
-    this.onActiveTurnChange(this.activeTurn);
-    this.onTokensChange(this.tokens);
+  }
+
+  async captureBoardSnapshot() {
+    if (!this.partyId) return null;
+    updateAlertedStates(this.tokens, this.cols, this.rows);
+    const snap = await getDoc(doc(db, 'parties', this.partyId, 'state', 'board'));
+    const current = snap.exists() ? snap.data() : {};
+    return stripUndefinedDeep({
+      tokens: this.tokens.map((t) => stripUndefinedDeep(t)),
+      mapUrl: this._mapUrl ?? current.mapUrl ?? null,
+      combatStarted: this.combatStarted,
+      grid: { cols: this.cols, rows: this.rows, cellSize: CELL },
+      activeTurn: this.activeTurn,
+      log: current.log || [],
+      initiativeLog: this.initiativeLog,
+      initiativeOpen: this.initiativeOpen,
+      turnOrder: this.turnOrder,
+      turnOrderIndex: this.turnOrderIndex,
+      turnActions: normalizeTurnActions(this.turnActions)
+    });
+  }
+
+  async listProgressSaves() {
+    if (!this.partyId) return [];
+    const snap = await getDocs(collection(db, 'parties', this.partyId, 'state'));
+    return snap.docs
+      .filter((d) => d.id.startsWith('progress_'))
+      .map((d) => {
+        const data = d.data();
+        return {
+          id: d.id,
+          name: data.name || 'Sin nombre',
+          savedAt: data.savedAt || null
+        };
+      })
+      .sort((a, b) => {
+        const ta = a.savedAt?.toMillis?.() ?? 0;
+        const tb = b.savedAt?.toMillis?.() ?? 0;
+        return tb - ta;
+      });
+  }
+
+  async saveProgress(name) {
+    if (!this.partyId) return null;
+    const trimmed = String(name || '').trim();
+    if (!trimmed) throw new Error('Introduce un nombre para el guardado.');
+    const board = await this.captureBoardSnapshot();
+    const id = `progress_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`;
+    await setDoc(doc(db, 'parties', this.partyId, 'state', id), stripUndefinedDeep({
+      type: 'boardSave',
+      name: trimmed,
+      savedAt: serverTimestamp(),
+      board
+    }));
+    return id;
+  }
+
+  async loadProgress(saveId) {
+    if (!this.partyId || !saveId) return;
+    const snap = await getDoc(doc(db, 'parties', this.partyId, 'state', saveId));
+    if (!snap.exists()) throw new Error('Partida guardada no encontrada.');
+    const { board: boardData } = snap.data();
+    if (!boardData) throw new Error('El guardado no contiene datos del tablero.');
+    await this.applyBoardData(boardData);
+    await this.saveState({
+      mapUrl: boardData.mapUrl ?? null,
+      combatStarted: boardData.combatStarted,
+      grid: boardData.grid,
+      activeTurn: boardData.activeTurn ?? null,
+      log: boardData.log || [],
+      initiativeLog: boardData.initiativeLog || [],
+      initiativeOpen: boardData.initiativeOpen,
+      turnOrder: boardData.turnOrder || [],
+      turnOrderIndex: boardData.turnOrderIndex ?? 0,
+      turnActions: normalizeTurnActions(boardData.turnActions)
+    });
   }
 
   watchState() {

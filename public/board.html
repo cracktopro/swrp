@@ -139,6 +139,19 @@
         </div>
 
         <div id="board-sidebar-opciones" class="d-none">
+          <section class="swrp-panel mb-3" id="board-progress-panel">
+            <h2 class="swrp-panel__title">Progreso de partida</h2>
+            <p class="small text-muted mb-2">Guarda o restaura el estado completo del tablero (chapas, mapa, combate y log).</p>
+            <label class="form-label small" for="board-save-name">Nombre del guardado</label>
+            <input type="text" class="form-control form-control-sm mb-2" id="board-save-name"
+              placeholder="Ej. Acto II — refugiados" maxlength="80" autocomplete="off">
+            <button type="button" id="board-save-progress" class="btn btn-sm btn-swrp btn-swrp-primary w-100 mb-3">Guardar partida</button>
+            <label class="form-label small" for="board-load-progress">Partidas guardadas</label>
+            <select class="form-select form-select-sm mb-2" id="board-load-progress" disabled>
+              <option value="">— Sin guardados —</option>
+            </select>
+            <button type="button" id="board-load-progress-btn" class="btn btn-sm btn-swrp btn-swrp-ghost w-100" disabled>Cargar partida</button>
+          </section>
           <section class="swrp-panel mb-3">
             <h2 class="swrp-panel__title">Mapa de fondo (URL)</h2>
             <p class="small text-muted mb-2">Imagen bajo la cuadrícula. Enlace directo https.</p>
@@ -352,6 +365,7 @@
     import { renderCharacterCard, normalizeCharacter } from './js/character-card.js';
     import { initBoardPage } from './js/board-page.js';
     import { initBoardCombatUi } from './js/board-combat.js';
+    import { initBoardProgressUi } from './js/board-progress.js';
     import { swrpConfirm, swrpAlert } from './js/swrp-dialog.js';
 
     const charModal = new bootstrap.Modal(document.getElementById('charModal'));
@@ -590,6 +604,7 @@
             isGM,
             openCharacterCard: openTokenCard
           });
+          initBoardProgressUi({ board });
         }
 
         initBoardCombatUi({
