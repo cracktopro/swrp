@@ -11,6 +11,7 @@ import {
 } from './firebase-config.js';
 import { normalizeCharacter, getClassMeta } from './character-card.js';
 import { docToCharacter } from './characters.js';
+import { getStats } from './compendium-store.js';
 
 export async function getPartyMember(partyId, userId) {
   if (!partyId || !userId) return null;
@@ -213,6 +214,12 @@ export async function linkCharacterToActiveParty(characterId, partyId) {
   });
 }
 
+function findMemberForCharacter(members, characterId) {
+  return members.find((m) =>
+    m.characterId === characterId || m.characterSnapshot?.id === characterId
+  );
+}
+
 /** GM: persiste stats del personaje en Firestore y en el snapshot del miembro de la partida. */
 export async function saveCharacterProgressFromBoard(partyId, characterId, entity, { currentHp } = {}) {
   if (!partyId || !characterId || !entity) {
@@ -224,11 +231,33 @@ export async function saveCharacterProgressFromBoard(partyId, characterId, entit
     throw new Error('Personaje no encontrado.');
   }
 
+  const charData = charSnap.data();
+  const members = await loadPartyMembers(partyId);
+  const member = findMemberForCharacter(members, characterId);
+  const ownerId = charData.userId || member?.userId;
+
   const classKey = entity.classKey || entity.class;
   const level = Number(entity.level) || 1;
-  const maxHp = Number(entity.maxHp ?? entity.hp) || 1;
+  const isHero = (charData.type || entity.type || 'Heroe') !== 'NPC';
+  const baseStats = getStats(classKey, level) || {};
+  const maxHp = isHero
+    ? (Number(baseStats.hp) || Number(entity.maxHp ?? entity.hp) || 1)
+    : (Number(entity.maxHp ?? entity.hp) || 1);
+  const combat = isHero
+    ? {
+        defense: Number(baseStats.defense) || 0,
+        attack: Number(baseStats.attack) || 0,
+        damage: Number(baseStats.damage) || 0,
+        force: baseStats.force ?? null
+      }
+    : {
+        defense: Number(entity.defense) || 0,
+        attack: Number(entity.attack) || 0,
+        damage: Number(entity.damage) || 0,
+        force: entity.force ?? null
+      };
   const hp = Math.min(
-    Math.max(0, Number(currentHp) ?? charSnap.data().currentHp ?? maxHp),
+    Math.max(0, Number(currentHp) ?? charData.currentHp ?? maxHp),
     maxHp
   );
 
@@ -238,24 +267,23 @@ export async function saveCharacterProgressFromBoard(partyId, characterId, entit
     classKey,
     class: classKey,
     level,
-    type: 'Heroe',
+    type: charData.type || 'Heroe',
     portraitUrl: entity.portraitUrl || '',
     hp: maxHp,
     maxHp,
     currentHp: hp,
-    defense: Number(entity.defense) || 0,
-    attack: Number(entity.attack) || 0,
-    damage: Number(entity.damage) || 0,
-    force: entity.force ?? null,
+    ...combat,
     skills: entity.skills || [],
     activePartyId: partyId,
     updatedAt: serverTimestamp()
   });
 
+  if (ownerId) {
+    payload.userId = ownerId;
+  }
+
   await updateDoc(doc(db, 'characters', characterId), payload);
 
-  const members = await loadPartyMembers(partyId);
-  const member = members.find((m) => m.characterId === characterId);
   if (member) {
     await updateDoc(doc(db, 'parties', partyId, 'members', member.userId), {
       characterSnapshot: buildCharacterSnapshot({

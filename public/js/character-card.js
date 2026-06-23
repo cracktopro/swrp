@@ -42,15 +42,33 @@ export function normalizeCharacter(data, id = null) {
   };
 }
 
+export function isHeroCharacter(data) {
+  const type = data?.type;
+  return type !== 'NPC';
+}
+
 export function resolveCharacterStats(character) {
-  const base = getStats(character.class, character.level) || {};
+  const char = normalizeCharacter(character, character?.id);
+  const base = getStats(char.class, char.level) || {};
+
+  if (isHeroCharacter(char)) {
+    return {
+      hp: char.currentHp ?? char.hp ?? base.hp ?? 0,
+      maxHp: char.maxHp ?? base.hp ?? 0,
+      defense: base.defense ?? 0,
+      attack: base.attack ?? 0,
+      damage: base.damage ?? 0,
+      force: base.force ?? null
+    };
+  }
+
   return {
-    hp: character.currentHp ?? character.hp ?? base.hp ?? 0,
-    maxHp: character.maxHp ?? base.hp ?? 0,
-    defense: character.defense ?? base.defense ?? 0,
-    attack: character.attack ?? base.attack ?? 0,
-    damage: character.damage ?? base.damage ?? 0,
-    force: character.force ?? base.force ?? null
+    hp: char.currentHp ?? char.hp ?? base.hp ?? 0,
+    maxHp: char.maxHp ?? base.hp ?? 0,
+    defense: char.defense ?? base.defense ?? 0,
+    attack: char.attack ?? base.attack ?? 0,
+    damage: char.damage ?? base.damage ?? 0,
+    force: char.force ?? base.force ?? null
   };
 }
 

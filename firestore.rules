@@ -33,14 +33,22 @@ service cloud.firestore {
       allow update: if isOwner(userId) || isAdmin();
     }
 
+    function partyMemberOwnsCharacter(partyId, charId, userId) {
+      return userId != null
+        && exists(/databases/$(database)/documents/parties/$(partyId)/members/$(userId))
+        && get(/databases/$(database)/documents/parties/$(partyId)/members/$(userId)).data.characterId == charId;
+    }
+
     function isPartyGmForCharacter(charId) {
       let partyId = request.resource.data.activePartyId != null
         ? request.resource.data.activePartyId
         : resource.data.activePartyId;
       return partyId != null
-        && resource.data.userId != null
         && isPartyGM(partyId)
-        && get(/databases/$(database)/documents/parties/$(partyId)/members/$(resource.data.userId)).data.characterId == charId;
+        && (
+          partyMemberOwnsCharacter(partyId, charId, resource.data.userId)
+          || partyMemberOwnsCharacter(partyId, charId, request.resource.data.userId)
+        );
     }
 
     match /characters/{charId} {

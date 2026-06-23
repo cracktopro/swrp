@@ -13,6 +13,7 @@ import { saveCharacterProgressFromBoard } from './party-members.js';
 import {
   getEnemyTokens,
   normalizeBoardToken,
+  inferBoardTokenKind,
   updateAlertedStates,
   computeEnemyStatusIcons,
   drawVisionConeOnCanvas,
@@ -696,18 +697,23 @@ export class TacticalBoard {
     const token = this.tokens.find((t) => t.id === tokenId);
     if (!token) return;
 
+    const tokenKind = inferBoardTokenKind(token);
+    token.kind = tokenKind;
+
     const meta = getClassMeta(entity.class || entity.classKey);
     const maxHp = Number(entity.maxHp ?? entity.hp) || 1;
     const currentHp = Math.min(getTokenHp(token), maxHp);
     const sourceId = token.characterSnapshot?.id || token.sourceId;
+    const isHero = tokenKind === 'character';
 
     const snapshot = stripUndefinedDeep({
       id: sourceId,
       name: entity.name,
       species: entity.species || 'Humanos',
       class: entity.class || entity.classKey,
+      classKey: entity.classKey || entity.class,
       level: Number(entity.level) || 1,
-      type: token.characterSnapshot?.type || (token.kind === 'npc' ? 'NPC' : 'Heroe'),
+      type: token.characterSnapshot?.type || (isHero ? 'Heroe' : 'NPC'),
       portraitUrl: entity.portraitUrl || '',
       skills: entity.skills || [],
       attack: Number(entity.attack) || 0,
@@ -727,8 +733,8 @@ export class TacticalBoard {
     token.portraitUrl = snapshot.portraitUrl;
     token.characterSnapshot = cloneInstanceSnapshot(snapshot);
 
-    if (token.kind === 'character' && token.sourceId) {
-      await saveCharacterProgressFromBoard(this.partyId, token.sourceId, snapshot, { currentHp });
+    if (isHero && sourceId) {
+      await saveCharacterProgressFromBoard(this.partyId, sourceId, snapshot, { currentHp });
     }
 
     if (token.side === 'enemy') {

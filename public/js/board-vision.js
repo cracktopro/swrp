@@ -84,8 +84,16 @@ export function enemySeesAlly(enemy, allies, cols, rows) {
   return allyInVisionCone(enemy, allies, cols, rows);
 }
 
+export function inferBoardTokenKind(token) {
+  if (!token) return 'character';
+  if (token.kind === 'npc' || token.kind === 'character') return token.kind;
+  if (token.characterSnapshot?.type === 'NPC') return 'npc';
+  return 'character';
+}
+
 export function normalizeBoardToken(token) {
   if (!token) return token;
+  token.kind = inferBoardTokenKind(token);
   if (token.inCover === undefined) token.inCover = false;
   if (token.side === 'enemy') {
     if (!FACING_DIRS.includes(token.facing)) token.facing = 'left';
