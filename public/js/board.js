@@ -459,15 +459,19 @@ export class TacticalBoard {
     return this.canControlActiveTurn();
   }
 
-  async advanceTurn() {
-    if (!this.canUserAdvanceTurn()) return;
+  async advanceTurn({ force = false } = {}) {
+    if (force) {
+      if (!this.canUserForceEndNarrativeTurn()) return;
+    } else if (!this.canUserAdvanceTurn()) {
+      return;
+    }
     if (this.isNarrativePhase()) {
       this.activeTurn = null;
       this.resetTurnActions();
-      await this.appendLog(
-        logEntrySystem('fin del turno — a la espera de que el GM asigne el siguiente'),
-        { force: true }
-      );
+      const message = force
+        ? 'fin del turno (anticipado) — a la espera de que el GM asigne el siguiente'
+        : 'fin del turno — a la espera de que el GM asigne el siguiente';
+      await this.appendLog(logEntrySystem(message), { force: true });
       await this.saveState({
         activeTurn: null,
         turnActions: this.turnActions
@@ -663,6 +667,12 @@ export class TacticalBoard {
       return this.canControlActiveTurn();
     }
     if (!this.combatStarted || this.initiativeOpen || !this.turnOrder.length) return false;
+    return this.canControlActiveTurn();
+  }
+
+  canUserForceEndNarrativeTurn() {
+    if (!this.isNarrativePhase() || !this.activeTurn) return false;
+    if (this.isTurnActionsComplete()) return false;
     return this.canControlActiveTurn();
   }
 

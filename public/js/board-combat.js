@@ -576,6 +576,7 @@ export function initBoardCombatUi(ctx) {
   const initiativeRollBtn = document.getElementById('board-initiative-roll');
   const initiativeCompleteBtn = document.getElementById('board-initiative-complete');
   const advanceTurnBtn = document.getElementById('board-advance-turn');
+  const forceEndTurnBtn = document.getElementById('board-force-end-turn');
   const endCombatBtn = document.getElementById('board-end-combat');
   const turnActionsPanel = document.getElementById('board-turn-actions');
   const actionStatusEl = document.getElementById('board-action-status');
@@ -593,6 +594,7 @@ export function initBoardCombatUi(ctx) {
 
     turnActionsPanel?.classList.toggle('d-none', !showPanel);
     advanceTurnBtn?.classList.toggle('d-none', !board.canUserAdvanceTurn());
+    forceEndTurnBtn?.classList.toggle('d-none', !board.canUserForceEndNarrativeTurn());
 
     if (actionStatusEl) {
       actionStatusEl.textContent = showPanel ? `Acciones: ${used}/2 · máx. 1 ataque` : '';
@@ -652,7 +654,7 @@ export function initBoardCombatUi(ctx) {
     const turnHint = document.getElementById('board-turn-assign-hint');
     if (turnHint) {
       turnHint.textContent = narrative
-        ? 'Fase narrativa: 2 acciones por turno (máx. 5 casillas en movimiento). Tras usarlas, «Siguiente turno» y el GM asigna el siguiente. «Ataque sorpresa» abre el combate.'
+        ? 'Fase narrativa: 2 acciones por turno (máx. 5 casillas en movimiento). «Terminar turno» para ceder antes; «Siguiente turno» al completarlas. «Ataque sorpresa» abre el combate.'
         : 'Asigna el turno manualmente o deja que el jugador activo gestione sus acciones.';
       turnHint.classList.toggle('d-none', !isGM);
     }
@@ -906,6 +908,11 @@ export function initBoardCombatUi(ctx) {
 
   advanceTurnBtn?.addEventListener('click', async () => {
     await board.advanceTurn();
+    refreshAll();
+  });
+
+  forceEndTurnBtn?.addEventListener('click', async () => {
+    await board.advanceTurn({ force: true });
     refreshAll();
   });
 

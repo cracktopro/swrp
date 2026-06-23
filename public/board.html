@@ -50,13 +50,16 @@
 
         <div id="board-sidebar-combate">
           <p id="board-narrative-hint" class="small text-muted mb-2">
-            Fase narrativa: 2 acciones por turno. Al completarlas, pulsa «Siguiente turno» y el GM asignará el siguiente.
+            Fase narrativa: 2 acciones por turno. Puedes usar «Terminar turno» antes de gastarlas; al completarlas, «Siguiente turno».
           </p>
           <button type="button" id="start-combat" class="btn btn-sm btn-swrp btn-swrp-primary w-100 mb-3 d-none">Iniciar combate</button>
           <section class="swrp-panel mb-3" id="board-turn-panel">
             <div class="d-flex justify-content-between align-items-center gap-2 mb-2 flex-wrap">
               <h2 class="swrp-panel__title mb-0">Control de turnos</h2>
-              <button type="button" id="board-advance-turn" class="btn btn-sm btn-swrp btn-swrp-primary d-none">Siguiente turno</button>
+              <div class="d-flex gap-2 flex-wrap">
+                <button type="button" id="board-force-end-turn" class="btn btn-sm btn-swrp btn-swrp-ghost d-none">Terminar turno</button>
+                <button type="button" id="board-advance-turn" class="btn btn-sm btn-swrp btn-swrp-primary d-none">Siguiente turno</button>
+              </div>
             </div>
             <p id="board-turn-assign-hint" class="small text-muted mb-2 d-none">Asigna el turno manualmente o deja que el jugador activo gestione sus acciones.</p>
             <p id="board-turn-banner" class="board-turn-banner board-turn-banner--idle small mb-2">Sin turno asignado</p>
