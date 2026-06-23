@@ -18,6 +18,7 @@ export function renderNavbar(active = '', user = null, options = {}) {
       link('dashboard', 'dashboard.html', 'Dashboard'),
       link('characters', 'character-create', 'Personajes'),
       link('compendium', 'compendium.html', 'Compendio'),
+      link('rules', 'rules.html', 'Reglas'),
       ...(isAdmin ? [link('admin', 'admin.html', 'Opciones')] : []),
       '<li class="nav-item"><a class="nav-link swrp-nav-link swrp-nav-link--logout" href="#" id="btn-logout">Salir</a></li>'
     ].join('')

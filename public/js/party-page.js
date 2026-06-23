@@ -16,7 +16,7 @@ import {
   getJoinedCharacterRoster
 } from './party-members.js';
 import { loadAllNpcs, npcToCardData } from './npcs.js';
-import { initNpcPicker } from './npc-picker.js';
+import { initNpcPicker, initCharacterPicker } from './npc-picker.js';
 import { insertMention, renderMentionPickerItem } from './party-markup.js';
 import { renderCharacterCard } from './character-card.js';
 
@@ -237,11 +237,10 @@ export async function initPartyPage({ user, profile, partyId, ui }) {
 
 async function setupJoinFlow(partyId, user, profile, party, ui, onJoined) {
   const joinMode = document.getElementById('join-mode');
-  const joinCharWrap = document.getElementById('join-char-wrap');
-  const joinChar = document.getElementById('join-character');
-  const joinCharLabel = document.getElementById('join-char-label');
-  const joinCharHint = document.getElementById('join-char-hint');
-  const joinNpcWrap = document.getElementById('join-npc-wrap');
+  const joinPickerWrap = document.getElementById('join-picker-wrap');
+  const joinPickerLabel = document.getElementById('join-picker-label');
+  const joinPickerHint = document.getElementById('join-picker-hint');
+  const joinFilterEraWrap = document.getElementById('join-filter-era-wrap');
   const joinSubmit = document.getElementById('join-submit');
   const joinPartyName = document.getElementById('join-party-name');
 
@@ -260,49 +259,58 @@ async function setupJoinFlow(partyId, user, profile, party, ui, onJoined) {
     ${isEscaramuza ? '<option value="npc">Con un personaje NPC</option>' : ''}
     ${hasGM ? '' : '<option value="gm">Como GM de la partida</option>'}`;
 
-  let npcPicker = null;
-
-  function buildJoinCharacterOptions({ optional } = {}) {
-    const empty = optional ? '<option value="">— Ninguno —</option>' : '';
-    const list = characters.length
-      ? characters.map((c) => `<option value="${c.id}">${c.name}</option>`).join('')
-      : '<option value="">— Crea un personaje primero —</option>';
-    return empty + list;
-  }
+  let entityPicker = null;
+  let pickerMode = null;
 
   function syncJoinCharUi() {
     const mode = joinMode.value;
     const isGmMode = mode === 'gm';
     const isNpcMode = mode === 'npc';
+    const showPicker = !isGmMode || characters.length > 0;
 
-    joinCharWrap?.classList.toggle('d-none', isNpcMode);
-    joinNpcWrap?.classList.toggle('d-none', !isNpcMode);
+    joinPickerWrap?.classList.toggle('d-none', !showPicker && !isGmMode);
+    joinFilterEraWrap?.classList.toggle('d-none', !isNpcMode);
+
+    joinPickerLabel.textContent = isNpcMode
+      ? 'Elige un personaje NPC'
+      : (isGmMode ? 'Mi personaje en la partida (opcional)' : 'Elige tu personaje');
+    joinPickerHint.textContent = isGmMode
+      ? 'Opcional: si eliges uno, podrás colocarlo en el tablero y jugarlo en combate.'
+      : (isNpcMode ? '' : '');
+
+    if (pickerMode !== mode) {
+      entityPicker = null;
+      pickerMode = mode;
+    }
 
     if (isNpcMode) {
-      if (!npcPicker && joinNpcWrap) {
-        npcPicker = initNpcPicker({
-          listEl: document.getElementById('join-npc-list'),
-          nameInput: document.getElementById('join-npc-filter-name'),
-          classSelect: document.getElementById('join-npc-filter-class'),
-          eraSelect: document.getElementById('join-npc-filter-era'),
+      if (!entityPicker) {
+        entityPicker = initNpcPicker({
+          listEl: document.getElementById('join-picker-list'),
+          nameInput: document.getElementById('join-filter-name'),
+          classSelect: document.getElementById('join-filter-class'),
+          eraSelect: document.getElementById('join-filter-era'),
           npcs: allNpcs,
           onSelect: () => {}
         });
-      } else if (npcPicker) {
-        npcPicker.refresh(allNpcs);
+      } else {
+        entityPicker.refresh(allNpcs);
       }
       return;
     }
 
-    joinCharLabel.textContent = isGmMode
-      ? 'Mi personaje en la partida (opcional)'
-      : 'Personaje';
-    joinCharHint.textContent = isGmMode
-      ? 'Si eliges uno, podrás colocarlo en el tablero y jugarlo en combate.'
-      : '';
-    joinChar.innerHTML = buildJoinCharacterOptions({ optional: isGmMode });
-    if (!isGmMode && characters.length) joinChar.value = characters[0].id;
-    else if (isGmMode) joinChar.value = '';
+    if (!entityPicker) {
+      entityPicker = initCharacterPicker({
+        listEl: document.getElementById('join-picker-list'),
+        nameInput: document.getElementById('join-filter-name'),
+        classSelect: document.getElementById('join-filter-class'),
+        characters,
+        optional: isGmMode,
+        onSelect: () => {}
+      });
+    } else {
+      entityPicker.refresh(characters);
+    }
   }
 
   syncJoinCharUi();
@@ -313,18 +321,19 @@ async function setupJoinFlow(partyId, user, profile, party, ui, onJoined) {
       const playMode = joinMode.value;
       let character = null;
       if (playMode === 'character') {
-        const charId = joinChar.value;
-        character = charId ? characters.find((c) => c.id === charId) : null;
+        character = entityPicker?.getSelected();
         if (!character) {
           alert('Necesitas al menos un personaje creado.');
           return;
         }
       } else if (playMode === 'npc') {
-        character = npcPicker?.getSelected();
+        character = entityPicker?.getSelected();
         if (!character) {
           alert('Selecciona un NPC de la lista.');
           return;
         }
+      } else if (playMode === 'gm') {
+        character = entityPicker?.getSelected() || null;
       }
       await joinParty(partyId, user, profile, { playMode, character });
       document.getElementById('join-screen').classList.add('d-none');

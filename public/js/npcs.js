@@ -161,7 +161,7 @@ export function renderNpcPickerRow(npc, { selected = false, classMeta } = {}) {
           <span class="swrp-npc-picker-row__dot" aria-hidden="true">·</span>
           <span>${escapeHtml(species)}</span>
           <span class="swrp-npc-picker-row__dot" aria-hidden="true">·</span>
-          <span>${escapeHtml(era)}</span>
+          <span><span class="swrp-card__era-label">Era:</span> ${escapeHtml(era)}</span>
           <span class="swrp-npc-picker-row__dot" aria-hidden="true">·</span>
           <span>Nv.${level}</span>
         </span>

@@ -89,28 +89,24 @@
         <label class="form-label" for="join-mode">¿Cómo participarás?</label>
         <select class="form-select" id="join-mode"></select>
       </div>
-      <div class="mb-3" id="join-char-wrap">
-        <label class="form-label" for="join-character" id="join-char-label">Personaje</label>
-        <select class="form-select" id="join-character"></select>
-        <p class="small text-muted mb-0 mt-1" id="join-char-hint"></p>
-      </div>
-      <div class="mb-3 d-none" id="join-npc-wrap">
-        <label class="form-label mb-2">Elige un personaje NPC</label>
+      <div class="mb-3 d-none" id="join-picker-wrap">
+        <label class="form-label mb-2" id="join-picker-label">Personaje</label>
         <div class="row g-2 mb-2">
           <div class="col-md-4">
-            <label class="form-label small mb-1" for="join-npc-filter-name">Nombre</label>
-            <input type="search" class="form-control form-control-sm" id="join-npc-filter-name" placeholder="Buscar…" autocomplete="off">
+            <label class="form-label small mb-1" for="join-filter-name">Nombre</label>
+            <input type="search" class="form-control form-control-sm" id="join-filter-name" placeholder="Buscar…" autocomplete="off">
           </div>
           <div class="col-md-4">
-            <label class="form-label small mb-1" for="join-npc-filter-class">Clase</label>
-            <select class="form-select form-select-sm" id="join-npc-filter-class"></select>
+            <label class="form-label small mb-1" for="join-filter-class">Clase</label>
+            <select class="form-select form-select-sm" id="join-filter-class"></select>
           </div>
-          <div class="col-md-4">
-            <label class="form-label small mb-1" for="join-npc-filter-era">Era</label>
-            <select class="form-select form-select-sm" id="join-npc-filter-era"></select>
+          <div class="col-md-4 d-none" id="join-filter-era-wrap">
+            <label class="form-label small mb-1" for="join-filter-era">Era</label>
+            <select class="form-select form-select-sm" id="join-filter-era"></select>
           </div>
         </div>
-        <div id="join-npc-list" class="swrp-npc-picker-list swrp-scrollbar-thin"></div>
+        <div id="join-picker-list" class="swrp-npc-picker-list swrp-scrollbar-thin"></div>
+        <p class="small text-muted mb-0 mt-1" id="join-picker-hint"></p>
       </div>
       <button type="button" id="join-submit" class="btn btn-swrp btn-swrp-primary w-100">Unirme a la partida</button>
     </div>

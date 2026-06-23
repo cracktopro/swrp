@@ -2158,6 +2158,166 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
   opacity: 0.55;
 }
 
+.swrp-npc-picker-row--none .swrp-npc-picker-row__thumb--none {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.swrp-card__era-label {
+  color: var(--swrp-gold, #c9a227);
+  font-weight: 600;
+}
+
+.board-gm-extra-actions {
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(0, 229, 255, 0.15);
+}
+
+/* —— Reglas —— */
+.swrp-rules {
+  max-width: 52rem;
+  margin: 0 auto;
+}
+
+.swrp-rules__header {
+  margin-bottom: 1.75rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(0, 229, 255, 0.2);
+}
+
+.swrp-rules__title {
+  font-size: 1.5rem;
+  color: var(--swrp-gold, #c9a227);
+  margin-bottom: 0.35rem;
+}
+
+.swrp-rules__lead {
+  color: rgba(255, 255, 255, 0.65);
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.swrp-rules__body {
+  font-size: 0.92rem;
+  line-height: 1.65;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.swrp-rules__heading,
+.swrp-rules__faq {
+  font-size: 1.05rem;
+  color: var(--swrp-gold, #c9a227);
+  margin: 1.75rem 0 0.75rem;
+  letter-spacing: 0.02em;
+}
+
+.swrp-rules__faq {
+  padding: 0.65rem 0.85rem;
+  background: rgba(0, 229, 255, 0.06);
+  border-left: 3px solid rgba(0, 229, 255, 0.45);
+  border-radius: 0 4px 4px 0;
+}
+
+.swrp-rules__rule,
+.swrp-rules__subrule,
+.swrp-rules__para {
+  margin-bottom: 0.85rem;
+}
+
+.swrp-rules__rule-num,
+.swrp-rules__rule-letter {
+  display: inline-block;
+  min-width: 1.5rem;
+  color: var(--swrp-cyan, #00e5ff);
+  font-weight: 700;
+}
+
+.swrp-rules__subrule {
+  margin-left: 1.25rem;
+  padding-left: 0.5rem;
+  border-left: 2px solid rgba(0, 229, 255, 0.15);
+}
+
+.swrp-rules__example {
+  margin: 1rem 0 1.5rem;
+  padding: 1rem 1.1rem;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(0, 229, 255, 0.18);
+  border-radius: 6px;
+}
+
+.swrp-rules__initiative {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.35rem 0.65rem;
+  margin-bottom: 0.35rem;
+  background: rgba(0, 229, 255, 0.05);
+  border-radius: 4px;
+  font-family: var(--bs-font-monospace, monospace);
+  font-size: 0.88rem;
+}
+
+.swrp-rules__dialogue {
+  margin-bottom: 0.65rem;
+  padding-left: 0.75rem;
+  border-left: 2px solid rgba(201, 162, 39, 0.35);
+}
+
+.swrp-rules__speaker {
+  color: var(--swrp-gold, #c9a227);
+}
+
+.swrp-rules__quote {
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.92);
+  quotes: '"' '"' "'" "'";
+}
+
+.swrp-rules__roll,
+.swrp-rules__dice-roll {
+  display: block;
+  margin: 0.5rem 0;
+  padding: 0.5rem 0.75rem;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 4px;
+  font-family: var(--bs-font-monospace, monospace);
+  font-size: 0.88rem;
+  border-left: 3px solid rgba(201, 162, 39, 0.5);
+}
+
+.swrp-rules__die {
+  color: var(--swrp-cyan, #00e5ff);
+  font-weight: 700;
+  font-family: var(--bs-font-monospace, monospace);
+}
+
+.swrp-rules__mod {
+  color: #7ee787;
+  font-weight: 600;
+}
+
+.swrp-rules__result {
+  color: var(--swrp-gold, #c9a227);
+  font-weight: 700;
+}
+
+.swrp-rules__damage {
+  color: #ff8a80;
+  font-weight: 600;
+}
+
+.swrp-rules__defense {
+  color: #80cbc4;
+}
+
+.swrp-rules__spacer {
+  height: 0.5rem;
+}
+
 .board-mini-wrap {
   border: 1px solid rgba(0, 229, 255, 0.25);
   background: rgba(0, 0, 0, 0.55);

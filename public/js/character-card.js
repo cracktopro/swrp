@@ -119,7 +119,7 @@ export function renderCharacterCard(character, options = {}) {
       <div class="swrp-card__identity">
         <h2 class="swrp-card__name">${escapeHtml(char.name)}${npcBadge}</h2>
         <p class="swrp-card__class">${escapeHtml(meta.label)}</p>
-        <p class="swrp-card__species">${escapeHtml(char.species)}${isNpc && char.era ? ` · ${escapeHtml(char.era)}` : ''}</p>
+        <p class="swrp-card__species">${escapeHtml(char.species)}${char.era ? ` · <span class="swrp-card__era-label">Era:</span> ${escapeHtml(char.era)}` : ''}</p>
       </div>
       <div class="swrp-card__header-actions">
         ${copyIdBtn}

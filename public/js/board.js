@@ -81,7 +81,7 @@ const MAX_ATTACKS_PER_TURN = 1;
 const ORTHO_DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
 function defaultTurnActions() {
-  return { movesUsed: 0, attacksUsed: 0, activeMode: null };
+  return { movesUsed: 0, attacksUsed: 0, activeMode: null, bonusMoves: 0, bonusAttacks: 0 };
 }
 
 function computeOrthogonalReachable(fromCol, fromRow, token, tokens, cols, rows, maxRange) {
@@ -114,7 +114,9 @@ function normalizeTurnActions(value) {
   return {
     movesUsed: Number(value.movesUsed) || 0,
     attacksUsed: Number(value.attacksUsed) || 0,
-    activeMode: value.activeMode === 'move' || value.activeMode === 'attack' ? value.activeMode : null
+    activeMode: value.activeMode === 'move' || value.activeMode === 'attack' ? value.activeMode : null,
+    bonusMoves: Number(value.bonusMoves) || 0,
+    bonusAttacks: Number(value.bonusAttacks) || 0
   };
 }
 const CELL = 48;
@@ -780,8 +782,40 @@ export class TacticalBoard {
     return (this.turnActions.movesUsed || 0) + (this.turnActions.attacksUsed || 0);
   }
 
+  getActionBudget() {
+    return MAX_TURN_ACTIONS
+      + (this.turnActions.bonusMoves || 0)
+      + (this.turnActions.bonusAttacks || 0);
+  }
+
+  getAttackBudget() {
+    return MAX_ATTACKS_PER_TURN + (this.turnActions.bonusAttacks || 0);
+  }
+
   isTurnActionsComplete() {
-    return this.getActionsUsed() >= MAX_TURN_ACTIONS;
+    return this.getActionsUsed() >= this.getActionBudget();
+  }
+
+  canGMGrantExtraActions() {
+    return this.isGM && !!this.activeTurn && (this.isNarrativePhase() || this.isStructuredCombat());
+  }
+
+  async grantExtraTurnMove() {
+    if (!this.canGMGrantExtraActions()) return false;
+    this.turnActions.bonusMoves = (this.turnActions.bonusMoves || 0) + 1;
+    await this.saveState({ turnActions: this.turnActions });
+    this.onTurnActionsChange?.(this.turnActions);
+    this.render();
+    return true;
+  }
+
+  async grantExtraTurnAttack() {
+    if (!this.canGMGrantExtraActions()) return false;
+    this.turnActions.bonusAttacks = (this.turnActions.bonusAttacks || 0) + 1;
+    await this.saveState({ turnActions: this.turnActions });
+    this.onTurnActionsChange?.(this.turnActions);
+    this.render();
+    return true;
   }
 
   canControlActiveTurn() {
@@ -812,14 +846,14 @@ export class TacticalBoard {
 
   canUseAttackMode() {
     if (!this.canControlActiveTurn()) return false;
-    if (this.getActionsUsed() >= MAX_TURN_ACTIONS) return false;
-    if ((this.turnActions.attacksUsed || 0) >= MAX_ATTACKS_PER_TURN) return false;
+    if (this.getActionsUsed() >= this.getActionBudget()) return false;
+    if ((this.turnActions.attacksUsed || 0) >= this.getAttackBudget()) return false;
     return true;
   }
 
   canUseMoveMode() {
     if (!this.canControlActiveTurn()) return false;
-    if (this.getActionsUsed() >= MAX_TURN_ACTIONS) return false;
+    if (this.getActionsUsed() >= this.getActionBudget()) return false;
     return true;
   }
 
@@ -854,7 +888,7 @@ export class TacticalBoard {
       await this.finishSurpriseAttack();
       return;
     }
-    if ((this.turnActions.attacksUsed || 0) >= MAX_ATTACKS_PER_TURN) return;
+    if ((this.turnActions.attacksUsed || 0) >= this.getAttackBudget()) return;
     this.turnActions.attacksUsed = (this.turnActions.attacksUsed || 0) + 1;
     this.turnActions.activeMode = null;
     await this.saveState({ turnActions: this.turnActions });
@@ -864,8 +898,9 @@ export class TacticalBoard {
 
   async finishSurpriseAttack() {
     if (!this.isNarrativePhase()) return;
-    this.turnActions.movesUsed = MAX_TURN_ACTIONS;
-    this.turnActions.attacksUsed = MAX_TURN_ACTIONS;
+    const budget = this.getActionBudget();
+    this.turnActions.movesUsed = budget;
+    this.turnActions.attacksUsed = budget;
     this.turnActions.activeMode = null;
     await this.saveState({ turnActions: this.turnActions });
     this.onTurnActionsChange?.(this.turnActions);
@@ -922,7 +957,7 @@ export class TacticalBoard {
     if (!this.combatStarted) {
       if (this.isGM && !this.activeTurn) return true;
       if (!this.activeTurn) return false;
-      if (this.getActionsUsed() >= MAX_TURN_ACTIONS) return false;
+      if (this.getActionsUsed() >= this.getActionBudget()) return false;
       if (this.turnActions.activeMode !== 'move') return false;
       if (this.activeTurn.kind === 'enemy') {
         return this.isGM && token.side === 'enemy';
@@ -937,7 +972,7 @@ export class TacticalBoard {
 
     if (!this.canControlActiveTurn()) return false;
     if (this.turnActions.activeMode !== 'move') return false;
-    if (this.getActionsUsed() >= MAX_TURN_ACTIONS) return false;
+    if (this.getActionsUsed() >= this.getActionBudget()) return false;
 
     if (this.activeTurn.kind === 'enemy') {
       return this.isGM && token.side === 'enemy';
@@ -949,8 +984,8 @@ export class TacticalBoard {
 
   canUseAttackActions() {
     if (!this.canControlActiveTurn()) return false;
-    if ((this.turnActions.attacksUsed || 0) >= MAX_ATTACKS_PER_TURN) return false;
-    return this.turnActions.activeMode === 'attack' && this.getActionsUsed() < MAX_TURN_ACTIONS;
+    if ((this.turnActions.attacksUsed || 0) >= this.getAttackBudget()) return false;
+    return this.turnActions.activeMode === 'attack' && this.getActionsUsed() < this.getActionBudget();
   }
 
   canUseDiceConsole() {

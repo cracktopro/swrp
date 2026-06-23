@@ -583,6 +583,9 @@ export function initBoardCombatUi(ctx) {
   const actionStatusEl = document.getElementById('board-action-status');
   const actionMoveBtn = document.getElementById('board-action-mode-move');
   const actionAttackBtn = document.getElementById('board-action-mode-attack');
+  const gmExtraPanel = document.getElementById('board-gm-extra-actions');
+  const gmExtraMoveBtn = document.getElementById('board-gm-extra-move');
+  const gmExtraAttackBtn = document.getElementById('board-gm-extra-attack');
 
   let mentionAtIndex = null;
 
@@ -591,24 +594,32 @@ export function initBoardCombatUi(ctx) {
     const structured = board.isStructuredCombat();
     const hasControl = board.canControlActiveTurn();
     const used = board.getActionsUsed();
+    const actionBudget = board.getActionBudget();
+    const attackBudget = board.getAttackBudget();
     const showPanel = (narrative || structured) && hasControl;
 
     turnActionsPanel?.classList.toggle('d-none', !showPanel);
     advanceTurnBtn?.classList.toggle('d-none', !board.canUserAdvanceTurn());
     forceEndTurnBtn?.classList.toggle('d-none', !board.canUserForceEndNarrativeTurn());
 
+    const showGmExtra = isGM && board.activeTurn && (narrative || structured);
+    gmExtraPanel?.classList.toggle('d-none', !showGmExtra);
+
     if (actionStatusEl) {
-      actionStatusEl.textContent = showPanel ? `Acciones: ${used}/2 · máx. 1 ataque` : '';
+      const attackNote = attackBudget > 1 ? ` · máx. ${attackBudget} ataques` : ' · máx. 1 ataque';
+      actionStatusEl.textContent = showPanel
+        ? `Acciones: ${used}/${actionBudget}${attackNote}`
+        : '';
     }
 
-    const modesEnabled = hasControl && used < 2;
+    const modesEnabled = hasControl && used < actionBudget;
     if (actionMoveBtn) {
       actionMoveBtn.disabled = !modesEnabled;
       actionMoveBtn.classList.toggle('is-active', board.turnActions.activeMode === 'move');
     }
     if (actionAttackBtn) {
       actionAttackBtn.textContent = narrative ? 'Ataque sorpresa' : 'Atacar';
-      const attackUsed = (board.turnActions.attacksUsed || 0) >= 1;
+      const attackUsed = (board.turnActions.attacksUsed || 0) >= attackBudget;
       actionAttackBtn.disabled = !modesEnabled || attackUsed;
       actionAttackBtn.classList.toggle('is-active', board.turnActions.activeMode === 'attack');
     }
@@ -880,7 +891,7 @@ export function initBoardCombatUi(ctx) {
     if (!board.canUseMoveMode()) {
       await swrpAlert({
         title: 'Sin acciones',
-        message: 'Ya has usado tus 2 acciones este turno.'
+        message: `Ya has usado tus ${board.getActionBudget()} acciones este turno.`
       });
       return;
     }
@@ -889,22 +900,32 @@ export function initBoardCombatUi(ctx) {
   });
 
   actionAttackBtn?.addEventListener('click', async () => {
-    if ((board.turnActions.attacksUsed || 0) >= 1) {
+    if ((board.turnActions.attacksUsed || 0) >= board.getAttackBudget()) {
       await swrpAlert({
         title: 'Ataque ya usado',
-        message: 'Solo puedes atacar una vez por turno. Usa la otra acción para movimiento.'
+        message: `Solo puedes atacar ${board.getAttackBudget()} vez${board.getAttackBudget() > 1 ? 'es' : ''} por turno.`
       });
       return;
     }
     if (!board.canUseAttackMode()) {
       await swrpAlert({
         title: 'Sin acciones',
-        message: 'Ya has usado tus 2 acciones este turno.'
+        message: `Ya has usado tus ${board.getActionBudget()} acciones este turno.`
       });
       return;
     }
     await board.selectActionMode('attack');
     syncTurnActionUi();
+  });
+
+  gmExtraMoveBtn?.addEventListener('click', async () => {
+    const ok = await board.grantExtraTurnMove();
+    if (ok) syncTurnActionUi();
+  });
+
+  gmExtraAttackBtn?.addEventListener('click', async () => {
+    const ok = await board.grantExtraTurnAttack();
+    if (ok) syncTurnActionUi();
   });
 
   advanceTurnBtn?.addEventListener('click', async () => {
