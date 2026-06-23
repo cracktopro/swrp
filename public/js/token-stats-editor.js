@@ -246,7 +246,7 @@ export async function ensureTokenStatsEditor(container) {
         <div class="col-4 col-md"><label class="form-label small">Daño</label><input type="number" class="form-control form-control-sm" id="ctrl-stat-damage" min="0"></div>
         <div class="col-4 col-md"><label class="form-label small">Fuerza</label><input type="number" class="form-control form-control-sm" id="ctrl-stat-force" placeholder="—"></div>
       </div>
-      <button type="button" class="btn btn-sm btn-swrp btn-swrp-ghost mt-2" id="ctrl-stat-restore-base">Restaurar stats de clase</button>
+      <button type="button" class="btn btn-sm btn-swrp btn-swrp-ghost mt-2" id="ctrl-stat-restore-base">Aplicar stats del nivel actual</button>
     </div>
     <div class="mb-3">
       <label class="form-label small" for="ctrl-stat-portrait">URL del retrato</label>

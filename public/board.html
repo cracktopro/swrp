@@ -150,7 +150,10 @@
             <select class="form-select form-select-sm mb-2" id="board-load-progress" disabled>
               <option value="">— Sin guardados —</option>
             </select>
-            <button type="button" id="board-load-progress-btn" class="btn btn-sm btn-swrp btn-swrp-ghost w-100" disabled>Cargar partida</button>
+            <div class="d-flex gap-2 flex-wrap">
+              <button type="button" id="board-load-progress-btn" class="btn btn-sm btn-swrp btn-swrp-primary flex-grow-1" disabled>Cargar partida</button>
+              <button type="button" id="board-delete-progress-btn" class="btn btn-sm btn-swrp btn-swrp-danger flex-grow-1" disabled>Eliminar</button>
+            </div>
           </section>
           <section class="swrp-panel mb-3">
             <h2 class="swrp-panel__title">Mapa de fondo (URL)</h2>

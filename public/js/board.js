@@ -5,6 +5,7 @@ import {
   getDoc,
   getDocs,
   setDoc,
+  deleteDoc,
   onSnapshot,
   serverTimestamp
 } from './firebase-config.js';
@@ -306,6 +307,14 @@ export class TacticalBoard {
     });
   }
 
+  progressSaveTimestamp(data) {
+    if (data?.savedAtMs != null) return Number(data.savedAtMs);
+    const savedAt = data?.savedAt;
+    if (savedAt?.toMillis) return savedAt.toMillis();
+    if (savedAt?.seconds != null) return savedAt.seconds * 1000;
+    return 0;
+  }
+
   async listProgressSaves() {
     if (!this.partyId) return [];
     const snap = await getDocs(collection(db, 'parties', this.partyId, 'state'));
@@ -313,17 +322,14 @@ export class TacticalBoard {
       .filter((d) => d.id.startsWith('progress_'))
       .map((d) => {
         const data = d.data();
+        const savedAtMs = this.progressSaveTimestamp(data);
         return {
           id: d.id,
           name: data.name || 'Sin nombre',
-          savedAt: data.savedAt || null
+          savedAtMs: savedAtMs || null
         };
       })
-      .sort((a, b) => {
-        const ta = a.savedAt?.toMillis?.() ?? 0;
-        const tb = b.savedAt?.toMillis?.() ?? 0;
-        return tb - ta;
-      });
+      .sort((a, b) => (b.savedAtMs || 0) - (a.savedAtMs || 0));
   }
 
   async saveProgress(name) {
@@ -331,14 +337,26 @@ export class TacticalBoard {
     const trimmed = String(name || '').trim();
     if (!trimmed) throw new Error('Introduce un nombre para el guardado.');
     const board = await this.captureBoardSnapshot();
-    const id = `progress_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`;
-    await setDoc(doc(db, 'parties', this.partyId, 'state', id), stripUndefinedDeep({
+    const savedAtMs = Date.now();
+    const id = `progress_${savedAtMs.toString(36)}_${Math.random().toString(36).slice(2, 9)}`;
+    await setDoc(doc(db, 'parties', this.partyId, 'state', id), {
       type: 'boardSave',
       name: trimmed,
       savedAt: serverTimestamp(),
-      board
-    }));
-    return id;
+      savedAtMs,
+      board: stripUndefinedDeep(board)
+    });
+    return { id, savedAtMs };
+  }
+
+  async deleteProgress(saveId) {
+    if (!this.partyId || !saveId) return;
+    if (!saveId.startsWith('progress_')) {
+      throw new Error('Guardado no válido.');
+    }
+    const snap = await getDoc(doc(db, 'parties', this.partyId, 'state', saveId));
+    if (!snap.exists()) throw new Error('Partida guardada no encontrada.');
+    await deleteDoc(doc(db, 'parties', this.partyId, 'state', saveId));
   }
 
   async loadProgress(saveId) {
