@@ -2,10 +2,17 @@
   --card-accent: #00e5ff;
   --card-glow: rgba(0, 229, 255, 0.45);
   --card-glow-soft: rgba(0, 229, 255, 0.15);
+  --swrp-card-height: 520px;
+  --swrp-card-name-max: 1.15rem;
+  --swrp-card-name-min: 0.55rem;
   position: relative;
   width: 100%;
   max-width: 420px;
+  height: var(--swrp-card-height);
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
   background: linear-gradient(160deg, #0a0b0f 0%, #14161c 40%, #0d0e12 100%);
   border: 2px solid rgba(212, 175, 55, 0.35);
   padding: 0.75rem;
@@ -14,6 +21,7 @@
   box-shadow:
     0 0 30px var(--card-glow-soft),
     inset 0 0 40px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
 }
 
 .swrp-card.theme-guardian {
@@ -76,6 +84,15 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--swrp-text-muted, rgba(255, 255, 255, 0.55));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.swrp-card__identity {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .swrp-skill-badge {
@@ -113,6 +130,9 @@
   justify-content: space-between;
   align-items: flex-start;
   gap: 0.5rem;
+  flex-shrink: 0;
+  min-height: 4.75rem;
+  max-height: 4.75rem;
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--card-accent);
   box-shadow: 0 0 12px var(--card-glow-soft);
@@ -126,6 +146,7 @@
       rgba(255, 255, 255, 0.02) 8px
     ),
     rgba(0, 0, 0, 0.4);
+  overflow: hidden;
 }
 
 .swrp-card__header-actions {
@@ -145,15 +166,26 @@
 .swrp-card__name {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 1.15rem;
+  font-size: var(--swrp-card-name-max);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   line-height: 1.1;
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.35rem;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.swrp-card__name-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  font-size: inherit;
+  line-height: inherit;
 }
 
 .swrp-card__class {
@@ -163,6 +195,9 @@
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .swrp-card__level {
@@ -183,7 +218,9 @@
   grid-template-columns: 40% 1fr;
   gap: 0.5rem;
   align-items: stretch;
-  min-height: 300px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .swrp-card__left {
@@ -275,7 +312,10 @@
   background: rgba(0, 0, 0, 0.75);
   clip-path: polygon(0 0, 100% 0, 100% calc(100% - 18px), calc(100% - 18px) 100%, 0 100%);
   overflow: hidden;
-  min-height: 260px;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .swrp-card__skills-title {
@@ -296,7 +336,8 @@
 .swrp-card__skills-list {
   font-size: 0.78rem;
   line-height: 1.35;
-  max-height: 220px;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
 }
 
@@ -341,6 +382,7 @@
 }
 
 .swrp-card__footer {
+  flex-shrink: 0;
   margin-top: 0.5rem;
   text-align: center;
   padding: 0.35rem;
@@ -363,20 +405,21 @@
 }
 
 .swrp-card--mini {
+  --swrp-card-height: 340px;
+  --swrp-card-name-max: 0.95rem;
+  --swrp-card-name-min: 0.5rem;
   max-width: 280px;
   font-size: 0.85rem;
 }
 
-.swrp-card--mini .swrp-card__body {
-  min-height: 180px;
+.swrp-card--mini .swrp-card__header {
+  min-height: 4rem;
+  max-height: 4rem;
 }
 
 .swrp-card--mini .swrp-card__portrait img {
   max-width: 90px;
-}
-
-.swrp-card--mini .swrp-card__skills-list {
-  max-height: 120px;
+  max-height: 110px;
 }
 
 .card-preview-wrap {
@@ -427,6 +470,20 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 1.25rem;
+  align-items: start;
+}
+
+.npcs-grid__item {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.npcs-grid__item .swrp-card {
+  width: 100%;
+  max-width: none;
+  height: var(--swrp-card-height);
 }
 
 @media (max-width: 768px) {
@@ -440,7 +497,7 @@
 
   .swrp-card__skills-panel {
     order: 2;
-    min-height: 200px;
+    min-height: 0;
   }
 
   .swrp-card__portrait img {

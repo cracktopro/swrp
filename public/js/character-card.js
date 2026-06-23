@@ -117,7 +117,9 @@ export function renderCharacterCard(character, options = {}) {
   card.innerHTML = `
     <header class="swrp-card__header">
       <div class="swrp-card__identity">
-        <h2 class="swrp-card__name">${escapeHtml(char.name)}${npcBadge}</h2>
+        <h2 class="swrp-card__name" title="${escapeHtml(char.name)}">
+          <span class="swrp-card__name-text">${escapeHtml(char.name)}</span>${npcBadge}
+        </h2>
         <p class="swrp-card__class">${escapeHtml(meta.label)}</p>
         <p class="swrp-card__species">${escapeHtml(char.species)}${char.era ? ` · <span class="swrp-card__era-label">Era:</span> ${escapeHtml(char.era)}` : ''}</p>
       </div>
@@ -168,7 +170,50 @@ export function renderCharacterCard(character, options = {}) {
     }
   });
 
+  scheduleCardNameFit(card);
+
   return card;
+}
+
+/** Reduce el tamaño del nombre hasta que quepa en una sola línea. */
+export function fitCardNameText(card) {
+  const nameEl = card?.querySelector('.swrp-card__name');
+  const textEl = card?.querySelector('.swrp-card__name-text');
+  if (!nameEl || !textEl) return;
+
+  const isMini = card.classList.contains('swrp-card--mini');
+  const maxRem = isMini ? 0.95 : 1.15;
+  const minRem = isMini ? 0.5 : 0.55;
+  const badge = nameEl.querySelector('.swrp-card__badge-npc');
+  const badgeWidth = badge ? badge.offsetWidth + 6 : 0;
+  const available = Math.max(nameEl.clientWidth - badgeWidth, 40);
+
+  textEl.style.maxWidth = `${available}px`;
+  let size = maxRem;
+  textEl.style.fontSize = `${size}rem`;
+
+  while (size > minRem && textEl.scrollWidth > textEl.clientWidth + 1) {
+    size = Math.max(minRem, size - 0.04);
+    textEl.style.fontSize = `${size}rem`;
+  }
+}
+
+function scheduleCardNameFit(card) {
+  if (card.dataset.nameFitBound) return;
+  card.dataset.nameFitBound = '1';
+
+  const run = () => {
+    if (card.clientWidth > 0) fitCardNameText(card);
+  };
+
+  requestAnimationFrame(run);
+
+  const observer = new ResizeObserver(() => run());
+  observer.observe(card);
+}
+
+export function fitAllCardNames(root = document) {
+  root.querySelectorAll('.swrp-card').forEach((card) => scheduleCardNameFit(card));
 }
 
 export function renderCharacterTag(snapshot, onClick) {

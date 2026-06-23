@@ -632,6 +632,7 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
 
 .swrp-char-panel__preview .swrp-card {
   width: 100%;
+  max-width: 420px;
 }
 
 .swrp-party-list {
