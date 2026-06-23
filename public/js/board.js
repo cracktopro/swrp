@@ -9,6 +9,7 @@ import {
   serverTimestamp
 } from './firebase-config.js';
 import { getClassMeta } from './character-card.js';
+import { saveCharacterProgressFromBoard } from './party-members.js';
 import {
   getEnemyTokens,
   normalizeBoardToken,
@@ -725,6 +726,10 @@ export class TacticalBoard {
     token.color = meta.color;
     token.portraitUrl = snapshot.portraitUrl;
     token.characterSnapshot = cloneInstanceSnapshot(snapshot);
+
+    if (token.kind === 'character' && token.sourceId) {
+      await saveCharacterProgressFromBoard(this.partyId, token.sourceId, snapshot, { currentHp });
+    }
 
     if (token.side === 'enemy') {
       updateAlertedStates(this.tokens, this.cols, this.rows);

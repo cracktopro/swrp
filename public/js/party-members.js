@@ -91,6 +91,9 @@ export async function joinParty(partyId, user, profile, { playMode, character })
 
   await setDoc(doc(db, 'parties', partyId, 'members', user.uid), payload);
   await updateDoc(doc(db, 'users', user.uid), { joinedPartyIds: arrayUnion(partyId) });
+  if (characterId) {
+    await linkCharacterToActiveParty(characterId, partyId);
+  }
   return payload;
 }
 
@@ -118,6 +121,9 @@ export async function updatePartyMembership(partyId, userId, user, profile, { pl
     characterSnapshot,
     updatedAt: serverTimestamp()
   }, { merge: true });
+  if (characterId) {
+    await linkCharacterToActiveParty(characterId, partyId);
+  }
 }
 
 /** Personajes unidos a la partida (jugadores y GM con personaje asignado). */
@@ -196,4 +202,70 @@ export function tokenFromNpc(npc) {
       force: npc.force
     })
   };
+}
+
+/** Vincula el personaje a la partida activa (permite al GM guardar progreso global). */
+export async function linkCharacterToActiveParty(characterId, partyId) {
+  if (!characterId || !partyId) return;
+  await updateDoc(doc(db, 'characters', characterId), {
+    activePartyId: partyId,
+    updatedAt: serverTimestamp()
+  });
+}
+
+/** GM: persiste stats del personaje en Firestore y en el snapshot del miembro de la partida. */
+export async function saveCharacterProgressFromBoard(partyId, characterId, entity, { currentHp } = {}) {
+  if (!partyId || !characterId || !entity) {
+    throw new Error('Datos de personaje incompletos.');
+  }
+
+  const charSnap = await getDoc(doc(db, 'characters', characterId));
+  if (!charSnap.exists()) {
+    throw new Error('Personaje no encontrado.');
+  }
+
+  const classKey = entity.classKey || entity.class;
+  const level = Number(entity.level) || 1;
+  const maxHp = Number(entity.maxHp ?? entity.hp) || 1;
+  const hp = Math.min(
+    Math.max(0, Number(currentHp) ?? charSnap.data().currentHp ?? maxHp),
+    maxHp
+  );
+
+  const payload = omitUndefinedFields({
+    name: entity.name,
+    species: entity.species || 'Humanos',
+    classKey,
+    class: classKey,
+    level,
+    type: 'Heroe',
+    portraitUrl: entity.portraitUrl || '',
+    hp: maxHp,
+    maxHp,
+    currentHp: hp,
+    defense: Number(entity.defense) || 0,
+    attack: Number(entity.attack) || 0,
+    damage: Number(entity.damage) || 0,
+    force: entity.force ?? null,
+    skills: entity.skills || [],
+    activePartyId: partyId,
+    updatedAt: serverTimestamp()
+  });
+
+  await updateDoc(doc(db, 'characters', characterId), payload);
+
+  const members = await loadPartyMembers(partyId);
+  const member = members.find((m) => m.characterId === characterId);
+  if (member) {
+    await updateDoc(doc(db, 'parties', partyId, 'members', member.userId), {
+      characterSnapshot: buildCharacterSnapshot({
+        ...payload,
+        id: characterId,
+        currentHp: hp
+      }),
+      updatedAt: serverTimestamp()
+    });
+  }
+
+  return payload;
 }

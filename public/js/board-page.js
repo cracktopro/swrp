@@ -380,7 +380,13 @@ export function initBoardPage(ctx) {
         showCtrlTab('stats');
         return;
       }
-      await board.updateTokenFromStats(token.id, statsEntity);
+      try {
+        await board.updateTokenFromStats(token.id, statsEntity);
+      } catch (err) {
+        await swrpAlert({ title: 'Error al guardar stats', message: err.message || 'No se pudieron guardar los cambios.' });
+        showCtrlTab('stats');
+        return;
+      }
     }
 
     const updated = board.tokens.find((t) => t.id === controlTokenId) || token;

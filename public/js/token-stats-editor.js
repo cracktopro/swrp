@@ -12,6 +12,8 @@ import { normalizeCharacter } from './character-card.js';
 let selectedSkills = [];
 let statsOverride = null;
 let mounted = false;
+/** @type {'character' | 'npc'} */
+let tokenKind = 'npc';
 
 function escapeHtml(str) {
   return String(str)
@@ -26,6 +28,10 @@ function skillTypeClass(type) {
   if (t === 'rol') return 'swrp-skill-badge--rol';
   if (t === 'pasiva') return 'swrp-skill-badge--pasiva';
   return 'swrp-skill-badge--activa';
+}
+
+function isPartyCharacter() {
+  return tokenKind === 'character';
 }
 
 function populateClassSelect() {
@@ -44,11 +50,28 @@ function populateSpeciesSelect() {
     .join('');
 }
 
+function setStatsFieldsEditable(editable) {
+  ['ctrl-stat-hp', 'ctrl-stat-defense', 'ctrl-stat-attack', 'ctrl-stat-damage', 'ctrl-stat-force']
+    .forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.disabled = !editable;
+    });
+  document.getElementById('ctrl-stat-restore-base')?.classList.toggle('d-none', !editable);
+}
+
+function updateStatsHint() {
+  const hint = document.getElementById('ctrl-stat-hint');
+  if (!hint) return;
+  hint.textContent = isPartyCharacter()
+    ? 'Las estadísticas escalan con la clase y el nivel. Los cambios se guardan en el personaje del jugador (progreso global).'
+    : 'Los cambios solo afectan a esta chapa en la partida actual. Puedes ajustar las stats manualmente.';
+}
+
 function syncStatsFieldsFromBase() {
   const classKey = document.getElementById('ctrl-stat-class')?.value;
   const level = parseInt(document.getElementById('ctrl-stat-level')?.value, 10) || 1;
   const base = getStats(classKey, level) || {};
-  if (!statsOverride) {
+  if (isPartyCharacter() || !statsOverride) {
     statsOverride = { ...base };
   }
   document.getElementById('ctrl-stat-hp').value = statsOverride.hp ?? 0;
@@ -69,6 +92,23 @@ function readStatsFromFields() {
     damage: parseInt(document.getElementById('ctrl-stat-damage')?.value, 10) || 0,
     force: forceVal === '' ? null : parseInt(forceVal, 10)
   };
+}
+
+function resolveStatsForSave() {
+  const classKey = document.getElementById('ctrl-stat-class')?.value;
+  const level = parseInt(document.getElementById('ctrl-stat-level')?.value, 10) || 1;
+  if (isPartyCharacter()) {
+    const base = getStats(classKey, level) || {};
+    return {
+      hp: base.hp ?? 0,
+      maxHp: base.hp ?? 0,
+      defense: base.defense ?? 0,
+      attack: base.attack ?? 0,
+      damage: base.damage ?? 0,
+      force: base.force ?? null
+    };
+  }
+  return readStatsFromFields();
 }
 
 function updatePortraitPreview(url) {
@@ -139,9 +179,10 @@ function updateSkillPicker() {
 }
 
 function onFormChange(e) {
-  if (['ctrl-stat-class', 'ctrl-stat-level'].includes(e.target.id) && !statsOverride) {
-    syncStatsFieldsFromBase();
-  } else if (['ctrl-stat-class', 'ctrl-stat-level'].includes(e.target.id)) {
+  if (['ctrl-stat-class', 'ctrl-stat-level'].includes(e.target.id)) {
+    if (isPartyCharacter() || (tokenKind === 'npc' && !statsOverride)) {
+      syncStatsFieldsFromBase();
+    }
     selectedSkills = [];
   }
   if (e.target.id === 'ctrl-stat-portrait') {
@@ -161,7 +202,9 @@ function bindEvents() {
   ['ctrl-stat-hp', 'ctrl-stat-defense', 'ctrl-stat-attack', 'ctrl-stat-damage', 'ctrl-stat-force']
     .forEach((id) => {
       document.getElementById(id)?.addEventListener('input', () => {
-        statsOverride = readStatsFromFields();
+        if (!isPartyCharacter()) {
+          statsOverride = readStatsFromFields();
+        }
       });
     });
 
@@ -215,7 +258,7 @@ export async function ensureTokenStatsEditor(container) {
       <label class="form-label small">Habilidades de combate</label>
       <div id="ctrl-stat-skills" class="swrp-scrollbar-thin" style="max-height:12rem;overflow-y:auto"></div>
     </div>
-    <p class="small text-muted mb-0">Los cambios solo afectan a esta chapa en la partida actual.</p>`;
+    <p id="ctrl-stat-hint" class="small text-muted mb-0"></p>`;
 
   populateClassSelect();
   populateSpeciesSelect();
@@ -224,6 +267,10 @@ export async function ensureTokenStatsEditor(container) {
 }
 
 export function loadTokenStatsEditor(token) {
+  tokenKind = token.kind === 'npc' ? 'npc' : 'character';
+  setStatsFieldsEditable(!isPartyCharacter());
+  updateStatsHint();
+
   const snap = token.characterSnapshot || {};
   const entity = normalizeCharacter(
     {
@@ -246,13 +293,17 @@ export function loadTokenStatsEditor(token) {
     .map((s) => (typeof s === 'string' ? s : s?.id))
     .filter(Boolean);
 
-  statsOverride = {
-    hp: entity.maxHp ?? entity.hp ?? 0,
-    defense: entity.defense ?? 0,
-    attack: entity.attack ?? 0,
-    damage: entity.damage ?? 0,
-    force: entity.force ?? null
-  };
+  if (isPartyCharacter()) {
+    statsOverride = null;
+  } else {
+    statsOverride = {
+      hp: entity.maxHp ?? entity.hp ?? 0,
+      defense: entity.defense ?? 0,
+      attack: entity.attack ?? 0,
+      damage: entity.damage ?? 0,
+      force: entity.force ?? null
+    };
+  }
   syncStatsFieldsFromBase();
   updatePortraitPreview(entity.portraitUrl || '');
   updateSkillPicker();
@@ -261,7 +312,7 @@ export function loadTokenStatsEditor(token) {
 export function readTokenStatsEditor() {
   const classKey = document.getElementById('ctrl-stat-class')?.value;
   const level = parseInt(document.getElementById('ctrl-stat-level')?.value, 10) || 1;
-  const stats = readStatsFromFields();
+  const stats = resolveStatsForSave();
   return {
     name: document.getElementById('ctrl-stat-name')?.value.trim() || 'Sin nombre',
     class: classKey,

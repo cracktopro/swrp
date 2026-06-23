@@ -33,10 +33,21 @@ service cloud.firestore {
       allow update: if isOwner(userId) || isAdmin();
     }
 
+    function isPartyGmForCharacter(charId) {
+      let partyId = request.resource.data.activePartyId != null
+        ? request.resource.data.activePartyId
+        : resource.data.activePartyId;
+      return partyId != null
+        && resource.data.userId != null
+        && isPartyGM(partyId)
+        && get(/databases/$(database)/documents/parties/$(partyId)/members/$(resource.data.userId)).data.characterId == charId;
+    }
+
     match /characters/{charId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isOwner(resource.data.userId);
+      allow update: if isOwner(resource.data.userId) || isPartyGmForCharacter(charId);
+      allow delete: if isOwner(resource.data.userId);
     }
 
     match /npcs/{npcId} {
