@@ -6,11 +6,16 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
-function formatInline(text) {
-  let html = escapeHtml(text);
+/** Aplica resaltados solo a texto plano (nunca dentro de etiquetas HTML). */
+function highlightPlainText(text) {
+  let html = text;
 
   html = html.replace(
-    /(Tirada\d?\s*1d\d+[^<]*)/gi,
+    /&quot;([^&]+?)&quot;/g,
+    '<q class="swrp-rules__quote">$1</q>'
+  );
+  html = html.replace(
+    /(Tirada\d?\s*1d\d+.*)/gi,
     '<span class="swrp-rules__dice-roll">$1</span>'
   );
   html = html.replace(
@@ -30,23 +35,24 @@ function formatInline(text) {
     '<span class="swrp-rules__damage">$1</span>'
   );
   html = html.replace(
-    /(Defensa(?:\s+del?|\s+de)?[^.<]*\d+)/gi,
+    /(Defensa(?:\s+del?|\s+de)?[^&]*\d+)/gi,
     '<span class="swrp-rules__defense">$1</span>'
   );
   html = html.replace(
-    /&quot;([^&]+)&quot;/g,
-    '<q class="swrp-rules__quote">$1</q>'
-  );
-  html = html.replace(
-    /"([^"]+)"/g,
-    '<q class="swrp-rules__quote">$1</q>'
-  );
-  html = html.replace(
-    /^-\s*([^:]+):\s*/,
+    /^-\s*([^:&]+):\s*/,
     '<strong class="swrp-rules__speaker">$1:</strong> '
   );
 
   return html;
+}
+
+function formatInline(text) {
+  const escaped = escapeHtml(text);
+  const parts = escaped.split(/(<[^>]+>)/g);
+  for (let i = 0; i < parts.length; i += 2) {
+    parts[i] = highlightPlainText(parts[i]);
+  }
+  return parts.join('');
 }
 
 function isInitiativeLine(line) {
