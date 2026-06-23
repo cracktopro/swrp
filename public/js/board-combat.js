@@ -10,6 +10,8 @@ import {
   isCombatEnded,
   isTokenDefeated
 } from './board.js';
+import { inferBoardTokenKind } from './board-vision.js';
+import { getMemberPlaySource } from './party-members.js';
 import {
   insertMention,
   renderBoardMentionPickerItem,
@@ -24,6 +26,13 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
+function isUserPlayToken(token, ctx) {
+  const sid = ctx.userCharacterSourceId;
+  const kind = ctx.userPlayTokenKind || 'character';
+  if (!sid || !token) return false;
+  return token.sourceId === sid && inferBoardTokenKind(token) === kind;
+}
+
 export function buildTurnOptions(members, tokens) {
   const options = [{
     kind: 'enemy',
@@ -34,17 +43,19 @@ export function buildTurnOptions(members, tokens) {
   }];
 
   members
-    .filter((m) => m.characterSnapshot && m.characterId)
+    .filter((m) => m.characterSnapshot && (m.characterId || m.npcId || m.playMode === 'npc'))
     .forEach((m) => {
+      const { sourceId, tokenKind } = getMemberPlaySource(m);
+      if (!sourceId) return;
       const onBoard = tokens.find(
-        (t) => t.kind === 'character' && t.sourceId === m.characterId
+        (t) => t.sourceId === sourceId && inferBoardTokenKind(t) === tokenKind
       );
       if (onBoard && !isTokenDefeated(onBoard)) {
         options.push({
           kind: 'player',
           label: m.characterSnapshot.name,
           userId: m.userId,
-          sourceId: m.characterId,
+          sourceId,
           tokenId: onBoard.id
         });
       }
@@ -64,10 +75,11 @@ function getTokenForTurn(turn, tokens) {
     return tokens.find((t) => t.id === turn.tokenId) || null;
   }
   if (turn.sourceId) {
-    return tokens.find(
-      (t) => t.sourceId === turn.sourceId
-        && (turn.kind === 'player' ? t.kind === 'character' : true)
-    ) || null;
+    return tokens.find((t) => {
+      if (t.sourceId !== turn.sourceId) return false;
+      if (turn.kind === 'player') return true;
+      return true;
+    }) || null;
   }
   return null;
 }
@@ -253,9 +265,7 @@ function resolveActiveActor(ctx, activeSelect) {
     }
     return null;
   }
-  const token = board.tokens.find(
-    (t) => t.kind === 'character' && t.sourceId === userCharacterSourceId
-  );
+  const token = board.tokens.find((t) => isUserPlayToken(t, ctx));
   if (token) return actorFromToken(token);
   if (member?.characterSnapshot) {
     const meta = getClassMeta(member.characterSnapshot.class);
@@ -274,11 +284,7 @@ function canUseNarrative(board, ctx) {
   if (board.isNarrativePhase()) {
     if (isGM) return true;
     if (!userCharacterSourceId) return false;
-    return board.tokens.some(
-      (t) => t.kind === 'character'
-        && t.sourceId === userCharacterSourceId
-        && !isTokenDefeated(t)
-    );
+    return board.tokens.some((t) => isUserPlayToken(t, ctx) && !isTokenDefeated(t));
   }
   return false;
 }
@@ -290,9 +296,7 @@ function resolveNarrativeActor(ctx, activeSelect) {
   const { board, isGM, userCharacterSourceId, member } = ctx;
 
   if (board.isNarrativePhase() && userCharacterSourceId) {
-    const token = board.tokens.find(
-      (t) => t.kind === 'character' && t.sourceId === userCharacterSourceId
-    );
+    const token = board.tokens.find((t) => isUserPlayToken(t, ctx));
     if (token) return actorFromToken(token);
   }
 
@@ -416,9 +420,7 @@ function refreshInitiativeCharacterSelect(ctx, selectEl) {
     return;
   }
 
-  const token = board.tokens.find(
-    (t) => t.kind === 'character' && t.sourceId === userCharacterSourceId
-  );
+  const token = board.tokens.find((t) => isUserPlayToken(t, ctx));
   if (token && isTokenDefeated(token)) {
     selectEl.innerHTML = '<option value="">— Tu personaje está derrotado —</option>';
   } else if (token) {
@@ -480,7 +482,7 @@ function resolveInitiativeActor(ctx, selectEl) {
   }
 
   const token = board.tokens.find((t) => t.id === selectEl.value);
-  if (token?.kind === 'character' && token.sourceId === ctx.userCharacterSourceId) {
+  if (token?.sourceId === ctx.userCharacterSourceId && isUserPlayToken(token, ctx)) {
     const resolved = actorFromToken(token);
     const member = members.find((m) => m.characterId === token.sourceId);
     return {
@@ -539,9 +541,7 @@ function refreshActiveCharacterSelect(ctx, selectEl) {
     return;
   }
 
-  const token = board.tokens.find(
-    (t) => t.kind === 'character' && t.sourceId === userCharacterSourceId
-  );
+  const token = board.tokens.find((t) => isUserPlayToken(t, ctx));
   selectEl.innerHTML = token
     ? `<option value="${token.id}">${escapeHtml(formatTokenSelectLabel(token))}</option>`
     : '<option value="">— Tu personaje no está en el tablero —</option>';
@@ -557,6 +557,7 @@ export function initBoardCombatUi(ctx) {
     roster,
     isGM,
     userCharacterSourceId,
+    userPlayTokenKind,
     mentionUi,
     onOpenMention
   } = ctx;

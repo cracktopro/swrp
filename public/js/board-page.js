@@ -11,6 +11,12 @@ import { getClassMeta } from './character-card.js';
 import { getClassList } from './game-data.js';
 import { swrpConfirm, swrpAlert } from './swrp-dialog.js';
 import {
+  buildNpcEraSelectOptions,
+  filterNpcs,
+  readNpcClassKey,
+  readNpcEra
+} from './npcs.js';
+import {
   ensureTokenStatsEditor,
   loadTokenStatsEditor,
   readTokenStatsEditor
@@ -250,6 +256,7 @@ export function initBoardPage(ctx) {
   function setupAddFilters() {
     if (addFiltersReady) return;
     const classSel = document.getElementById('add-filter-class');
+    const eraSel = document.getElementById('add-filter-era');
     if (!classSel) return;
 
     classSel.innerHTML = [
@@ -257,8 +264,14 @@ export function initBoardPage(ctx) {
       ...getClassList().map((c) => `<option value="${escapeHtml(c.key)}">${escapeHtml(c.label)}</option>`)
     ].join('');
 
-    document.getElementById('add-filter-name')?.addEventListener('input', renderAddList);
-    classSel.addEventListener('change', renderAddList);
+    if (eraSel) {
+      eraSel.innerHTML = buildNpcEraSelectOptions();
+    }
+
+    const rerender = () => renderAddList();
+    document.getElementById('add-filter-name')?.addEventListener('input', rerender);
+    classSel.addEventListener('change', rerender);
+    eraSel?.addEventListener('change', rerender);
     addFiltersReady = true;
   }
 
@@ -427,12 +440,24 @@ export function initBoardPage(ctx) {
   function getFilteredAddCandidates() {
     const nameQ = document.getElementById('add-filter-name')?.value.trim().toLowerCase() || '';
     const classQ = document.getElementById('add-filter-class')?.value || '';
+    const eraQ = document.getElementById('add-filter-era')?.value || '';
+    const eraWrap = document.getElementById('add-filter-era-wrap');
+    eraWrap?.classList.toggle('d-none', addTab !== 'npcs');
 
-    return getAddCandidates().filter(({ item }) => {
-      if (nameQ && !(item.name || '').toLowerCase().includes(nameQ)) return false;
-      if (classQ && itemClassKey(item) !== classQ) return false;
-      return true;
-    });
+    const base = getAddCandidates();
+    if (addTab !== 'npcs') {
+      return base.filter(({ item }) => {
+        if (nameQ && !(item.name || '').toLowerCase().includes(nameQ)) return false;
+        if (classQ && itemClassKey(item) !== classQ) return false;
+        return true;
+      });
+    }
+
+    const npcItems = base.map((c) => c.item);
+    const filteredItems = new Set(
+      filterNpcs(npcItems, { nameQ, classQ, eraQ }).map((n) => n.id)
+    );
+    return base.filter(({ item }) => filteredItems.has(item.id));
   }
 
   function renderAddList() {
@@ -466,12 +491,15 @@ export function initBoardPage(ctx) {
       const selected = addSelection?.template.sourceId === template.sourceId;
       const classMeta = getClassMeta(itemClassKey(item));
       const defaultSide = addTab === 'npcs' ? 'enemy' : 'ally';
+      const eraLine = addTab === 'npcs'
+        ? ` · ${escapeHtml(readNpcEra(item))}`
+        : '';
       return `
         <button type="button" class="swrp-add-token-item${selected ? ' is-selected' : ''}" data-source="${escapeHtml(template.sourceId)}" data-kind="${escapeHtml(template.kind)}">
           ${renderAddTokenThumb(item, classMeta.theme || item.theme || 'soldado')}
           <span class="swrp-add-token-item__body">
             <strong>${escapeHtml(item.name)}</strong>
-            <span class="small text-muted d-block">${escapeHtml(classMeta.label || itemClassKey(item) || '—')} · ${sideLabel(defaultSide)}</span>
+            <span class="small text-muted d-block">${escapeHtml(classMeta.label || itemClassKey(item) || '—')} · ${sideLabel(defaultSide)}${eraLine}</span>
           </span>
         </button>`;
     }).join('');
@@ -508,6 +536,8 @@ export function initBoardPage(ctx) {
     addTab = 'characters';
     document.getElementById('add-filter-name').value = '';
     document.getElementById('add-filter-class').value = '';
+    const eraFilter = document.getElementById('add-filter-era');
+    if (eraFilter) eraFilter.value = '';
     document.querySelectorAll('#add-token-tabs .nav-link').forEach((el, i) => {
       el.classList.toggle('active', i === 0);
     });

@@ -17,7 +17,7 @@ import {
 } from './firebase-config.js';
 import { renderCharacterCard } from './character-card.js';
 import { loadCharacterById } from './characters.js';
-import { loadNpcById, createNpc, updateNpc } from './npcs.js';
+import { loadNpcById, createNpc, updateNpc, buildNpcEraFormOptions, DEFAULT_NPC_ERA } from './npcs.js';
 import { characterViewUrl } from './character-url.js';
 
 let selectedSkills = [];
@@ -55,6 +55,18 @@ function isValidPortraitUrl(url) {
   }
 }
 
+function populateEraSelect() {
+  const sel = document.getElementById('char-era');
+  if (!sel) return;
+  sel.innerHTML = buildNpcEraFormOptions(DEFAULT_NPC_ERA);
+}
+
+function syncNpcOnlyFields() {
+  const isNpc = isNpcMode();
+  document.getElementById('char-era-wrap')?.classList.toggle('d-none', !isNpc);
+  document.getElementById('stats-edit-wrap')?.classList.toggle('d-none', !isNpc);
+}
+
 function populateSpeciesSelect() {
   const sel = document.getElementById('char-species');
   if (!sel) return;
@@ -82,7 +94,6 @@ function syncStatsFieldsFromBase() {
   document.getElementById('stat-attack').value = statsOverride.attack ?? 0;
   document.getElementById('stat-damage').value = statsOverride.damage ?? 0;
   document.getElementById('stat-force').value = statsOverride.force ?? '';
-  document.getElementById('stats-edit-wrap').classList.toggle('d-none', !isNpcMode());
 }
 
 function readStatsFromFields() {
@@ -108,6 +119,7 @@ export async function initCharacterCreator(userId, { characterId = null, npcId =
 
   populateClassSelect();
   populateSpeciesSelect();
+  populateEraSelect();
   setupCreatorTabs(isAdmin);
   bindFormEvents(userId);
 
@@ -131,6 +143,7 @@ export async function initCharacterCreator(userId, { characterId = null, npcId =
     updateSkillPicker();
     updatePreview();
   }
+  syncNpcOnlyFields();
 }
 
 function setupCreatorTabs(isAdmin) {
@@ -163,6 +176,7 @@ function setupCreatorTabs(isAdmin) {
       syncStatsFieldsFromBase();
       updateSkillPicker();
       updatePreview();
+      syncNpcOnlyFields();
     });
   });
 
@@ -231,6 +245,8 @@ function applyEntityToForm(entity) {
   document.getElementById('char-class').value = entity.class || entity.classKey;
   document.getElementById('char-level').value = entity.level;
   document.getElementById('char-species').value = entity.species || getSpeciesList()[0];
+  const eraEl = document.getElementById('char-era');
+  if (eraEl) eraEl.value = entity.era || DEFAULT_NPC_ERA;
   document.getElementById('portrait-url').value = entity.portraitUrl || entity.image || '';
   selectedSkills = [...(entity.skills || [])];
   statsOverride = {
@@ -244,6 +260,7 @@ function applyEntityToForm(entity) {
   updatePortraitPreview(entity.portraitUrl || entity.image);
   updateSkillPicker();
   updatePreview();
+  syncNpcOnlyFields();
 }
 
 function updatePortraitPreview(url) {
@@ -275,6 +292,7 @@ function getFormCharacter() {
     classKey,
     level,
     species: document.getElementById('char-species').value,
+    era: isNpcMode() ? (document.getElementById('char-era')?.value || DEFAULT_NPC_ERA) : undefined,
     type: isNpcMode() ? 'NPC' : 'Heroe',
     portraitUrl: getPortraitUrlInput(),
     hp: stats.hp,
@@ -413,6 +431,7 @@ async function saveNpc(userId) {
     class: char.classKey,
     level: char.level,
     type: 'NPC',
+    era: document.getElementById('char-era')?.value || DEFAULT_NPC_ERA,
     portraitUrl,
     hp: char.hp ?? 0,
     maxHp: char.maxHp ?? char.hp ?? 0,

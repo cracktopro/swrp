@@ -82,7 +82,7 @@
   </main>
 
   <div id="join-screen" class="container py-5 d-none">
-    <div class="swrp-panel mx-auto" style="max-width:520px;">
+    <div class="swrp-panel mx-auto" style="max-width:640px;">
       <h2 class="swrp-panel__title">Unirse a la partida</h2>
       <p id="join-party-name" class="text-gold mb-3"></p>
       <div class="mb-3">
@@ -93,6 +93,24 @@
         <label class="form-label" for="join-character" id="join-char-label">Personaje</label>
         <select class="form-select" id="join-character"></select>
         <p class="small text-muted mb-0 mt-1" id="join-char-hint"></p>
+      </div>
+      <div class="mb-3 d-none" id="join-npc-wrap">
+        <label class="form-label mb-2">Elige un personaje NPC</label>
+        <div class="row g-2 mb-2">
+          <div class="col-md-4">
+            <label class="form-label small mb-1" for="join-npc-filter-name">Nombre</label>
+            <input type="search" class="form-control form-control-sm" id="join-npc-filter-name" placeholder="Buscar…" autocomplete="off">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small mb-1" for="join-npc-filter-class">Clase</label>
+            <select class="form-select form-select-sm" id="join-npc-filter-class"></select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small mb-1" for="join-npc-filter-era">Era</label>
+            <select class="form-select form-select-sm" id="join-npc-filter-era"></select>
+          </div>
+        </div>
+        <div id="join-npc-list" class="swrp-npc-picker-list swrp-scrollbar-thin"></div>
       </div>
       <button type="button" id="join-submit" class="btn btn-swrp btn-swrp-primary w-100">Unirme a la partida</button>
     </div>
@@ -174,7 +192,11 @@
 
     function setPartyHeader(party, member, userId) {
       document.getElementById('party-title').textContent = party.name;
-      const roleLabel = member.playMode === 'gm' ? 'GM' : 'Jugador';
+      const roleLabel = member.playMode === 'gm'
+        ? 'GM'
+        : member.playMode === 'npc'
+          ? 'Jugador (NPC)'
+          : 'Jugador';
       document.getElementById('party-meta').textContent =
         `${party.type} · Fase: ${party.phase || 'narrative'} · ${roleLabel}`;
       document.getElementById('board-link').href = boardPageUrl(getPartyIdFromUrl());

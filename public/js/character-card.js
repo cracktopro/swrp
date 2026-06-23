@@ -23,6 +23,7 @@ export function normalizeCharacter(data, id = null) {
     id: id ?? data.id ?? null,
     name: data.name || 'Sin nombre',
     species: data.species || 'Humanos',
+    era: data.era || null,
     class: classKey,
     classKey,
     level,
@@ -118,7 +119,7 @@ export function renderCharacterCard(character, options = {}) {
       <div class="swrp-card__identity">
         <h2 class="swrp-card__name">${escapeHtml(char.name)}${npcBadge}</h2>
         <p class="swrp-card__class">${escapeHtml(meta.label)}</p>
-        <p class="swrp-card__species">${escapeHtml(char.species)}</p>
+        <p class="swrp-card__species">${escapeHtml(char.species)}${isNpc && char.era ? ` · ${escapeHtml(char.era)}` : ''}</p>
       </div>
       <div class="swrp-card__header-actions">
         ${copyIdBtn}

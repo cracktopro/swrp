@@ -15,6 +15,8 @@ import {
   memberToActiveCharacter,
   getJoinedCharacterRoster
 } from './party-members.js';
+import { loadAllNpcs, npcToCardData } from './npcs.js';
+import { initNpcPicker } from './npc-picker.js';
 import { insertMention, renderMentionPickerItem } from './party-markup.js';
 import { renderCharacterCard } from './character-card.js';
 
@@ -214,7 +216,7 @@ export async function initPartyPage({ user, profile, partyId, ui }) {
     if (isGM) {
       char = getActiveCharacter();
     } else {
-      if (member.playMode !== 'character') {
+      if (member.playMode !== 'character' && member.playMode !== 'npc') {
         alert('Debes jugar con un personaje asignado.');
         return;
       }
@@ -235,21 +237,30 @@ export async function initPartyPage({ user, profile, partyId, ui }) {
 
 async function setupJoinFlow(partyId, user, profile, party, ui, onJoined) {
   const joinMode = document.getElementById('join-mode');
+  const joinCharWrap = document.getElementById('join-char-wrap');
   const joinChar = document.getElementById('join-character');
   const joinCharLabel = document.getElementById('join-char-label');
   const joinCharHint = document.getElementById('join-char-hint');
+  const joinNpcWrap = document.getElementById('join-npc-wrap');
   const joinSubmit = document.getElementById('join-submit');
   const joinPartyName = document.getElementById('join-party-name');
 
+  const isEscaramuza = party.type === 'Escaramuza';
   joinPartyName.textContent = party.name;
   const characters = await loadUserCharacters(user.uid);
+  const allNpcs = isEscaramuza
+    ? (await loadAllNpcs()).map(npcToCardData)
+    : [];
 
   const members = await loadPartyMembers(partyId);
   const hasGM = !!getPartyGM(members);
 
   joinMode.innerHTML = `
     <option value="character">Con uno de mis personajes</option>
+    ${isEscaramuza ? '<option value="npc">Con un personaje NPC</option>' : ''}
     ${hasGM ? '' : '<option value="gm">Como GM de la partida</option>'}`;
+
+  let npcPicker = null;
 
   function buildJoinCharacterOptions({ optional } = {}) {
     const empty = optional ? '<option value="">— Ninguno —</option>' : '';
@@ -260,7 +271,29 @@ async function setupJoinFlow(partyId, user, profile, party, ui, onJoined) {
   }
 
   function syncJoinCharUi() {
-    const isGmMode = joinMode.value === 'gm';
+    const mode = joinMode.value;
+    const isGmMode = mode === 'gm';
+    const isNpcMode = mode === 'npc';
+
+    joinCharWrap?.classList.toggle('d-none', isNpcMode);
+    joinNpcWrap?.classList.toggle('d-none', !isNpcMode);
+
+    if (isNpcMode) {
+      if (!npcPicker && joinNpcWrap) {
+        npcPicker = initNpcPicker({
+          listEl: document.getElementById('join-npc-list'),
+          nameInput: document.getElementById('join-npc-filter-name'),
+          classSelect: document.getElementById('join-npc-filter-class'),
+          eraSelect: document.getElementById('join-npc-filter-era'),
+          npcs: allNpcs,
+          onSelect: () => {}
+        });
+      } else if (npcPicker) {
+        npcPicker.refresh(allNpcs);
+      }
+      return;
+    }
+
     joinCharLabel.textContent = isGmMode
       ? 'Mi personaje en la partida (opcional)'
       : 'Personaje';
@@ -278,11 +311,20 @@ async function setupJoinFlow(partyId, user, profile, party, ui, onJoined) {
   joinSubmit.onclick = async () => {
     try {
       const playMode = joinMode.value;
-      const charId = joinChar.value;
-      const character = charId ? characters.find((c) => c.id === charId) : null;
-      if (playMode === 'character' && !character) {
-        alert('Necesitas al menos un personaje creado.');
-        return;
+      let character = null;
+      if (playMode === 'character') {
+        const charId = joinChar.value;
+        character = charId ? characters.find((c) => c.id === charId) : null;
+        if (!character) {
+          alert('Necesitas al menos un personaje creado.');
+          return;
+        }
+      } else if (playMode === 'npc') {
+        character = npcPicker?.getSelected();
+        if (!character) {
+          alert('Selecciona un NPC de la lista.');
+          return;
+        }
       }
       await joinParty(partyId, user, profile, { playMode, character });
       document.getElementById('join-screen').classList.add('d-none');

@@ -125,6 +125,12 @@ const MAX_GRID = 48;
 const DRAG_THRESHOLD = 5;
 const LABEL_SIZE = 28;
 
+function tokenMatchesPlayerTurn(token, turn) {
+  if (!token || !turn || turn.kind !== 'player') return false;
+  if (turn.tokenId) return token.id === turn.tokenId;
+  return token.sourceId === turn.sourceId;
+}
+
 export class TacticalBoard {
   constructor(canvas, tokenLayer, logEl, options = {}) {
     this.canvas = canvas;
@@ -156,6 +162,7 @@ export class TacticalBoard {
     this.roster = options.roster || [];
     this.userId = options.userId || null;
     this.userCharacterSourceId = options.userCharacterSourceId || null;
+    this.userPlayTokenKind = options.userPlayTokenKind || 'character';
     this.selectedTokenId = null;
     this.onSelectionChange = options.onSelectionChange || (() => {});
     this.onTokenClick = options.onTokenClick || (() => {});
@@ -872,9 +879,7 @@ export class TacticalBoard {
     if (turn.kind === 'enemy') {
       return { name: turn.label || 'Enemigos', class: 'soldado', color: '#ff1744' };
     }
-    const token = this.tokens.find(
-      (t) => t.kind === 'character' && t.sourceId === turn.sourceId
-    );
+    const token = this.tokens.find((t) => t.sourceId === turn.sourceId);
     if (token) {
       const meta = getClassMeta(token.class);
       return {
@@ -894,9 +899,7 @@ export class TacticalBoard {
   getMovementTokenForTurn() {
     if (!this.activeTurn) return null;
     if (this.activeTurn.kind === 'enemy') return null;
-    return this.tokens.find(
-      (t) => t.kind === 'character' && t.sourceId === this.activeTurn.sourceId
-    ) || null;
+    return this.tokens.find((t) => tokenMatchesPlayerTurn(t, this.activeTurn)) || null;
   }
 
   isCellReachableForMove(token, col, row, fromCol, fromRow) {
@@ -926,8 +929,7 @@ export class TacticalBoard {
       }
       return this.activeTurn.kind === 'player'
         && this.activeTurn.userId === this.userId
-        && token.kind === 'character'
-        && token.sourceId === this.activeTurn.sourceId
+        && tokenMatchesPlayerTurn(token, this.activeTurn)
         && token.side !== 'enemy';
     }
 
@@ -941,8 +943,7 @@ export class TacticalBoard {
       return this.isGM && token.side === 'enemy';
     }
 
-    return token.kind === 'character'
-      && token.sourceId === this.activeTurn.sourceId
+    return tokenMatchesPlayerTurn(token, this.activeTurn)
       && token.side !== 'enemy';
   }
 
@@ -961,7 +962,7 @@ export class TacticalBoard {
     if (!this.activeTurn || isTokenDefeated(token)) return false;
     if (this.activeTurn.kind === 'enemy') return token.side === 'enemy';
     if (this.activeTurn.kind === 'player') {
-      return token.kind === 'character' && token.sourceId === this.activeTurn.sourceId;
+      return tokenMatchesPlayerTurn(token, this.activeTurn);
     }
     return false;
   }

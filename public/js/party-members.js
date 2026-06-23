@@ -12,6 +12,7 @@ import {
 import { normalizeCharacter, getClassMeta } from './character-card.js';
 import { docToCharacter } from './characters.js';
 import { getStats } from './compendium-store.js';
+import { npcToMembershipCharacter } from './npcs.js';
 
 export async function getPartyMember(partyId, userId) {
   if (!partyId || !userId) return null;
@@ -55,6 +56,7 @@ export function buildCharacterSnapshot(character) {
     class: c.class,
     level: c.level,
     type: c.type,
+    era: c.era || null,
     portraitUrl: c.portraitUrl || '',
     skills: c.skills || [],
     attack: c.attack,
@@ -66,6 +68,24 @@ export function buildCharacterSnapshot(character) {
   });
 }
 
+export function getMemberPlaySource(member) {
+  if (!member) {
+    return { sourceId: null, tokenKind: 'character', playMode: null };
+  }
+  if (member.playMode === 'npc') {
+    return {
+      sourceId: member.npcId || member.characterSnapshot?.id || null,
+      tokenKind: 'npc',
+      playMode: 'npc'
+    };
+  }
+  return {
+    sourceId: member.characterId || member.characterSnapshot?.id || null,
+    tokenKind: 'character',
+    playMode: member.playMode || 'character'
+  };
+}
+
 export async function joinParty(partyId, user, profile, { playMode, character }) {
   const existing = await getPartyMember(partyId, user.uid);
   if (existing) throw new Error('Ya estás unido a esta partida');
@@ -74,17 +94,20 @@ export async function joinParty(partyId, user, profile, { playMode, character })
   if (playMode === 'gm') {
     const gm = getPartyGM(members);
     if (gm) throw new Error('Esta partida ya tiene un GM asignado');
-  } else {
-    if (!character?.id) throw new Error('Selecciona un personaje para unirte');
+  } else if (playMode === 'npc') {
+    if (!character?.id) throw new Error('Selecciona un NPC para unirte');
+  } else if (!character?.id) {
+    throw new Error('Selecciona un personaje para unirte');
   }
 
-  const { characterId, characterSnapshot } = resolveMembershipCharacter(playMode, character);
+  const { characterId, npcId, characterSnapshot } = resolveMembershipCharacter(playMode, character);
 
   const payload = {
     userId: user.uid,
     username: profile?.username || user.displayName || user.email,
     playMode,
     characterId,
+    npcId: npcId || null,
     characterSnapshot,
     joinedAt: serverTimestamp(),
     updatedAt: serverTimestamp()
@@ -92,7 +115,7 @@ export async function joinParty(partyId, user, profile, { playMode, character })
 
   await setDoc(doc(db, 'parties', partyId, 'members', user.uid), payload);
   await updateDoc(doc(db, 'users', user.uid), { joinedPartyIds: arrayUnion(partyId) });
-  if (characterId) {
+  if (characterId && playMode === 'character') {
     await linkCharacterToActiveParty(characterId, partyId);
   }
   return payload;
@@ -108,21 +131,24 @@ export async function updatePartyMembership(partyId, userId, user, profile, { pl
     if (gm && gm.userId !== userId) {
       throw new Error('Solo el GM actual puede usar el rol de GM');
     }
+  } else if (playMode === 'npc') {
+    if (!character?.id) throw new Error('Selecciona un NPC');
   } else if (!character?.id) {
     throw new Error('Selecciona un personaje');
   }
 
-  const { characterId, characterSnapshot } = resolveMembershipCharacter(playMode, character);
+  const { characterId, npcId, characterSnapshot } = resolveMembershipCharacter(playMode, character);
 
   await setDoc(doc(db, 'parties', partyId, 'members', userId), {
     userId,
     username: profile?.username || user.displayName || user.email,
     playMode,
     characterId,
+    npcId: npcId || null,
     characterSnapshot,
     updatedAt: serverTimestamp()
   }, { merge: true });
-  if (characterId) {
+  if (characterId && playMode === 'character') {
     await linkCharacterToActiveParty(characterId, partyId);
   }
 }
@@ -144,11 +170,27 @@ export function memberToActiveCharacter(member) {
 
 function resolveMembershipCharacter(playMode, character) {
   const hasChar = !!character?.id;
+  if (playMode === 'gm') {
+    return {
+      characterId: hasChar ? character.id : null,
+      npcId: null,
+      characterSnapshot: hasChar ? buildCharacterSnapshot(character) : null
+    };
+  }
+  if (playMode === 'npc') {
+    if (!hasChar) throw new Error('Selecciona un NPC');
+    return {
+      characterId: null,
+      npcId: character.id,
+      characterSnapshot: buildCharacterSnapshot(npcToMembershipCharacter(character))
+    };
+  }
   if (playMode === 'character' && !hasChar) {
     throw new Error('Selecciona un personaje');
   }
   return {
     characterId: hasChar ? character.id : null,
+    npcId: null,
     characterSnapshot: hasChar ? buildCharacterSnapshot(character) : null
   };
 }

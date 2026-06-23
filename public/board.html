@@ -295,6 +295,12 @@
                     <option value="">Todas las clases</option>
                   </select>
                 </div>
+                <div class="col-12" id="add-filter-era-wrap">
+                  <label class="form-label small mb-1" for="add-filter-era">Era</label>
+                  <select class="form-select form-select-sm" id="add-filter-era">
+                    <option value="">Todas las eras</option>
+                  </select>
+                </div>
               </div>
               <div id="add-token-list" class="swrp-add-token-list"></div>
             </div>
@@ -360,7 +366,7 @@
     import { renderNavbar } from './js/navbar.js';
     import { requireAuth, isAdmin } from './js/auth.js';
     import { loadParty, isPartyMember, loadPartyRoster } from './js/party.js';
-    import { loadPartyMembers, isPartyGMUser } from './js/party-members.js';
+    import { loadPartyMembers, isPartyGMUser, getMemberPlaySource } from './js/party-members.js';
     import { getPartyIdFromUrl, partyPageUrl } from './js/party-url.js';
     import { TacticalBoard, getTokenHp, getTokenMaxHp, getTokenEffectiveDefense, isTokenInCover } from './js/board.js';
     import { loadAllNpcs, npcToCardData } from './js/npcs.js';
@@ -544,7 +550,9 @@
         const members = await loadPartyMembers(partyId);
         const member = members.find((m) => m.userId === user.uid);
         const isGM = isPartyGMUser(members, user.uid) || member?.playMode === 'gm';
-        const userCharacterSourceId = member?.characterId || null;
+        const playSource = getMemberPlaySource(member);
+        const userCharacterSourceId = playSource.sourceId;
+        const userPlayTokenKind = playSource.tokenKind;
         roster = await loadPartyRoster(partyId);
         await loadCompendiumData();
         npcs = (await loadAllNpcs()).map(npcToCardData);
@@ -574,6 +582,7 @@
             isGM,
             userId: user.uid,
             userCharacterSourceId,
+            userPlayTokenKind,
             roster,
             colLabelsEl: document.getElementById('board-col-labels'),
             rowLabelsEl: document.getElementById('board-row-labels'),
@@ -618,6 +627,7 @@
           roster,
           isGM,
           userCharacterSourceId,
+          userPlayTokenKind,
           mentionUi: { modal: mentionModal },
           onOpenMention: openMentionTarget
         });

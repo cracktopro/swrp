@@ -14,7 +14,7 @@ import {
   skillTypeBadgeClass
 } from './compendium-store.js';
 import { renderCharacterCard } from './character-card.js';
-import { loadAllNpcs, deleteNpc, npcToCardData } from './npcs.js';
+import { loadAllNpcs, deleteNpc, npcToCardData, filterNpcs, buildNpcEraSelectOptions } from './npcs.js';
 
 function escapeHtml(str) {
   return String(str)
@@ -27,13 +27,10 @@ function escapeHtml(str) {
 let cachedNpcs = [];
 let npcFiltersReady = false;
 
-function readNpcClassKey(npc) {
-  return npc.classKey || npc.class || '';
-}
-
 function setupNpcFilters() {
   if (npcFiltersReady) return;
   const classSel = document.getElementById('npc-filter-class');
+  const eraSel = document.getElementById('npc-filter-era');
   if (!classSel) return;
 
   classSel.innerHTML = [
@@ -41,20 +38,22 @@ function setupNpcFilters() {
     ...getClassList().map((c) => `<option value="${escapeHtml(c.key)}">${escapeHtml(c.label)}</option>`)
   ].join('');
 
+  if (eraSel) {
+    eraSel.innerHTML = buildNpcEraSelectOptions();
+  }
+
   const rerender = () => renderNpcsFromCache(document.body.dataset.compAdmin === '1');
   document.getElementById('npc-filter-name')?.addEventListener('input', rerender);
   classSel.addEventListener('change', rerender);
+  eraSel?.addEventListener('change', rerender);
   npcFiltersReady = true;
 }
 
-function filterNpcs(npcs) {
-  const nameQ = document.getElementById('npc-filter-name')?.value.trim().toLowerCase() || '';
-  const classQ = document.getElementById('npc-filter-class')?.value || '';
-
-  return npcs.filter((npc) => {
-    if (nameQ && !(npc.name || '').toLowerCase().includes(nameQ)) return false;
-    if (classQ && readNpcClassKey(npc) !== classQ) return false;
-    return true;
+function filterNpcsFromUi(npcs) {
+  return filterNpcs(npcs, {
+    nameQ: document.getElementById('npc-filter-name')?.value || '',
+    classQ: document.getElementById('npc-filter-class')?.value || '',
+    eraQ: document.getElementById('npc-filter-era')?.value || ''
   });
 }
 
@@ -399,7 +398,7 @@ async function renderNpcs(isAdmin) {
 
 function renderNpcsFromCache(isAdmin) {
   const container = document.getElementById('npcs-list');
-  const npcs = filterNpcs(cachedNpcs);
+  const npcs = filterNpcsFromUi(cachedNpcs);
   container.innerHTML = '';
 
   if (!cachedNpcs.length) {
