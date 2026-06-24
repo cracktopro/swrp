@@ -2880,6 +2880,46 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
   gap: 0.75rem;
 }
 
+.swrp-difficulty-card--padawan {
+  border-left: 4px solid #39ff14;
+  background:
+    linear-gradient(90deg, rgba(57, 255, 20, 0.18) 0%, transparent 72%),
+    rgba(0, 0, 0, 0.35);
+  box-shadow: inset 0 0 24px rgba(57, 255, 20, 0.08);
+}
+
+.swrp-difficulty-card--jedi {
+  border-left: 4px solid #00e5ff;
+  background:
+    linear-gradient(90deg, rgba(0, 229, 255, 0.18) 0%, transparent 72%),
+    rgba(0, 0, 0, 0.35);
+  box-shadow: inset 0 0 24px rgba(0, 229, 255, 0.08);
+}
+
+.swrp-difficulty-card--caballero {
+  border-left: 4px solid #b24bf3;
+  background:
+    linear-gradient(90deg, rgba(178, 75, 243, 0.2) 0%, transparent 72%),
+    rgba(0, 0, 0, 0.35);
+  box-shadow: inset 0 0 24px rgba(178, 75, 243, 0.1);
+}
+
+.swrp-difficulty-card--maestro {
+  border-left: 4px solid #ff8c42;
+  background:
+    linear-gradient(90deg, rgba(255, 140, 66, 0.2) 0%, transparent 72%),
+    rgba(0, 0, 0, 0.35);
+  box-shadow: inset 0 0 24px rgba(255, 140, 66, 0.1);
+}
+
+.swrp-template-pick-card__difficulty {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--difficulty-color, var(--swrp-gold));
+  font-weight: 600;
+  margin-bottom: 0.15rem;
+}
+
 .board-spawn-layer {
   position: absolute;
   left: 0;

@@ -15,6 +15,10 @@ import { getPartyMember, loadPartyMembers } from './party-members.js';
 import { renderCharacterCard } from './character-card.js';
 import { loadUserCharacters } from './characters.js';
 import { partyPageUrl, boardPageUrl, rememberPartyId } from './party-url.js';
+import {
+  applyDifficultyCardStyle,
+  formatDifficultyLabel
+} from './escaramuza-templates.js';
 import { characterEditUrl } from './character-url.js';
 import { NPC_ERAS, DEFAULT_NPC_ERA } from './npcs.js';
 
@@ -205,6 +209,9 @@ export function formatPartyMemberNames(members = []) {
 export function renderPartyCard(party, userId, container, { isAdmin, isMember, members = [], onEdit, onDelete } = {}) {
   const el = document.createElement('article');
   el.className = 'swrp-party-card';
+  if (party.difficulty) {
+    applyDifficultyCardStyle(el, party.difficulty);
+  }
 
   const media = party.imageUrl
     ? `<img class="swrp-party-card__img" src="${escapeAttr(party.imageUrl)}" alt="${escapeAttr(party.name)}" loading="lazy">`
@@ -234,11 +241,14 @@ export function renderPartyCard(party, userId, container, { isAdmin, isMember, m
     ? `${party.name} (${party.creatorUsername})`
     : (party.name || '');
 
+  const diffLine = formatDifficultyLabel(party.difficulty);
+  const diffMeta = diffLine ? ` · ${escapeHtml(diffLine)}` : '';
+
   el.innerHTML = `
     <div class="swrp-party-card__media">${media}</div>
     <div class="swrp-party-card__body">
       <h3 class="swrp-party-card__title">${escapeHtml(displayTitle)}</h3>
-      <p class="swrp-party-card__meta">${escapeHtml(party.type)} · <span class="swrp-card__era-label">Era:</span> ${escapeHtml(readPartyEra(party))}${isMember ? ' · Unido' : ''}</p>
+      <p class="swrp-party-card__meta">${escapeHtml(party.type)} · <span class="swrp-card__era-label">Era:</span> ${escapeHtml(readPartyEra(party))}${diffMeta}${isMember ? ' · Unido' : ''}</p>
       ${slotsLine}
       ${membersBlock}
       ${desc}

@@ -14,13 +14,21 @@
   <div id="swrp-nav"></div>
   <main class="container-fluid py-3" id="map-editor-list-view">
     <div class="d-flex justify-content-between align-items-center mb-3 px-2 flex-wrap gap-2">
-      <h1 class="h5 mb-0">Editor de mapas — Mis escaramuzas</h1>
+      <h1 class="h5 mb-0">Editor de mapas</h1>
       <div class="d-flex gap-2 flex-wrap">
         <a href="dashboard" class="btn btn-sm btn-swrp btn-swrp-ghost">Dashboard</a>
         <button type="button" id="btn-new-template" class="btn btn-sm btn-swrp btn-swrp-primary">+ Nueva escaramuza</button>
       </div>
     </div>
     <div class="px-2">
+      <ul class="nav nav-tabs swrp-board-tabs mb-3" id="template-list-tabs" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button type="button" class="nav-link active" data-template-tab="mine" role="tab">Mis escaramuzas</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button type="button" class="nav-link" data-template-tab="community" role="tab">Escaramuzas de la comunidad</button>
+        </li>
+      </ul>
       <div id="template-list" class="swrp-template-list"><p class="text-muted">Cargando…</p></div>
     </div>
   </main>
@@ -30,9 +38,10 @@
       <div>
         <h1 class="h5 mb-0" id="editor-title">Editor de escaramuza</h1>
         <p class="small text-muted mb-0" id="editor-subtitle">Define el mapa, enemigos y spawns de aliados.</p>
+        <p class="small text-warning mb-0 d-none" id="editor-fork-hint">Estás creando una copia personal. Al guardar no modificarás la escaramuza original.</p>
       </div>
       <div class="d-flex gap-2 flex-wrap">
-        <button type="button" id="btn-back-list" class="btn btn-sm btn-swrp btn-swrp-ghost">← Mis escaramuzas</button>
+        <button type="button" id="btn-back-list" class="btn btn-sm btn-swrp btn-swrp-ghost">← Volver al listado</button>
         <button type="button" id="btn-save-template" class="btn btn-sm btn-swrp btn-swrp-primary">Guardar plantilla</button>
       </div>
     </div>
@@ -46,6 +55,10 @@
         <div class="col-md-4">
           <label class="form-label" for="editor-era">Era</label>
           <select class="form-select" id="editor-era"></select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label" for="editor-difficulty">Dificultad</label>
+          <select class="form-select" id="editor-difficulty" required></select>
         </div>
         <div class="col-md-4">
           <label class="form-label" for="editor-image-url">URL imagen (tarjeta)</label>

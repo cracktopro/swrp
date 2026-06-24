@@ -22,8 +22,50 @@ import {
 } from './party-members.js';
 import { normalizeBoardToken } from './board-vision.js';
 import { CELL, DEFAULT_COLS, DEFAULT_ROWS } from './board.js';
+import { appUrl } from './app-path.js';
 
 const COLLECTION = 'escaramuzaTemplates';
+
+export const ESCARAMUZA_DIFFICULTIES = [
+  { id: 'padawan', label: 'Padawan', subtitle: 'Fácil', color: '#39ff14' },
+  { id: 'jedi', label: 'Jedi', subtitle: 'Normal', color: '#00e5ff' },
+  { id: 'caballero', label: 'Caballero Jedi', subtitle: 'Difícil', color: '#b24bf3' },
+  { id: 'maestro', label: 'Maestro Jedi', subtitle: 'Muy Difícil', color: '#ff8c42' }
+];
+
+export const DEFAULT_ESCARAMUZA_DIFFICULTY = 'jedi';
+
+export function readDifficulty(value) {
+  const id = String(value || '').trim();
+  return ESCARAMUZA_DIFFICULTIES.find((d) => d.id === id)?.id || null;
+}
+
+export function getDifficultyMeta(value) {
+  const id = readDifficulty(value);
+  return ESCARAMUZA_DIFFICULTIES.find((d) => d.id === id) || null;
+}
+
+export function formatDifficultyLabel(value) {
+  const meta = getDifficultyMeta(value);
+  if (!meta) return '';
+  return `${meta.label} · ${meta.subtitle}`;
+}
+
+export function buildDifficultyFormOptions(selected = DEFAULT_ESCARAMUZA_DIFFICULTY) {
+  const current = readDifficulty(selected) || DEFAULT_ESCARAMUZA_DIFFICULTY;
+  return ESCARAMUZA_DIFFICULTIES.map(
+    (d) => `<option value="${d.id}"${d.id === current ? ' selected' : ''}>${d.label} — ${d.subtitle}</option>`
+  ).join('');
+}
+
+export function applyDifficultyCardStyle(el, difficulty) {
+  if (!el) return;
+  ESCARAMUZA_DIFFICULTIES.forEach((d) => el.classList.remove(`swrp-difficulty-card--${d.id}`));
+  const meta = getDifficultyMeta(difficulty);
+  if (!meta) return;
+  el.classList.add(`swrp-difficulty-card--${meta.id}`);
+  el.style.setProperty('--difficulty-color', meta.color);
+}
 
 function stripUndefinedDeep(value) {
   if (value === undefined) return undefined;
@@ -61,10 +103,15 @@ export function validateEscaramuzaTemplate({
   boardLayout,
   minPlayers,
   maxSlots,
-  allySpawns
+  allySpawns,
+  difficulty
 }) {
   const trimmedName = String(name || '').trim();
   if (!trimmedName) throw new Error('Indica un nombre para la escaramuza');
+
+  if (!readDifficulty(difficulty)) {
+    throw new Error('Selecciona una dificultad');
+  }
 
   const min = Number(minPlayers);
   const max = Number(maxSlots);
@@ -150,6 +197,17 @@ export async function loadUserEscaramuzaTemplates(userId) {
     });
 }
 
+export async function loadCommunityEscaramuzaTemplates(userId) {
+  const all = await loadAllEscaramuzaTemplates();
+  return all
+    .filter((t) => t.creatorId !== userId)
+    .sort((a, b) => {
+      const aMs = a.updatedAt?.toMillis?.() || a.createdAt?.toMillis?.() || 0;
+      const bMs = b.updatedAt?.toMillis?.() || b.createdAt?.toMillis?.() || 0;
+      return bMs - aMs;
+    });
+}
+
 export async function loadEscaramuzaTemplate(templateId) {
   const snap = await getDoc(doc(db, COLLECTION, templateId));
   if (!snap.exists()) return null;
@@ -164,6 +222,7 @@ export async function saveEscaramuzaTemplate(userId, username, data, templateId 
     imageUrl: String(data.imageUrl || '').trim(),
     description: String(data.description || '').trim(),
     era: readTemplateEra(data.era),
+    difficulty: readDifficulty(data.difficulty) || DEFAULT_ESCARAMUZA_DIFFICULTY,
     minPlayers: Number(data.minPlayers) || 1,
     maxSlots: Number(data.maxSlots) || 1,
     allySpawns: (data.allySpawns || []).map((s) => ({ col: s.col, row: s.row })),
@@ -176,7 +235,8 @@ export async function saveEscaramuzaTemplate(userId, username, data, templateId 
     boardLayout: payload.boardLayout,
     minPlayers: payload.minPlayers,
     maxSlots: payload.maxSlots,
-    allySpawns: payload.allySpawns
+    allySpawns: payload.allySpawns,
+    difficulty: payload.difficulty
   });
 
   if (templateId) {
@@ -269,6 +329,7 @@ export async function createEscaramuzaFromTemplate(user, profile, templateId, ch
     status: 'active',
     phase: 'board',
     templateId,
+    difficulty: readDifficulty(template.difficulty) || DEFAULT_ESCARAMUZA_DIFFICULTY,
     createdBy: user.uid,
     creatorUsername: profile?.username || user.displayName || user.email || 'Usuario',
     minPlayers: template.minPlayers || 1,
@@ -298,21 +359,69 @@ export function renderTemplatePickCard(template, { selected = false, onSelect } 
   el.type = 'button';
   el.className = `swrp-template-pick-card${selected ? ' is-selected' : ''}`;
   el.dataset.templateId = template.id;
+  applyDifficultyCardStyle(el, template.difficulty);
 
   const media = template.imageUrl
     ? `<img class="swrp-template-pick-card__img" src="${escapeAttr(template.imageUrl)}" alt="" loading="lazy">`
     : `<div class="swrp-template-pick-card__placeholder">Escaramuza</div>`;
 
+  const diffLine = formatDifficultyLabel(template.difficulty);
+  const diffMeta = diffLine
+    ? `<span class="swrp-template-pick-card__difficulty">${escapeHtml(diffLine)}</span>`
+    : '';
+
   el.innerHTML = `
     <div class="swrp-template-pick-card__media">${media}</div>
     <div class="swrp-template-pick-card__body">
       <strong class="swrp-template-pick-card__name">${escapeHtml(template.name)}</strong>
+      ${diffMeta}
       <span class="swrp-template-pick-card__meta">Por ${escapeHtml(template.creatorUsername || 'Usuario')}</span>
       <p class="swrp-template-pick-card__desc">${escapeHtml(template.description || 'Sin descripción.')}</p>
     </div>`;
 
   el.addEventListener('click', () => onSelect?.(template));
   return el;
+}
+
+export function renderEscaramuzaListCard(template, { mode = 'mine', userId, onDelete } = {}) {
+  const card = document.createElement('article');
+  card.className = 'swrp-party-card mb-3';
+  applyDifficultyCardStyle(card, template.difficulty);
+
+  const media = template.imageUrl
+    ? `<img class="swrp-party-card__img" src="${escapeAttr(template.imageUrl)}" alt="" loading="lazy">`
+    : '<div class="swrp-party-card__placeholder"><span>Escaramuza</span></div>';
+
+  const diffLine = formatDifficultyLabel(template.difficulty);
+  const diffMeta = diffLine ? ` · ${escapeHtml(diffLine)}` : '';
+  const creatorMeta = mode === 'community'
+    ? `<p class="swrp-party-card__meta">Por ${escapeHtml(template.creatorUsername || 'Usuario')}</p>`
+    : '';
+
+  const editHref = mode === 'community'
+    ? appUrl(`map-editor?fork=${encodeURIComponent(template.id)}`)
+    : appUrl(`map-editor?template=${encodeURIComponent(template.id)}`);
+
+  const editLabel = 'Editar';
+  const deleteBtn = mode === 'mine'
+    ? '<button type="button" class="btn btn-sm btn-swrp btn-swrp-danger btn-delete-template">Eliminar</button>'
+    : '';
+
+  card.innerHTML = `
+    <div class="swrp-party-card__media">${media}</div>
+    <div class="swrp-party-card__body">
+      <h3 class="swrp-party-card__title">${escapeHtml(template.name)}</h3>
+      <p class="swrp-party-card__meta">${template.minPlayers || 1}–${template.maxSlots || 1} jugadores · ${template.allySpawns?.length || 0} spawns${diffMeta}</p>
+      ${creatorMeta}
+      <p class="swrp-party-card__desc">${escapeHtml(template.description || 'Sin descripción.')}</p>
+      <div class="swrp-party-card__actions">
+        <a href="${editHref}" class="btn btn-sm btn-swrp btn-swrp-primary">${editLabel}</a>
+        ${deleteBtn}
+      </div>
+    </div>`;
+
+  card.querySelector('.btn-delete-template')?.addEventListener('click', () => onDelete?.(template));
+  return card;
 }
 
 function escapeHtml(str) {

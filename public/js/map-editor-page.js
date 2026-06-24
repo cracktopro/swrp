@@ -11,16 +11,22 @@ import { swrpConfirm, swrpAlert } from './swrp-dialog.js';
 import { loadUserCharacters } from './characters.js';
 import {
   loadUserEscaramuzaTemplates,
+  loadCommunityEscaramuzaTemplates,
   loadEscaramuzaTemplate,
   saveEscaramuzaTemplate,
   deleteEscaramuzaTemplate,
   buildLayoutFromBoard,
-  buildFreshBoardState
+  buildFreshBoardState,
+  buildDifficultyFormOptions,
+  DEFAULT_ESCARAMUZA_DIFFICULTY,
+  renderEscaramuzaListCard
 } from './escaramuza-templates.js';
 
 let board = null;
 let allySpawns = [];
 let editingTemplateId = null;
+let isForkMode = false;
+let templateListTab = 'mine';
 let userCharacters = [];
 let npcs = [];
 let spawnMiniBoard = null;
@@ -30,9 +36,11 @@ export async function initMapEditorPage() {
   renderNavbar('map-editor', user, { isAdmin: isAdmin(profile) });
 
   document.getElementById('editor-era').innerHTML = buildNpcEraFormOptions(DEFAULT_NPC_ERA);
+  document.getElementById('editor-difficulty').innerHTML = buildDifficultyFormOptions();
 
   const params = new URLSearchParams(window.location.search);
   const templateParam = params.get('template');
+  const forkParam = params.get('fork');
   const isNew = params.get('new') === '1';
 
   document.getElementById('btn-new-template')?.addEventListener('click', () => {
@@ -43,10 +51,20 @@ export async function initMapEditorPage() {
     window.location.assign(appUrl('map-editor'));
   });
 
-  if (templateParam || isNew) {
-    await openEditorWorkspace(user, profile, templateParam);
+  if (templateParam || forkParam || isNew) {
+    await openEditorWorkspace(user, profile, { templateId: templateParam, forkId: forkParam });
     return;
   }
+
+  document.getElementById('template-list-tabs')?.addEventListener('click', (e) => {
+    const tab = e.target.closest('[data-template-tab]');
+    if (!tab) return;
+    templateListTab = tab.dataset.templateTab;
+    document.querySelectorAll('#template-list-tabs .nav-link').forEach((el) => {
+      el.classList.toggle('active', el.dataset.templateTab === templateListTab);
+    });
+    renderTemplateList(user);
+  });
 
   await renderTemplateList(user);
 }
@@ -56,71 +74,94 @@ async function renderTemplateList(user) {
   document.getElementById('map-editor-workspace')?.classList.add('d-none');
 
   const listEl = document.getElementById('template-list');
+  const isCommunity = templateListTab === 'community';
   listEl.innerHTML = '<p class="text-muted">Cargando…</p>';
 
   try {
-    const templates = await loadUserEscaramuzaTemplates(user.uid);
+    const templates = isCommunity
+      ? await loadCommunityEscaramuzaTemplates(user.uid)
+      : await loadUserEscaramuzaTemplates(user.uid);
+
     if (!templates.length) {
-      listEl.innerHTML = '<p class="text-muted mb-0">Aún no has creado escaramuzas. Pulsa «+ Nueva escaramuza» para empezar.</p>';
+      listEl.innerHTML = isCommunity
+        ? '<p class="text-muted mb-0">Aún no hay escaramuzas de otros jugadores.</p>'
+        : '<p class="text-muted mb-0">Aún no has creado escaramuzas. Pulsa «+ Nueva escaramuza» para empezar.</p>';
       return;
     }
 
     listEl.innerHTML = '';
     templates.forEach((tpl) => {
-      const card = document.createElement('article');
-      card.className = 'swrp-party-card mb-3';
-      const media = tpl.imageUrl
-        ? `<img class="swrp-party-card__img" src="${escapeAttr(tpl.imageUrl)}" alt="" loading="lazy">`
-        : '<div class="swrp-party-card__placeholder"><span>Escaramuza</span></div>';
-      card.innerHTML = `
-        <div class="swrp-party-card__media">${media}</div>
-        <div class="swrp-party-card__body">
-          <h3 class="swrp-party-card__title">${escapeHtml(tpl.name)}</h3>
-          <p class="swrp-party-card__meta">${tpl.minPlayers || 1}–${tpl.maxSlots || 1} jugadores · ${tpl.allySpawns?.length || 0} spawns</p>
-          <p class="swrp-party-card__desc">${escapeHtml(tpl.description || 'Sin descripción.')}</p>
-          <div class="swrp-party-card__actions">
-            <a href="${appUrl(`map-editor?template=${encodeURIComponent(tpl.id)}`)}" class="btn btn-sm btn-swrp btn-swrp-primary">Editar</a>
-            <button type="button" class="btn btn-sm btn-swrp btn-swrp-danger btn-delete-template">Eliminar</button>
-          </div>
-        </div>`;
-      card.querySelector('.btn-delete-template')?.addEventListener('click', async () => {
-        if (!confirm(`¿Eliminar la plantilla «${tpl.name}»? Las partidas activas no se verán afectadas.`)) return;
-        try {
-          await deleteEscaramuzaTemplate(user.uid, tpl.id);
-          await renderTemplateList(user);
-        } catch (err) {
-          await swrpAlert({ title: 'Error', message: err.message });
+      listEl.appendChild(renderEscaramuzaListCard(tpl, {
+        mode: isCommunity ? 'community' : 'mine',
+        userId: user.uid,
+        onDelete: isCommunity ? null : async (template) => {
+          if (!confirm(`¿Eliminar la plantilla «${template.name}»? Las partidas activas no se verán afectadas.`)) return;
+          try {
+            await deleteEscaramuzaTemplate(user.uid, template.id);
+            await renderTemplateList(user);
+          } catch (err) {
+            await swrpAlert({ title: 'Error', message: err.message });
+          }
         }
-      });
-      listEl.appendChild(card);
+      }));
     });
   } catch (err) {
     listEl.innerHTML = `<p class="text-danger mb-0">Error al cargar: ${escapeHtml(err.message)}</p>`;
   }
 }
 
-async function openEditorWorkspace(user, profile, templateId) {
+async function openEditorWorkspace(user, profile, { templateId = null, forkId = null } = {}) {
   document.getElementById('map-editor-list-view')?.classList.add('d-none');
   document.getElementById('map-editor-workspace')?.classList.remove('d-none');
 
-  editingTemplateId = templateId || null;
+  isForkMode = !!forkId;
+  editingTemplateId = isForkMode ? null : (templateId || null);
   allySpawns = [];
   userCharacters = await loadUserCharacters(user.uid);
   await loadCompendiumData();
   npcs = (await loadAllNpcs()).map(npcToCardData);
 
-  if (templateId) {
-    const tpl = await loadEscaramuzaTemplate(templateId);
-    if (!tpl || tpl.creatorId !== user.uid) {
-      await swrpAlert({ title: 'No encontrada', message: 'No puedes editar esta plantilla.' });
+  const loadId = forkId || templateId;
+  const forkHint = document.getElementById('editor-fork-hint');
+  const saveBtn = document.getElementById('btn-save-template');
+
+  if (loadId) {
+    const tpl = await loadEscaramuzaTemplate(loadId);
+    if (!tpl) {
+      await swrpAlert({ title: 'No encontrada', message: 'La plantilla no existe.' });
       window.location.assign(appUrl('map-editor'));
       return;
     }
+
+    if (!isForkMode && tpl.creatorId !== user.uid) {
+      window.location.assign(appUrl(`map-editor?fork=${encodeURIComponent(loadId)}`));
+      return;
+    }
+
     fillMetaForm(tpl);
+    if (isForkMode) {
+      const nameInput = document.getElementById('editor-name');
+      const base = (tpl.name || '').trim();
+      if (base && !/\s*\(copia\)$/i.test(base)) {
+        nameInput.value = `${base} (copia)`;
+      }
+    }
     allySpawns = [...(tpl.allySpawns || [])];
     await initBoardEditor(user, profile, buildFreshBoardState(tpl.boardLayout));
+
+    if (isForkMode) {
+      forkHint?.classList.remove('d-none');
+      document.getElementById('editor-title').textContent = `Copia de: ${tpl.name}`;
+      if (saveBtn) saveBtn.textContent = 'Guardar como nueva escaramuza';
+    } else {
+      forkHint?.classList.add('d-none');
+      document.getElementById('editor-title').textContent = `Editar: ${tpl.name}`;
+      if (saveBtn) saveBtn.textContent = 'Guardar plantilla';
+    }
   } else {
+    forkHint?.classList.add('d-none');
     fillMetaForm({});
+    if (saveBtn) saveBtn.textContent = 'Guardar plantilla';
     await initBoardEditor(user, profile, null);
   }
 
@@ -132,13 +173,18 @@ async function openEditorWorkspace(user, profile, templateId) {
 function fillMetaForm(tpl) {
   document.getElementById('editor-name').value = tpl.name || '';
   document.getElementById('editor-era').value = tpl.era || DEFAULT_NPC_ERA;
+  document.getElementById('editor-difficulty').innerHTML = buildDifficultyFormOptions(
+    tpl.difficulty || DEFAULT_ESCARAMUZA_DIFFICULTY
+  );
   document.getElementById('editor-image-url').value = tpl.imageUrl || '';
   document.getElementById('editor-description').value = tpl.description || '';
   document.getElementById('editor-min-players').value = String(tpl.minPlayers ?? 1);
   document.getElementById('editor-max-slots').value = String(tpl.maxSlots ?? 4);
-  document.getElementById('editor-title').textContent = tpl.name
-    ? `Editar: ${tpl.name}`
-    : 'Nueva escaramuza';
+  if (!isForkMode && !editingTemplateId) {
+    document.getElementById('editor-title').textContent = tpl.name
+      ? `Editar: ${tpl.name}`
+      : 'Nueva escaramuza';
+  }
 }
 
 function renderSpawnList() {
@@ -246,6 +292,7 @@ function wireSaveButton(user, profile) {
       const data = {
         name: document.getElementById('editor-name').value,
         era: document.getElementById('editor-era').value,
+        difficulty: document.getElementById('editor-difficulty').value,
         imageUrl: document.getElementById('editor-image-url').value,
         description: document.getElementById('editor-description').value,
         minPlayers: document.getElementById('editor-min-players').value,
@@ -253,14 +300,22 @@ function wireSaveButton(user, profile) {
         allySpawns,
         boardLayout
       };
+      const wasFork = isForkMode;
+      const saveAsNew = isForkMode || !editingTemplateId;
       const id = await saveEscaramuzaTemplate(
         user.uid,
         profile?.username || user.displayName || user.email,
         data,
-        editingTemplateId
+        saveAsNew ? null : editingTemplateId
       );
       editingTemplateId = id;
-      await swrpAlert({ title: 'Guardado', message: 'Plantilla de escaramuza guardada correctamente.' });
+      isForkMode = false;
+      document.getElementById('editor-fork-hint')?.classList.add('d-none');
+      btn.textContent = 'Guardar plantilla';
+      const msg = wasFork
+        ? 'Se ha creado tu copia de la escaramuza. La original no ha sido modificada.'
+        : 'Plantilla de escaramuza guardada correctamente.';
+      await swrpAlert({ title: 'Guardado', message: msg });
       window.history.replaceState({}, '', appUrl(`map-editor?template=${encodeURIComponent(id)}`));
       document.getElementById('editor-title').textContent = `Editar: ${data.name.trim()}`;
     } catch (err) {
