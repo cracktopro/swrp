@@ -2378,6 +2378,11 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
   cursor: crosshair;
 }
 
+.swrp-dashboard-panel--parties .swrp-board-tabs .nav-link {
+  font-size: 0.9rem;
+  padding: 0.5rem 0.9rem;
+}
+
 .swrp-board-tabs .nav-link {
   font-size: 0.78rem;
   padding: 0.35rem 0.65rem;
@@ -2941,8 +2946,8 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
 
 .swrp-party-card.swrp-difficulty-card--maestro,
 .swrp-template-pick-card.swrp-difficulty-card--maestro {
-  border-color: rgba(255, 140, 66, 0.55);
-  box-shadow: inset 4px 0 0 #ff8c42;
+  border-color: rgba(255, 74, 26, 0.58);
+  box-shadow: inset 4px 0 0 #ff4a1a;
 }
 
 .swrp-party-card.swrp-difficulty-card--maestro .swrp-party-card__body::before,
@@ -2950,7 +2955,7 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, rgba(255, 140, 66, 0.32) 0%, transparent 72%);
+  background: linear-gradient(90deg, rgba(255, 74, 26, 0.34) 0%, transparent 72%);
   pointer-events: none;
   z-index: 0;
 }
@@ -2976,7 +2981,7 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
 }
 
 .swrp-difficulty-card--maestro {
-  --difficulty-color: #ff8c42;
+  --difficulty-color: #ff4a1a;
 }
 
 .swrp-template-pick-card__difficulty,

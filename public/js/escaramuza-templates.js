@@ -30,7 +30,7 @@ export const ESCARAMUZA_DIFFICULTIES = [
   { id: 'padawan', label: 'Padawan', subtitle: 'Fácil', color: '#39ff14' },
   { id: 'jedi', label: 'Jedi', subtitle: 'Normal', color: '#00e5ff' },
   { id: 'caballero', label: 'Caballero Jedi', subtitle: 'Difícil', color: '#b24bf3' },
-  { id: 'maestro', label: 'Maestro Jedi', subtitle: 'Muy Difícil', color: '#ff8c42' }
+  { id: 'maestro', label: 'Maestro Jedi', subtitle: 'Muy Difícil', color: '#ff4a1a' }
 ];
 
 export const DEFAULT_ESCARAMUZA_DIFFICULTY = 'jedi';
