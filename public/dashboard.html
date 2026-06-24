@@ -13,9 +13,9 @@
 <body class="swrp-app">
   <div id="swrp-nav"></div>
   <main class="container py-4">
-    <div class="row g-4">
+    <div class="row g-4 dashboard-panels">
       <div class="col-lg-6">
-        <section class="swrp-panel">
+        <section class="swrp-panel swrp-dashboard-panel">
           <div class="d-flex justify-content-between align-items-center mb-3">
             <h2 class="swrp-panel__title mb-0">Mis Personajes</h2>
             <a href="character-create" class="btn btn-sm btn-swrp btn-swrp-primary">+ Nuevo</a>
@@ -24,12 +24,24 @@
         </section>
       </div>
       <div class="col-lg-6">
-        <section class="swrp-panel">
+        <section class="swrp-panel swrp-dashboard-panel">
           <div class="d-flex justify-content-between align-items-center mb-3">
             <h2 class="swrp-panel__title mb-0">Partidas</h2>
             <button id="btn-new-party" class="btn btn-sm btn-swrp btn-swrp-ghost d-none">+ Partida</button>
           </div>
-          <div id="parties-list" class="swrp-party-list"><p class="text-muted">Cargando...</p></div>
+          <div class="row g-2 mb-2 swrp-party-panel__filters">
+            <div class="col-sm-7">
+              <label class="form-label small mb-1" for="party-filter-name">Nombre</label>
+              <input type="search" class="form-control form-control-sm" id="party-filter-name" placeholder="Buscar partida…" autocomplete="off">
+            </div>
+            <div class="col-sm-5">
+              <label class="form-label small mb-1" for="party-filter-era">Era</label>
+              <select class="form-select form-select-sm" id="party-filter-era"></select>
+            </div>
+          </div>
+          <div class="swrp-party-list-wrap swrp-scrollbar-thin">
+            <div id="parties-list" class="swrp-party-list"><p class="text-muted">Cargando...</p></div>
+          </div>
         </section>
       </div>
     </div>
@@ -53,6 +65,10 @@
               <option value="Campaña">Campaña</option>
               <option value="Escaramuza">Escaramuza</option>
             </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="party-era">Era</label>
+            <select class="form-select" id="party-era"></select>
           </div>
           <div class="mb-3">
             <label class="form-label" for="party-image-url">URL imagen de la tarjeta</label>
@@ -92,6 +108,10 @@
             </select>
           </div>
           <div class="mb-3">
+            <label class="form-label" for="party-edit-era">Era</label>
+            <select class="form-select" id="party-edit-era"></select>
+          </div>
+          <div class="mb-3">
             <label class="form-label" for="party-edit-image-url">URL imagen de la tarjeta</label>
             <input type="url" class="form-control" id="party-edit-image-url" placeholder="https://ejemplo.com/portada.png">
           </div>
@@ -121,9 +141,12 @@
       deleteCharacter,
       deleteParty,
       renderCharacterPanel,
-      renderPartyCard
+      renderPartyCard,
+      filterParties,
+      readPartyEra
     } from './js/dashboard.js';
     import { loadPartyMembers } from './js/party-members.js';
+    import { buildNpcEraSelectOptions, buildNpcEraFormOptions, DEFAULT_NPC_ERA } from './js/npcs.js';
 
     const { user, profile } = await requireAuth();
     const userIsAdmin = isAdmin(profile);
@@ -134,8 +157,18 @@
 
     const charsPanel = document.getElementById('characters-panel');
     const partiesEl = document.getElementById('parties-list');
+    const partyFilterName = document.getElementById('party-filter-name');
+    const partyFilterEra = document.getElementById('party-filter-era');
+    const partyEraSelect = document.getElementById('party-era');
+    const partyEditEraSelect = document.getElementById('party-edit-era');
+
+    partyFilterEra.innerHTML = buildNpcEraSelectOptions();
+    partyEraSelect.innerHTML = buildNpcEraFormOptions(DEFAULT_NPC_ERA);
+    partyEditEraSelect.innerHTML = buildNpcEraFormOptions(DEFAULT_NPC_ERA);
+
     let charPanelController = null;
     let joinedPartyIds = new Set();
+    let partiesCache = [];
 
     async function refreshCharacters() {
       const characters = await loadUserCharacters(user.uid);
@@ -156,21 +189,23 @@
       }
     }
 
-    async function refreshParties() {
-      joinedPartyIds = new Set(await loadUserPartyIds(user.uid));
-      const parties = await loadAllParties();
+    function renderPartiesFromCache() {
+      const filtered = filterParties(partiesCache, {
+        nameQ: partyFilterName?.value || '',
+        eraQ: partyFilterEra?.value || ''
+      });
+
       partiesEl.innerHTML = '';
-      if (!parties.length) {
-        partiesEl.innerHTML = '<p class="text-muted">No hay partidas disponibles.</p>';
+      if (!partiesCache.length) {
+        partiesEl.innerHTML = '<p class="text-muted mb-0">No hay partidas disponibles.</p>';
         return;
       }
-      const partiesWithMembers = await Promise.all(
-        parties.map(async (party) => ({
-          party,
-          members: await loadPartyMembers(party.id)
-        }))
-      );
-      partiesWithMembers.forEach(({ party, members }) => renderPartyCard(party, user.uid, partiesEl, {
+      if (!filtered.length) {
+        partiesEl.innerHTML = '<p class="text-muted mb-0">Ninguna partida coincide con los filtros.</p>';
+        return;
+      }
+
+      filtered.forEach(({ party, members }) => renderPartyCard(party, user.uid, partiesEl, {
         isAdmin: userIsAdmin,
         isMember: joinedPartyIds.has(party.id),
         members,
@@ -187,6 +222,21 @@
       }));
     }
 
+    async function refreshParties() {
+      joinedPartyIds = new Set(await loadUserPartyIds(user.uid));
+      const parties = await loadAllParties();
+      partiesCache = await Promise.all(
+        parties.map(async (party) => ({
+          party,
+          members: await loadPartyMembers(party.id)
+        }))
+      );
+      renderPartiesFromCache();
+    }
+
+    partyFilterName?.addEventListener('input', renderPartiesFromCache);
+    partyFilterEra?.addEventListener('change', renderPartiesFromCache);
+
     const partyModal = new bootstrap.Modal(document.getElementById('partyModal'));
     const partyEditModal = new bootstrap.Modal(document.getElementById('partyEditModal'));
 
@@ -194,6 +244,7 @@
       document.getElementById('party-edit-id').value = party.id;
       document.getElementById('party-edit-name').value = party.name || '';
       document.getElementById('party-edit-type').value = party.type || 'Campaña';
+      document.getElementById('party-edit-era').value = readPartyEra(party);
       document.getElementById('party-edit-image-url').value = party.imageUrl || '';
       document.getElementById('party-edit-description').value = party.description || '';
       partyEditModal.show();
@@ -203,6 +254,7 @@
       if (!userIsAdmin) return;
       document.getElementById('party-name').value = '';
       document.getElementById('party-type').value = 'Campaña';
+      document.getElementById('party-era').value = DEFAULT_NPC_ERA;
       document.getElementById('party-image-url').value = '';
       document.getElementById('party-description').value = '';
       partyModal.show();
@@ -211,6 +263,7 @@
     document.getElementById('party-create').addEventListener('click', async () => {
       const name = document.getElementById('party-name').value.trim();
       const type = document.getElementById('party-type').value;
+      const era = document.getElementById('party-era').value;
       const imageUrl = document.getElementById('party-image-url').value.trim();
       const description = document.getElementById('party-description').value.trim();
       if (!userIsAdmin) return;
@@ -218,7 +271,7 @@
       const btn = document.getElementById('party-create');
       btn.disabled = true;
       try {
-        const id = await createParty(profile, { name, type, imageUrl, description });
+        const id = await createParty(profile, { name, type, era, imageUrl, description });
         partyModal.hide();
         openParty(id);
       } catch (err) {
@@ -231,6 +284,7 @@
       const partyId = document.getElementById('party-edit-id').value;
       const name = document.getElementById('party-edit-name').value.trim();
       const type = document.getElementById('party-edit-type').value;
+      const era = document.getElementById('party-edit-era').value;
       const imageUrl = document.getElementById('party-edit-image-url').value.trim();
       const description = document.getElementById('party-edit-description').value.trim();
       if (!userIsAdmin) return;
@@ -238,7 +292,7 @@
       const btn = document.getElementById('party-save');
       btn.disabled = true;
       try {
-        await updateParty(profile, partyId, { name, type, imageUrl, description });
+        await updateParty(profile, partyId, { name, type, era, imageUrl, description });
         partyEditModal.hide();
         await refreshParties();
       } catch (err) {

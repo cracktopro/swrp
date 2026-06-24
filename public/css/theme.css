@@ -635,6 +635,33 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
   max-width: 420px;
 }
 
+.dashboard-panels {
+  align-items: stretch;
+}
+
+.dashboard-panels > [class*="col-"] {
+  display: flex;
+}
+
+.swrp-dashboard-panel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+}
+
+.swrp-party-panel__filters {
+  flex-shrink: 0;
+}
+
+.swrp-party-list-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 0.15rem;
+}
+
 .swrp-party-list {
   display: flex;
   flex-direction: column;

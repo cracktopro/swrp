@@ -16,6 +16,23 @@ import { renderCharacterCard } from './character-card.js';
 import { loadUserCharacters } from './characters.js';
 import { partyPageUrl, rememberPartyId } from './party-url.js';
 import { characterEditUrl } from './character-url.js';
+import { NPC_ERAS, DEFAULT_NPC_ERA } from './npcs.js';
+
+export { NPC_ERAS as PARTY_ERAS, DEFAULT_NPC_ERA as DEFAULT_PARTY_ERA };
+
+export function readPartyEra(party) {
+  const era = party?.era;
+  return NPC_ERAS.includes(era) ? era : DEFAULT_NPC_ERA;
+}
+
+export function filterParties(parties, { nameQ = '', eraQ = '' } = {}) {
+  const needle = String(nameQ).trim().toLowerCase();
+  return (parties || []).filter((party) => {
+    if (needle && !(party.name || '').toLowerCase().includes(needle)) return false;
+    if (eraQ && readPartyEra(party) !== eraQ) return false;
+    return true;
+  });
+}
 
 export { loadUserCharacters };
 
@@ -51,11 +68,12 @@ export async function loadAllParties() {
     .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es'));
 }
 
-export async function createParty(profile, { name, type, imageUrl = '', description = '' }) {
+export async function createParty(profile, { name, type, era, imageUrl = '', description = '' }) {
   if (!isAdmin(profile)) throw new Error('Solo un administrador puede crear partidas');
   const ref = await addDoc(collection(db, 'parties'), {
     name,
     type,
+    era: readPartyEra({ era }),
     imageUrl: imageUrl.trim(),
     description: description.trim(),
     status: 'active',
@@ -70,6 +88,7 @@ export async function updateParty(profile, partyId, data) {
   await updateDoc(doc(db, 'parties', partyId), {
     name: data.name.trim(),
     type: data.type,
+    era: readPartyEra({ era: data.era }),
     imageUrl: (data.imageUrl || '').trim(),
     description: (data.description || '').trim(),
     updatedAt: serverTimestamp()
@@ -189,7 +208,7 @@ export function renderPartyCard(party, userId, container, { isAdmin, isMember, m
     <div class="swrp-party-card__media">${media}</div>
     <div class="swrp-party-card__body">
       <h3 class="swrp-party-card__title">${escapeHtml(party.name)}</h3>
-      <p class="swrp-party-card__meta">${escapeHtml(party.type)}${isMember ? ' · Unido' : ''}</p>
+      <p class="swrp-party-card__meta">${escapeHtml(party.type)} · <span class="swrp-card__era-label">Era:</span> ${escapeHtml(readPartyEra(party))}${isMember ? ' · Unido' : ''}</p>
       ${membersBlock}
       ${desc}
       <div class="swrp-party-card__actions">
