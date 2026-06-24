@@ -624,12 +624,12 @@ export function initBoardCombatUi(ctx) {
       actionAttackBtn.classList.toggle('is-active', board.turnActions.activeMode === 'attack');
     }
 
-    const attackReady = board.canUseAttackActions();
+    const skillsReady = board.canUseSkills();
     const diceReady = board.canUseDiceConsole();
     diceForm?.querySelectorAll('input, select, button').forEach((el) => {
       el.disabled = !diceReady;
     });
-    skillsList?.classList.toggle('board-attack-tools--disabled', !attackReady);
+    skillsList?.classList.toggle('board-attack-tools--disabled', !skillsReady);
   }
 
   function syncCombatControls() {
@@ -695,10 +695,12 @@ export function initBoardCombatUi(ctx) {
     refreshInitiativeCharacterSelect(ctx, initiativeSelect);
     const { actor: char } = resolveActiveActor(ctx, activeSelect) || {};
     renderSkillsList(skillsList, char, async (skill) => {
-      if (!board.canUseAttackActions()) {
-        const msg = board.isNarrativePhase()
-          ? 'Elige «Ataque sorpresa» para usar habilidades.'
-          : 'Elige «Atacar» para usar habilidades.';
+      if (!board.canUseSkills()) {
+        const msg = !board.canControlActiveTurn()
+          ? 'No es tu turno o no controlas este personaje.'
+          : (board.getActionsUsed() >= board.getActionBudget()
+            ? 'Ya has gastado todas tus acciones este turno.'
+            : 'Ya has usado tu ataque este turno.');
         await swrpAlert({ title: 'Acción no disponible', message: msg });
         return;
       }
@@ -1017,10 +1019,12 @@ export function initBoardCombatUi(ctx) {
   activeSelect?.addEventListener('change', () => {
     const { actor: char } = resolveActiveActor(ctx, activeSelect) || {};
     renderSkillsList(skillsList, char, async (skill) => {
-      if (!board.canUseAttackActions()) {
-        const msg = board.isNarrativePhase()
-          ? 'Elige «Ataque sorpresa» para usar habilidades.'
-          : 'Elige «Atacar» para usar habilidades.';
+      if (!board.canUseSkills()) {
+        const msg = !board.canControlActiveTurn()
+          ? 'No es tu turno o no controlas este personaje.'
+          : (board.getActionsUsed() >= board.getActionBudget()
+            ? 'Ya has gastado todas tus acciones este turno.'
+            : 'Ya has usado tu ataque este turno.');
         await swrpAlert({ title: 'Acción no disponible', message: msg });
         return;
       }

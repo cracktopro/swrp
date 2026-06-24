@@ -988,6 +988,13 @@ export class TacticalBoard {
     return this.turnActions.activeMode === 'attack' && this.getActionsUsed() < this.getActionBudget();
   }
 
+  canUseSkills() {
+    if (!this.canControlActiveTurn()) return false;
+    if (this.getActionsUsed() >= this.getActionBudget()) return false;
+    if ((this.turnActions.attacksUsed || 0) >= this.getAttackBudget()) return false;
+    return true;
+  }
+
   canUseDiceConsole() {
     if (this.isStructuredCombat()) return true;
     return this.canUseAttackActions();
