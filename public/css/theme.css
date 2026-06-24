@@ -636,18 +636,14 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
 }
 
 .dashboard-panels {
-  align-items: stretch;
+  align-items: flex-start;
 }
 
-.dashboard-panels > [class*="col-"] {
-  display: flex;
-}
-
-.swrp-dashboard-panel {
+.swrp-dashboard-panel--parties {
   display: flex;
   flex-direction: column;
-  width: 100%;
-  min-height: 0;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .swrp-party-panel__filters {

@@ -15,7 +15,7 @@
   <main class="container py-4">
     <div class="row g-4 dashboard-panels">
       <div class="col-lg-6">
-        <section class="swrp-panel swrp-dashboard-panel">
+        <section class="swrp-panel" id="dashboard-characters-panel">
           <div class="d-flex justify-content-between align-items-center mb-3">
             <h2 class="swrp-panel__title mb-0">Mis Personajes</h2>
             <a href="character-create" class="btn btn-sm btn-swrp btn-swrp-primary">+ Nuevo</a>
@@ -24,7 +24,7 @@
         </section>
       </div>
       <div class="col-lg-6">
-        <section class="swrp-panel swrp-dashboard-panel">
+        <section class="swrp-panel swrp-dashboard-panel--parties" id="dashboard-parties-panel">
           <div class="d-flex justify-content-between align-items-center mb-3">
             <h2 class="swrp-panel__title mb-0">Partidas</h2>
             <button id="btn-new-party" class="btn btn-sm btn-swrp btn-swrp-ghost d-none">+ Partida</button>
@@ -187,6 +187,8 @@
       if (previousId && charPanelController) {
         charPanelController.setSelected(previousId);
       }
+      syncPartiesPanelHeight();
+      requestAnimationFrame(syncPartiesPanelHeight);
     }
 
     function renderPartiesFromCache() {
@@ -220,6 +222,7 @@
           }
         } : null
       }));
+      requestAnimationFrame(syncPartiesPanelHeight);
     }
 
     async function refreshParties() {
@@ -302,8 +305,32 @@
       }
     });
 
+    function syncPartiesPanelHeight() {
+      const charPanel = document.getElementById('dashboard-characters-panel');
+      const partiesPanel = document.getElementById('dashboard-parties-panel');
+      if (!charPanel || !partiesPanel) return;
+
+      if (window.matchMedia('(max-width: 991.98px)').matches) {
+        partiesPanel.style.height = '';
+        partiesPanel.style.maxHeight = '';
+        return;
+      }
+
+      const height = Math.round(charPanel.getBoundingClientRect().height);
+      partiesPanel.style.height = `${height}px`;
+      partiesPanel.style.maxHeight = `${height}px`;
+    }
+
     await refreshCharacters();
     await refreshParties();
+    syncPartiesPanelHeight();
+
+    window.addEventListener('resize', syncPartiesPanelHeight);
+
+    const charPanelSection = document.getElementById('dashboard-characters-panel');
+    if (charPanelSection && typeof ResizeObserver !== 'undefined') {
+      new ResizeObserver(() => syncPartiesPanelHeight()).observe(charPanelSection);
+    }
   </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
