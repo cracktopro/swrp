@@ -123,6 +123,7 @@
       renderCharacterPanel,
       renderPartyCard
     } from './js/dashboard.js';
+    import { loadPartyMembers } from './js/party-members.js';
 
     const { user, profile } = await requireAuth();
     const userIsAdmin = isAdmin(profile);
@@ -163,9 +164,16 @@
         partiesEl.innerHTML = '<p class="text-muted">No hay partidas disponibles.</p>';
         return;
       }
-      parties.forEach((p) => renderPartyCard(p, user.uid, partiesEl, {
+      const partiesWithMembers = await Promise.all(
+        parties.map(async (party) => ({
+          party,
+          members: await loadPartyMembers(party.id)
+        }))
+      );
+      partiesWithMembers.forEach(({ party, members }) => renderPartyCard(party, user.uid, partiesEl, {
         isAdmin: userIsAdmin,
-        isMember: joinedPartyIds.has(p.id),
+        isMember: joinedPartyIds.has(party.id),
+        members,
         onEdit: userIsAdmin ? openPartyEditModal : null,
         onDelete: userIsAdmin ? async (party) => {
           if (!confirm(`¿Eliminar la partida «${party.name}»? Se perderán los mensajes del foro.`)) return;

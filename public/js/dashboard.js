@@ -11,7 +11,7 @@ import {
 } from './firebase-config.js';
 import { isAdmin } from './auth.js';
 import { loadParty } from './party.js';
-import { getPartyMember } from './party-members.js';
+import { getPartyMember, loadPartyMembers } from './party-members.js';
 import { renderCharacterCard } from './character-card.js';
 import { loadUserCharacters } from './characters.js';
 import { partyPageUrl, rememberPartyId } from './party-url.js';
@@ -155,7 +155,16 @@ export function renderCharacterPanel(characters, container, { onDelete } = {}) {
   };
 }
 
-export function renderPartyCard(party, userId, container, { isAdmin, isMember, onEdit, onDelete } = {}) {
+export function formatPartyMemberNames(members = []) {
+  if (!members.length) return [];
+  return members.map((m) => {
+    const name = m.username || 'Usuario';
+    if (m.playMode === 'gm') return `${name} (GM)`;
+    return name;
+  });
+}
+
+export function renderPartyCard(party, userId, container, { isAdmin, isMember, members = [], onEdit, onDelete } = {}) {
   const el = document.createElement('article');
   el.className = 'swrp-party-card';
 
@@ -171,11 +180,17 @@ export function renderPartyCard(party, userId, container, { isAdmin, isMember, o
     ? `<a href="${partyPageUrl(party.id)}" class="btn btn-sm btn-swrp btn-swrp-primary">Entrar</a>`
     : `<a href="${partyPageUrl(party.id)}" class="btn btn-sm btn-swrp btn-swrp-success">Unirse</a>`;
 
+  const memberNames = formatPartyMemberNames(members);
+  const membersBlock = memberNames.length
+    ? `<p class="swrp-party-card__members"><span class="swrp-party-card__members-label">Unidos:</span> ${memberNames.map((n) => escapeHtml(n)).join(', ')}</p>`
+    : '<p class="swrp-party-card__members swrp-party-card__members--empty text-muted">Nadie se ha unido aún.</p>';
+
   el.innerHTML = `
     <div class="swrp-party-card__media">${media}</div>
     <div class="swrp-party-card__body">
       <h3 class="swrp-party-card__title">${escapeHtml(party.name)}</h3>
       <p class="swrp-party-card__meta">${escapeHtml(party.type)}${isMember ? ' · Unido' : ''}</p>
+      ${membersBlock}
       ${desc}
       <div class="swrp-party-card__actions">
         ${primaryAction}

@@ -708,6 +708,25 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
   color: var(--swrp-text-muted);
 }
 
+.swrp-party-card__members {
+  margin: 0.35rem 0 0.5rem;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.swrp-party-card__members-label {
+  color: var(--swrp-gold);
+  font-weight: 600;
+  margin-right: 0.25rem;
+}
+
+.swrp-party-card__members--empty {
+  font-size: 0.78rem;
+  font-style: italic;
+  color: var(--swrp-text-muted);
+}
+
 .swrp-party-card__desc {
   margin: 0;
   font-size: 0.88rem;
