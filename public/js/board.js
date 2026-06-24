@@ -989,10 +989,7 @@ export class TacticalBoard {
   }
 
   canUseSkills() {
-    if (!this.canControlActiveTurn()) return false;
-    if (this.getActionsUsed() >= this.getActionBudget()) return false;
-    if ((this.turnActions.attacksUsed || 0) >= this.getAttackBudget()) return false;
-    return true;
+    return this.canControlActiveTurn();
   }
 
   canUseDiceConsole() {

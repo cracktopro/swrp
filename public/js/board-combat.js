@@ -696,12 +696,10 @@ export function initBoardCombatUi(ctx) {
     const { actor: char } = resolveActiveActor(ctx, activeSelect) || {};
     renderSkillsList(skillsList, char, async (skill) => {
       if (!board.canUseSkills()) {
-        const msg = !board.canControlActiveTurn()
-          ? 'No es tu turno o no controlas este personaje.'
-          : (board.getActionsUsed() >= board.getActionBudget()
-            ? 'Ya has gastado todas tus acciones este turno.'
-            : 'Ya has usado tu ataque este turno.');
-        await swrpAlert({ title: 'Acción no disponible', message: msg });
+        await swrpAlert({
+          title: 'Acción no disponible',
+          message: 'No es tu turno o no controlas este personaje.'
+        });
         return;
       }
       const resolved = resolveActiveActor(ctx, activeSelect);
@@ -712,7 +710,6 @@ export function initBoardCombatUi(ctx) {
       await board.appendLog(logEntrySkill(resolved.actor, skill, resolved.cell), {
         force: !board.combatStarted
       });
-      await board.consumeAttackAction();
       syncTurnActionUi();
     });
     syncPanelsVisibility();
@@ -1020,12 +1017,10 @@ export function initBoardCombatUi(ctx) {
     const { actor: char } = resolveActiveActor(ctx, activeSelect) || {};
     renderSkillsList(skillsList, char, async (skill) => {
       if (!board.canUseSkills()) {
-        const msg = !board.canControlActiveTurn()
-          ? 'No es tu turno o no controlas este personaje.'
-          : (board.getActionsUsed() >= board.getActionBudget()
-            ? 'Ya has gastado todas tus acciones este turno.'
-            : 'Ya has usado tu ataque este turno.');
-        await swrpAlert({ title: 'Acción no disponible', message: msg });
+        await swrpAlert({
+          title: 'Acción no disponible',
+          message: 'No es tu turno o no controlas este personaje.'
+        });
         return;
       }
       const resolved = resolveActiveActor(ctx, activeSelect);
@@ -1033,7 +1028,6 @@ export function initBoardCombatUi(ctx) {
       await board.appendLog(logEntrySkill(resolved.actor, skill, resolved.cell), {
         force: !board.combatStarted
       });
-      await board.consumeAttackAction();
       syncTurnActionUi();
     });
   });
