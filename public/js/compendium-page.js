@@ -1,5 +1,6 @@
 import { appUrl } from './app-path.js';
 import {
+  loadCompendiumData,
   getStats,
   getClassList,
   getCompendiumProgression,
