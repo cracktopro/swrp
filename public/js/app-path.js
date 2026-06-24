@@ -8,6 +8,7 @@ const APP_PAGES = new Set([
   'register',
   'character-create',
   'character-view',
+  'map-editor',
   'index'
 ]);
 
@@ -49,7 +50,7 @@ export function fixMisroutedPath() {
   if (pathname.includes('/public/')) return;
 
   const misroute = pathname.match(
-    /^(\/[^/]+)\/(board|party|dashboard|compendium|rules|admin|register|character-create|character-view)(?:\.html)?$/
+    /^(\/[^/]+)\/(board|party|dashboard|compendium|rules|admin|register|character-create|character-view|map-editor)(?:\.html)?$/
   );
   if (!misroute) return;
 

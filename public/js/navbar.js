@@ -18,6 +18,7 @@ export function renderNavbar(active = '', user = null, options = {}) {
     ? [
       link('dashboard', 'dashboard', 'Dashboard'),
       link('characters', 'character-create', 'Personajes'),
+      link('map-editor', 'map-editor', 'Editor de mapas'),
       link('compendium', 'compendium', 'Compendio'),
       link('rules', 'rules', 'Reglas'),
       ...(isAdmin ? [link('admin', 'admin', 'Opciones')] : []),

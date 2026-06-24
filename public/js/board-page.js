@@ -58,7 +58,7 @@ function renderAddTokenThumb(item, theme) {
 }
 
 class MiniBoardPicker {
-  constructor(canvas, board) {
+  constructor(canvas, board, options = {}) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.board = board;
@@ -68,7 +68,14 @@ class MiniBoardPicker {
     this.facing = 'left';
     this.scale = 1;
     this.onCellPick = null;
+    this.markerSpawns = options.markerSpawns || [];
+    this.markerColor = options.markerColor || '#6dff6a';
     canvas.addEventListener('mousedown', (e) => this.onClick(e));
+  }
+
+  setMarkerSpawns(spawns) {
+    this.markerSpawns = spawns || [];
+    this.render();
   }
 
   setPreview({ side, facing }) {
@@ -163,6 +170,19 @@ class MiniBoardPicker {
       ctx.strokeRect(x + 0.5, y + 0.5, size - 1, size - 1);
     });
 
+    this.markerSpawns.forEach(({ col, row }) => {
+      const px = col * CELL + 5;
+      const py = row * CELL + 5;
+      const sz = CELL - 10;
+      ctx.strokeStyle = this.markerColor;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 3]);
+      ctx.strokeRect(px, py, sz, sz);
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(57,255,20,0.2)';
+      ctx.fillRect(px + 1, py + 1, sz - 2, sz - 2);
+    });
+
     if (this.spawnCol != null && this.spawnRow != null) {
       if (this.side === 'enemy') {
         drawVisionConeOnCanvas(ctx, this.spawnCol, this.spawnRow, this.facing, CELL, {
@@ -188,6 +208,8 @@ class MiniBoardPicker {
   }
 }
 
+export { MiniBoardPicker };
+
 export function initBoardPage(ctx) {
   const {
     board,
@@ -195,7 +217,9 @@ export function initBoardPage(ctx) {
     npcs,
     isGM,
     openCharacterCard,
-    charModalBootstrap
+    charModalBootstrap,
+    editorMode = false,
+    allUserCharacters = null
   } = ctx;
 
   const activeListEl = document.getElementById('active-tokens-list');
@@ -424,7 +448,9 @@ export function initBoardPage(ctx) {
   }
 
   function getAddCandidates() {
-    const list = addTab === 'characters' ? roster : npcs;
+    const list = addTab === 'characters'
+      ? (allUserCharacters ?? roster)
+      : npcs;
     const mapped = list.map((item) => {
       const template = addTab === 'characters'
         ? tokenFromCharacter(item)
@@ -432,7 +458,7 @@ export function initBoardPage(ctx) {
       return { item, template };
     });
 
-    if (addTab === 'npcs') return mapped;
+    if (addTab === 'npcs' || editorMode) return mapped;
 
     return mapped.filter(({ template }) => !board.tokenOnBoard(template.sourceId, template.kind));
   }

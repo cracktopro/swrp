@@ -14,7 +14,7 @@ import { loadParty } from './party.js';
 import { getPartyMember, loadPartyMembers } from './party-members.js';
 import { renderCharacterCard } from './character-card.js';
 import { loadUserCharacters } from './characters.js';
-import { partyPageUrl, rememberPartyId } from './party-url.js';
+import { partyPageUrl, boardPageUrl, rememberPartyId } from './party-url.js';
 import { characterEditUrl } from './character-url.js';
 import { NPC_ERAS, DEFAULT_NPC_ERA } from './npcs.js';
 
@@ -34,10 +34,19 @@ function unwrapPartyEntry(entry) {
   return entry?.party ?? entry;
 }
 
-export function filterParties(parties, { nameQ = '', eraQ = '' } = {}) {
+export function filterPartiesByType(parties, typeFilter = '') {
+  if (!typeFilter) return parties || [];
+  return (parties || []).filter((entry) => {
+    const party = unwrapPartyEntry(entry);
+    return (party.type || 'Campaña') === typeFilter;
+  });
+}
+
+export function filterParties(parties, { nameQ = '', eraQ = '', typeQ = '' } = {}) {
   const needle = String(nameQ).trim().toLowerCase();
   return (parties || []).filter((entry) => {
     const party = unwrapPartyEntry(entry);
+    if (typeQ && (party.type || 'Campaña') !== typeQ) return false;
     if (needle && !(party.name || '').toLowerCase().includes(needle)) return false;
     if (eraQ && readPartyEra(party) !== eraQ) return false;
     return true;
@@ -205,11 +214,18 @@ export function renderPartyCard(party, userId, container, { isAdmin, isMember, m
     ? `<p class="swrp-party-card__desc">${escapeHtml(party.description)}</p>`
     : '<p class="swrp-party-card__desc swrp-party-card__desc--empty text-muted">Sin descripción.</p>';
 
+  const enterUrl = isMember && party.type === 'Escaramuza'
+    ? boardPageUrl(party.id)
+    : partyPageUrl(party.id);
+
   const primaryAction = isMember
-    ? `<a href="${partyPageUrl(party.id)}" class="btn btn-sm btn-swrp btn-swrp-primary">Entrar</a>`
+    ? `<a href="${enterUrl}" class="btn btn-sm btn-swrp btn-swrp-primary">Entrar</a>`
     : `<a href="${partyPageUrl(party.id)}" class="btn btn-sm btn-swrp btn-swrp-success">Unirse</a>`;
 
   const memberNames = formatPartyMemberNames(members);
+  const slotsLine = party.type === 'Escaramuza' && party.maxSlots
+    ? `<p class="swrp-party-card__meta swrp-party-card__slots">${members.length}/${party.maxSlots} jugadores</p>`
+    : '';
   const membersBlock = memberNames.length
     ? `<p class="swrp-party-card__members"><span class="swrp-party-card__members-label">Unidos:</span> ${memberNames.map((n) => escapeHtml(n)).join(', ')}</p>`
     : '<p class="swrp-party-card__members swrp-party-card__members--empty text-muted">Nadie se ha unido aún.</p>';
@@ -219,6 +235,7 @@ export function renderPartyCard(party, userId, container, { isAdmin, isMember, m
     <div class="swrp-party-card__body">
       <h3 class="swrp-party-card__title">${escapeHtml(party.name)}</h3>
       <p class="swrp-party-card__meta">${escapeHtml(party.type)} · <span class="swrp-card__era-label">Era:</span> ${escapeHtml(readPartyEra(party))}${isMember ? ' · Unido' : ''}</p>
+      ${slotsLine}
       ${membersBlock}
       ${desc}
       <div class="swrp-party-card__actions">

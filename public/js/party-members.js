@@ -13,6 +13,7 @@ import { normalizeCharacter, getClassMeta } from './character-card.js';
 import { docToCharacter } from './characters.js';
 import { getStats } from './compendium-store.js';
 import { npcToMembershipCharacter } from './npcs.js';
+import { loadParty } from './party.js';
 
 export async function getPartyMember(partyId, userId) {
   if (!partyId || !userId) return null;
@@ -91,6 +92,16 @@ export async function joinParty(partyId, user, profile, { playMode, character })
   if (existing) throw new Error('Ya estás unido a esta partida');
 
   const members = await loadPartyMembers(partyId);
+  const party = await loadParty(partyId);
+  if (party?.type === 'Escaramuza' && party.maxSlots) {
+    if (members.length >= party.maxSlots) {
+      throw new Error('No quedan plazas en esta escaramuza');
+    }
+  }
+  if (party?.templateId && playMode !== 'character') {
+    throw new Error('En escaramuzas predefinidas solo puedes unirte con un personaje propio');
+  }
+
   if (playMode === 'gm') {
     const gm = getPartyGM(members);
     if (gm) throw new Error('Esta partida ya tiene un GM asignado');

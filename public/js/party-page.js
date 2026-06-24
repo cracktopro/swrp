@@ -19,6 +19,8 @@ import { loadAllNpcs, npcToCardData } from './npcs.js';
 import { initNpcPicker, initCharacterPicker } from './npc-picker.js';
 import { insertMention, renderMentionPickerItem } from './party-markup.js';
 import { renderCharacterCard } from './character-card.js';
+import { boardPageUrl } from './party-url.js';
+import { assignSpawnToMember } from './escaramuza-templates.js';
 
 export async function initPartyPage({ user, profile, partyId, ui }) {
   const {
@@ -41,6 +43,11 @@ export async function initPartyPage({ user, profile, partyId, ui }) {
   if (!member) {
     showJoin(party);
     await setupJoinFlow(partyId, user, profile, party, ui, () => initPartyPage({ user, profile, partyId, ui }));
+    return;
+  }
+
+  if (party.type === 'Escaramuza') {
+    window.location.assign(boardPageUrl(partyId));
     return;
   }
 
@@ -245,19 +252,30 @@ async function setupJoinFlow(partyId, user, profile, party, ui, onJoined) {
   const joinPartyName = document.getElementById('join-party-name');
 
   const isEscaramuza = party.type === 'Escaramuza';
+  const isPredefined = !!party.templateId;
   joinPartyName.textContent = party.name;
   const characters = await loadUserCharacters(user.uid);
-  const allNpcs = isEscaramuza
+  const allNpcs = isEscaramuza && !isPredefined
     ? (await loadAllNpcs()).map(npcToCardData)
     : [];
 
   const members = await loadPartyMembers(partyId);
   const hasGM = !!getPartyGM(members);
+  const slotsFull = isEscaramuza && party.maxSlots && members.length >= party.maxSlots;
 
-  joinMode.innerHTML = `
+  if (slotsFull) {
+    joinSubmit.disabled = true;
+    joinPartyName.textContent = `${party.name} — Sin plazas disponibles`;
+  }
+
+  if (isPredefined) {
+    joinMode.innerHTML = '<option value="character">Con uno de mis personajes</option>';
+  } else {
+    joinMode.innerHTML = `
     <option value="character">Con uno de mis personajes</option>
     ${isEscaramuza ? '<option value="npc">Con un personaje NPC</option>' : ''}
     ${hasGM ? '' : '<option value="gm">Como GM de la partida</option>'}`;
+  }
 
   let entityPicker = null;
   let pickerMode = null;
@@ -336,6 +354,13 @@ async function setupJoinFlow(partyId, user, profile, party, ui, onJoined) {
         character = entityPicker?.getSelected() || null;
       }
       await joinParty(partyId, user, profile, { playMode, character });
+      if (party.templateId && playMode === 'character') {
+        await assignSpawnToMember(party, partyId, user.uid);
+      }
+      if (party.type === 'Escaramuza') {
+        window.location.assign(boardPageUrl(partyId));
+        return;
+      }
       document.getElementById('join-screen').classList.add('d-none');
       await onJoined();
     } catch (err) {

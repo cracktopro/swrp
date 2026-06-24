@@ -27,8 +27,16 @@
         <section class="swrp-panel swrp-dashboard-panel--parties" id="dashboard-parties-panel">
           <div class="d-flex justify-content-between align-items-center mb-3">
             <h2 class="swrp-panel__title mb-0">Partidas</h2>
-            <button id="btn-new-party" class="btn btn-sm btn-swrp btn-swrp-ghost d-none">+ Partida</button>
+            <button id="btn-new-party" class="btn btn-sm btn-swrp btn-swrp-ghost">+ Partida</button>
           </div>
+          <ul class="nav nav-tabs swrp-board-tabs mb-2" id="party-type-tabs" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button type="button" class="nav-link active" data-party-type="Campaña" role="tab">Campaña</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button type="button" class="nav-link" data-party-type="Escaramuza" role="tab">Escaramuzas</button>
+            </li>
+          </ul>
           <div class="row g-2 mb-2 swrp-party-panel__filters">
             <div class="col-sm-7">
               <label class="form-label small mb-1" for="party-filter-name">Nombre</label>
@@ -48,39 +56,67 @@
   </main>
 
   <div class="modal fade" id="partyModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
       <div class="modal-content swrp-modal-card">
         <div class="modal-header border-secondary border-opacity-25">
           <h5 class="modal-title">Nueva Partida</h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
-          <div class="mb-3">
-            <label class="form-label" for="party-name">Nombre</label>
-            <input type="text" class="form-control" id="party-name">
+          <ul class="nav nav-tabs swrp-board-tabs mb-3" id="party-create-tabs" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button type="button" class="nav-link active" data-create-tab="custom" role="tab">Partida personalizada</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button type="button" class="nav-link" data-create-tab="predefined" role="tab">Partidas predefinidas</button>
+            </li>
+          </ul>
+
+          <div id="party-create-custom">
+            <div class="mb-3 d-none" id="party-custom-admin-only">
+              <p class="small text-warning mb-0">Solo los administradores pueden crear campañas personalizadas.</p>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="party-name">Nombre</label>
+              <input type="text" class="form-control" id="party-name">
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="party-type">Tipo</label>
+              <select class="form-select" id="party-type">
+                <option value="Campaña">Campaña</option>
+                <option value="Escaramuza">Escaramuza</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="party-era">Era</label>
+              <select class="form-select" id="party-era"></select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="party-image-url">URL imagen de la tarjeta</label>
+              <input type="url" class="form-control" id="party-image-url" placeholder="https://ejemplo.com/portada.png">
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="party-description">Descripción</label>
+              <textarea class="form-control" id="party-description" rows="3" placeholder="Breve resumen de la partida…"></textarea>
+            </div>
           </div>
-          <div class="mb-3">
-            <label class="form-label" for="party-type">Tipo</label>
-            <select class="form-select" id="party-type">
-              <option value="Campaña">Campaña</option>
-              <option value="Escaramuza">Escaramuza</option>
-            </select>
-          </div>
-          <div class="mb-3">
-            <label class="form-label" for="party-era">Era</label>
-            <select class="form-select" id="party-era"></select>
-          </div>
-          <div class="mb-3">
-            <label class="form-label" for="party-image-url">URL imagen de la tarjeta</label>
-            <input type="url" class="form-control" id="party-image-url" placeholder="https://ejemplo.com/portada.png">
-          </div>
-          <div class="mb-3">
-            <label class="form-label" for="party-description">Descripción</label>
-            <textarea class="form-control" id="party-description" rows="3" placeholder="Breve resumen de la partida…"></textarea>
+
+          <div id="party-create-predefined" class="d-none">
+            <p class="small text-muted mb-2">Elige una escaramuza creada en el editor de mapas. Se abrirá el tablero y otros jugadores podrán unirse si quedan plazas.</p>
+            <div class="mb-3">
+              <label class="form-label" for="predefined-char-select">Tu personaje</label>
+              <select class="form-select" id="predefined-char-select">
+                <option value="">— Selecciona un personaje —</option>
+              </select>
+            </div>
+            <div id="predefined-template-list" class="swrp-template-pick-list swrp-scrollbar-thin">
+              <p class="text-muted mb-0">Cargando escaramuzas…</p>
+            </div>
           </div>
         </div>
         <div class="modal-footer border-secondary border-opacity-25">
           <button type="button" class="btn btn-swrp btn-swrp-ghost" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" id="party-create-from-template" class="btn btn-swrp btn-swrp-primary d-none">Crear escaramuza</button>
           <button type="button" id="party-create" class="btn btn-swrp btn-swrp-primary">Crear</button>
         </div>
       </div>
@@ -147,13 +183,21 @@
     } from './js/dashboard.js';
     import { loadPartyMembers } from './js/party-members.js';
     import { buildNpcEraSelectOptions, buildNpcEraFormOptions, DEFAULT_NPC_ERA } from './js/npcs.js';
+    import {
+      loadAllEscaramuzaTemplates,
+      createEscaramuzaFromTemplate,
+      renderTemplatePickCard
+    } from './js/escaramuza-templates.js';
+    import { boardPageUrl } from './js/party-url.js';
 
     const { user, profile } = await requireAuth();
     const userIsAdmin = isAdmin(profile);
     renderNavbar('dashboard', user, { isAdmin: userIsAdmin });
-    if (userIsAdmin) {
-      document.getElementById('btn-new-party').classList.remove('d-none');
-    }
+
+    let partyTypeTab = 'Campaña';
+    let createModalTab = 'custom';
+    let selectedTemplateId = null;
+    let userCharactersCache = [];
 
     const charsPanel = document.getElementById('characters-panel');
     const partiesEl = document.getElementById('parties-list');
@@ -194,7 +238,8 @@
     function renderPartiesFromCache() {
       const filtered = filterParties(partiesCache, {
         nameQ: partyFilterName?.value || '',
-        eraQ: partyFilterEra?.value || ''
+        eraQ: partyFilterEra?.value || '',
+        typeQ: partyTypeTab
       });
 
       partiesEl.innerHTML = '';
@@ -240,6 +285,16 @@
     partyFilterName?.addEventListener('input', renderPartiesFromCache);
     partyFilterEra?.addEventListener('change', renderPartiesFromCache);
 
+    document.getElementById('party-type-tabs')?.addEventListener('click', (e) => {
+      const tab = e.target.closest('[data-party-type]');
+      if (!tab) return;
+      partyTypeTab = tab.dataset.partyType;
+      document.querySelectorAll('#party-type-tabs .nav-link').forEach((el) => {
+        el.classList.toggle('active', el.dataset.partyType === partyTypeTab);
+      });
+      renderPartiesFromCache();
+    });
+
     const partyModal = new bootstrap.Modal(document.getElementById('partyModal'));
     const partyEditModal = new bootstrap.Modal(document.getElementById('partyEditModal'));
 
@@ -253,23 +308,89 @@
       partyEditModal.show();
     }
 
-    document.getElementById('btn-new-party').addEventListener('click', () => {
-      if (!userIsAdmin) return;
+    function syncCreateModalTabs() {
+      const isPredefined = createModalTab === 'predefined';
+      document.getElementById('party-create-custom')?.classList.toggle('d-none', isPredefined);
+      document.getElementById('party-create-predefined')?.classList.toggle('d-none', !isPredefined);
+      document.getElementById('party-create')?.classList.toggle('d-none', isPredefined);
+      document.getElementById('party-create-from-template')?.classList.toggle('d-none', !isPredefined);
+      document.querySelectorAll('#party-create-tabs .nav-link').forEach((el) => {
+        el.classList.toggle('active', el.dataset.createTab === createModalTab);
+      });
+      const adminOnly = document.getElementById('party-custom-admin-only');
+      adminOnly?.classList.toggle('d-none', userIsAdmin);
+      document.querySelectorAll('#party-create-custom input, #party-create-custom select, #party-create-custom textarea')
+        .forEach((el) => { el.disabled = !userIsAdmin && createModalTab === 'custom'; });
+    }
+
+    async function loadPredefinedTemplates() {
+      const listEl = document.getElementById('predefined-template-list');
+      listEl.innerHTML = '<p class="text-muted mb-0">Cargando escaramuzas…</p>';
+      selectedTemplateId = null;
+      try {
+        const templates = await loadAllEscaramuzaTemplates();
+        if (!templates.length) {
+          listEl.innerHTML = '<p class="text-muted mb-0">No hay escaramuzas predefinidas. Créalas en el Editor de mapas.</p>';
+          return;
+        }
+        listEl.innerHTML = '';
+        templates.forEach((tpl) => {
+          listEl.appendChild(renderTemplatePickCard(tpl, {
+            selected: selectedTemplateId === tpl.id,
+            onSelect: (t) => {
+              selectedTemplateId = t.id;
+              listEl.querySelectorAll('.swrp-template-pick-card').forEach((card) => {
+                card.classList.toggle('is-selected', card.dataset.templateId === t.id);
+              });
+            }
+          }));
+        });
+      } catch (err) {
+        listEl.innerHTML = `<p class="text-danger mb-0">${err.message}</p>`;
+      }
+    }
+
+    function fillPredefinedCharSelect(characters) {
+      const sel = document.getElementById('predefined-char-select');
+      sel.innerHTML = characters.length
+        ? '<option value="">— Selecciona un personaje —</option>' +
+          characters.map((c) => `<option value="${c.id}">${c.name}</option>`).join('')
+        : '<option value="">— Crea un personaje primero —</option>';
+    }
+
+    document.getElementById('party-create-tabs')?.addEventListener('click', (e) => {
+      const tab = e.target.closest('[data-create-tab]');
+      if (!tab) return;
+      createModalTab = tab.dataset.createTab;
+      syncCreateModalTabs();
+      if (createModalTab === 'predefined') loadPredefinedTemplates();
+    });
+
+    document.getElementById('btn-new-party').addEventListener('click', async () => {
+      createModalTab = userIsAdmin ? 'custom' : 'predefined';
       document.getElementById('party-name').value = '';
       document.getElementById('party-type').value = 'Campaña';
       document.getElementById('party-era').value = DEFAULT_NPC_ERA;
       document.getElementById('party-image-url').value = '';
       document.getElementById('party-description').value = '';
+      userCharactersCache = await loadUserCharacters(user.uid);
+      fillPredefinedCharSelect(userCharactersCache);
+      syncCreateModalTabs();
+      if (createModalTab === 'predefined') await loadPredefinedTemplates();
       partyModal.show();
     });
 
     document.getElementById('party-create').addEventListener('click', async () => {
+      if (createModalTab !== 'custom') return;
       const name = document.getElementById('party-name').value.trim();
       const type = document.getElementById('party-type').value;
       const era = document.getElementById('party-era').value;
       const imageUrl = document.getElementById('party-image-url').value.trim();
       const description = document.getElementById('party-description').value.trim();
-      if (!userIsAdmin) return;
+      if (!userIsAdmin) {
+        alert('Solo un administrador puede crear partidas personalizadas.');
+        return;
+      }
       if (!name) return;
       const btn = document.getElementById('party-create');
       btn.disabled = true;
@@ -279,6 +400,31 @@
         openParty(id);
       } catch (err) {
         alert('Error al crear la partida: ' + err.message);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    document.getElementById('party-create-from-template')?.addEventListener('click', async () => {
+      if (!selectedTemplateId) {
+        alert('Selecciona una escaramuza de la lista.');
+        return;
+      }
+      const charId = document.getElementById('predefined-char-select').value;
+      const character = userCharactersCache.find((c) => c.id === charId);
+      if (!character) {
+        alert('Selecciona un personaje para unirte.');
+        return;
+      }
+      const btn = document.getElementById('party-create-from-template');
+      btn.disabled = true;
+      try {
+        const partyId = await createEscaramuzaFromTemplate(user, profile, selectedTemplateId, character);
+        partyModal.hide();
+        window.location.assign(boardPageUrl(partyId));
+      } catch (err) {
+        alert('Error al crear la escaramuza: ' + err.message);
+      } finally {
         btn.disabled = false;
       }
     });

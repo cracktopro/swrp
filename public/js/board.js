@@ -150,6 +150,8 @@ export class TacticalBoard {
     this.rowLabelsEl = options.rowLabelsEl || null;
     this.tooltipEl = options.tooltipEl || null;
     this.partyId = options.partyId;
+    this.localPersist = !!options.localPersist;
+    this._localBoardData = null;
     this.isGM = options.isGM || false;
     this.cols = DEFAULT_COLS;
     this.rows = DEFAULT_ROWS;
@@ -268,7 +270,38 @@ export class TacticalBoard {
     this.onTokensChange(this.tokens);
   }
 
+  async loadLocalState(data) {
+    this._localBoardData = data ? stripUndefinedDeep({ ...data }) : null;
+    if (this._localBoardData) {
+      await this.applyBoardData(this._localBoardData);
+    }
+  }
+
+  getLocalBoardData() {
+    updateAlertedStates(this.tokens, this.cols, this.rows);
+    const current = this._localBoardData || { log: [] };
+    return stripUndefinedDeep({
+      tokens: this.tokens.map((t) => stripUndefinedDeep(t)),
+      mapUrl: this._mapUrl ?? current.mapUrl ?? null,
+      combatStarted: this.combatStarted,
+      grid: { cols: this.cols, rows: this.rows, cellSize: CELL },
+      activeTurn: this.activeTurn,
+      log: current.log || [],
+      initiativeLog: this.initiativeLog,
+      initiativeOpen: this.initiativeOpen,
+      turnOrder: this.turnOrder,
+      turnOrderIndex: this.turnOrderIndex,
+      turnActions: normalizeTurnActions(this.turnActions)
+    });
+  }
+
   async loadState() {
+    if (this.localPersist) {
+      if (this._localBoardData) {
+        await this.applyBoardData(this._localBoardData);
+      }
+      return;
+    }
     if (!this.partyId) return;
     const snap = await getDoc(doc(db, 'parties', this.partyId, 'state', 'board'));
     if (snap.exists()) {
@@ -390,7 +423,7 @@ export class TacticalBoard {
   }
 
   watchState() {
-    if (!this.partyId) return;
+    if (this.localPersist || !this.partyId) return () => {};
     return onSnapshot(doc(db, 'parties', this.partyId, 'state', 'board'), (snap) => {
       if (!snap.exists()) return;
       const data = snap.data();
@@ -1399,8 +1432,42 @@ export class TacticalBoard {
   }
 
   async saveState(partial = {}) {
-    if (!this.partyId) return;
     updateAlertedStates(this.tokens, this.cols, this.rows);
+
+    if (this.localPersist) {
+      const current = this._localBoardData || { tokens: [], log: [] };
+      this._localBoardData = stripUndefinedDeep({
+        tokens: this.tokens.map((t) => stripUndefinedDeep(t)),
+        mapUrl: partial.mapUrl !== undefined ? partial.mapUrl : (this._mapUrl ?? current.mapUrl ?? null),
+        combatStarted: partial.combatStarted ?? this.combatStarted,
+        grid: partial.grid ?? current.grid ?? { cols: this.cols, rows: this.rows, cellSize: CELL },
+        activeTurn: partial.activeTurn !== undefined
+          ? partial.activeTurn
+          : (this.activeTurn ?? current.activeTurn ?? null),
+        log: partial.log !== undefined ? partial.log : (current.log || []),
+        initiativeLog: partial.initiativeLog !== undefined
+          ? partial.initiativeLog
+          : (this.initiativeLog ?? current.initiativeLog ?? []),
+        initiativeOpen: partial.initiativeOpen !== undefined
+          ? partial.initiativeOpen
+          : (this.initiativeOpen ?? current.initiativeOpen ?? false),
+        turnOrder: partial.turnOrder !== undefined
+          ? partial.turnOrder
+          : (this.turnOrder ?? current.turnOrder ?? []),
+        turnOrderIndex: partial.turnOrderIndex !== undefined
+          ? partial.turnOrderIndex
+          : (this.turnOrderIndex ?? current.turnOrderIndex ?? 0),
+        turnActions: partial.turnActions !== undefined
+          ? partial.turnActions
+          : normalizeTurnActions(this.turnActions ?? current.turnActions)
+      });
+      if (partial.log !== undefined) {
+        this.renderLog(partial.log);
+      }
+      return;
+    }
+
+    if (!this.partyId) return;
     const refDoc = doc(db, 'parties', this.partyId, 'state', 'board');
     const snap = await getDoc(refDoc);
     const current = snap.exists() ? snap.data() : { tokens: [], log: [] };
