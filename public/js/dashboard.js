@@ -17,7 +17,8 @@ import { loadUserCharacters } from './characters.js';
 import { partyPageUrl, boardPageUrl, rememberPartyId } from './party-url.js';
 import {
   applyDifficultyCardStyle,
-  formatDifficultyLabel,
+  buildDifficultyCardHtml,
+  buildPlayerRangeHtml,
   readDifficulty
 } from './escaramuza-templates.js';
 import { characterEditUrl } from './character-url.js';
@@ -235,8 +236,8 @@ export function renderPartyCard(party, userId, container, { isAdmin, isMember, m
     : `<a href="${partyPageUrl(party.id)}" class="btn btn-sm btn-swrp btn-swrp-success">Unirse</a>`;
 
   const memberNames = formatPartyMemberNames(members);
-  const slotsLine = party.type === 'Escaramuza' && party.maxSlots
-    ? `<p class="swrp-party-card__meta swrp-party-card__slots">${members.length}/${party.maxSlots} jugadores</p>`
+  const slotsLine = party.type === 'Escaramuza'
+    ? `<p class="swrp-party-card__meta swrp-party-card__slots">${buildPlayerRangeHtml(party.minPlayers, party.maxSlots)}</p>`
     : '';
   const membersBlock = memberNames.length
     ? `<p class="swrp-party-card__members"><span class="swrp-party-card__members-label">Unidos:</span> ${memberNames.map((n) => escapeHtml(n)).join(', ')}</p>`
@@ -246,14 +247,15 @@ export function renderPartyCard(party, userId, container, { isAdmin, isMember, m
     ? `${party.name} (${party.creatorUsername})`
     : (party.name || '');
 
-  const diffLine = formatDifficultyLabel(party.difficulty);
-  const diffMeta = ` · ${escapeHtml(diffLine)}`;
+  const diffLine = buildDifficultyCardHtml(party.difficulty);
+  const diffMeta = `<p class="swrp-party-card__difficulty">${diffLine}</p>`;
 
   el.innerHTML = `
     <div class="swrp-party-card__media">${media}</div>
     <div class="swrp-party-card__body">
       <h3 class="swrp-party-card__title">${escapeHtml(displayTitle)}</h3>
-      <p class="swrp-party-card__meta">${escapeHtml(party.type)} · <span class="swrp-card__era-label">Era:</span> ${escapeHtml(readPartyEra(party))}${diffMeta}${isMember ? ' · Unido' : ''}</p>
+      <p class="swrp-party-card__meta">${escapeHtml(party.type)} · <span class="swrp-card__era-label">Era:</span> ${escapeHtml(readPartyEra(party))}</p>
+      ${diffMeta}
       ${slotsLine}
       ${membersBlock}
       ${desc}

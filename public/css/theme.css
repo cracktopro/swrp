@@ -2979,12 +2979,21 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
   --difficulty-color: #ff8c42;
 }
 
-.swrp-template-pick-card__difficulty {
-  display: block;
+.swrp-template-pick-card__difficulty,
+.swrp-party-card__difficulty {
+  margin: 0.1rem 0 0;
   font-size: 0.72rem;
-  color: var(--difficulty-color, var(--swrp-gold));
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.swrp-difficulty-value {
+  color: color-mix(in srgb, var(--difficulty-color, #00e5ff) 42%, #ffffff 58%);
   font-weight: 600;
-  margin-bottom: 0.15rem;
+}
+
+.swrp-player-range__num {
+  color: color-mix(in srgb, #39ff14 55%, #ffffff 45%);
+  font-weight: 600;
 }
 
 .board-spawn-layer {

@@ -51,6 +51,18 @@ export function formatDifficultyLabel(value) {
   return `${meta.label} · ${meta.subtitle}`;
 }
 
+export function buildDifficultyCardHtml(value) {
+  const meta = getDifficultyMeta(resolveDifficulty(value));
+  if (!meta) return '';
+  return `Dificultad: <span class="swrp-difficulty-value">${escapeHtml(meta.label)}</span>`;
+}
+
+export function buildPlayerRangeHtml(minPlayers, maxSlots) {
+  const min = Number(minPlayers) || 1;
+  const max = Number(maxSlots) || 4;
+  return `<span class="swrp-player-range"><span class="swrp-player-range__num">${min}</span> - <span class="swrp-player-range__num">${max}</span> jugadores</span>`;
+}
+
 export function buildDifficultyFormOptions(selected = DEFAULT_ESCARAMUZA_DIFFICULTY) {
   const current = readDifficulty(selected) || DEFAULT_ESCARAMUZA_DIFFICULTY;
   return ESCARAMUZA_DIFFICULTIES.map(
@@ -370,8 +382,8 @@ export function renderTemplatePickCard(template, { selected = false, onSelect } 
     ? `<img class="swrp-template-pick-card__img" src="${escapeAttr(template.imageUrl)}" alt="" loading="lazy">`
     : `<div class="swrp-template-pick-card__placeholder">Escaramuza</div>`;
 
-  const diffLine = formatDifficultyLabel(template.difficulty);
-  const diffMeta = `<span class="swrp-template-pick-card__difficulty">${escapeHtml(diffLine)}</span>`;
+  const diffLine = buildDifficultyCardHtml(template.difficulty);
+  const diffMeta = `<p class="swrp-template-pick-card__difficulty">${diffLine}</p>`;
 
   el.innerHTML = `
     <div class="swrp-template-pick-card__media">${media}</div>
@@ -395,8 +407,8 @@ export function renderEscaramuzaListCard(template, { mode = 'mine', userId, onDe
     ? `<img class="swrp-party-card__img" src="${escapeAttr(template.imageUrl)}" alt="" loading="lazy">`
     : '<div class="swrp-party-card__placeholder"><span>Escaramuza</span></div>';
 
-  const diffLine = formatDifficultyLabel(template.difficulty);
-  const diffMeta = ` · ${escapeHtml(diffLine)}`;
+  const diffLine = buildDifficultyCardHtml(template.difficulty);
+  const diffMeta = `<p class="swrp-party-card__difficulty">${diffLine}</p>`;
   const creatorMeta = mode === 'community'
     ? `<p class="swrp-party-card__meta">Por ${escapeHtml(template.creatorUsername || 'Usuario')}</p>`
     : '';
@@ -414,7 +426,8 @@ export function renderEscaramuzaListCard(template, { mode = 'mine', userId, onDe
     <div class="swrp-party-card__media">${media}</div>
     <div class="swrp-party-card__body">
       <h3 class="swrp-party-card__title">${escapeHtml(template.name)}</h3>
-      <p class="swrp-party-card__meta">${template.minPlayers || 1}–${template.maxSlots || 1} jugadores · ${template.allySpawns?.length || 0} spawns${diffMeta}</p>
+      <p class="swrp-party-card__meta">${buildPlayerRangeHtml(template.minPlayers, template.maxSlots)}</p>
+      ${diffMeta}
       ${creatorMeta}
       <p class="swrp-party-card__desc">${escapeHtml(template.description || 'Sin descripción.')}</p>
       <div class="swrp-party-card__actions">
