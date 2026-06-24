@@ -17,7 +17,8 @@ import { loadUserCharacters } from './characters.js';
 import { partyPageUrl, boardPageUrl, rememberPartyId } from './party-url.js';
 import {
   applyDifficultyCardStyle,
-  formatDifficultyLabel
+  formatDifficultyLabel,
+  readDifficulty
 } from './escaramuza-templates.js';
 import { characterEditUrl } from './character-url.js';
 import { NPC_ERAS, DEFAULT_NPC_ERA } from './npcs.js';
@@ -91,12 +92,15 @@ export async function loadAllParties() {
     .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es'));
 }
 
-export async function createParty(profile, { name, type, era, imageUrl = '', description = '' }) {
+export async function createParty(profile, { name, type, era, difficulty, imageUrl = '', description = '' }) {
   if (!isAdmin(profile)) throw new Error('Solo un administrador puede crear partidas');
+  const diff = readDifficulty(difficulty);
+  if (!diff) throw new Error('Selecciona una dificultad');
   const ref = await addDoc(collection(db, 'parties'), {
     name,
     type,
     era: readPartyEra({ era }),
+    difficulty: diff,
     imageUrl: imageUrl.trim(),
     description: description.trim(),
     status: 'active',
@@ -108,10 +112,13 @@ export async function createParty(profile, { name, type, era, imageUrl = '', des
 
 export async function updateParty(profile, partyId, data) {
   if (!isAdmin(profile)) throw new Error('Solo un administrador puede editar partidas');
+  const diff = readDifficulty(data.difficulty);
+  if (!diff) throw new Error('Selecciona una dificultad');
   await updateDoc(doc(db, 'parties', partyId), {
     name: data.name.trim(),
     type: data.type,
     era: readPartyEra({ era: data.era }),
+    difficulty: diff,
     imageUrl: (data.imageUrl || '').trim(),
     description: (data.description || '').trim(),
     updatedAt: serverTimestamp()
@@ -209,9 +216,7 @@ export function formatPartyMemberNames(members = []) {
 export function renderPartyCard(party, userId, container, { isAdmin, isMember, members = [], onEdit, onDelete } = {}) {
   const el = document.createElement('article');
   el.className = 'swrp-party-card';
-  if (party.difficulty) {
-    applyDifficultyCardStyle(el, party.difficulty);
-  }
+  applyDifficultyCardStyle(el, party.difficulty);
 
   const media = party.imageUrl
     ? `<img class="swrp-party-card__img" src="${escapeAttr(party.imageUrl)}" alt="${escapeAttr(party.name)}" loading="lazy">`
@@ -242,7 +247,7 @@ export function renderPartyCard(party, userId, container, { isAdmin, isMember, m
     : (party.name || '');
 
   const diffLine = formatDifficultyLabel(party.difficulty);
-  const diffMeta = diffLine ? ` · ${escapeHtml(diffLine)}` : '';
+  const diffMeta = ` · ${escapeHtml(diffLine)}`;
 
   el.innerHTML = `
     <div class="swrp-party-card__media">${media}</div>

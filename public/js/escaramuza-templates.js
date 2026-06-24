@@ -46,7 +46,7 @@ export function getDifficultyMeta(value) {
 }
 
 export function formatDifficultyLabel(value) {
-  const meta = getDifficultyMeta(value);
+  const meta = getDifficultyMeta(resolveDifficulty(value));
   if (!meta) return '';
   return `${meta.label} · ${meta.subtitle}`;
 }
@@ -58,13 +58,18 @@ export function buildDifficultyFormOptions(selected = DEFAULT_ESCARAMUZA_DIFFICU
   ).join('');
 }
 
+export function resolveDifficulty(value) {
+  return readDifficulty(value) || DEFAULT_ESCARAMUZA_DIFFICULTY;
+}
+
 export function applyDifficultyCardStyle(el, difficulty) {
   if (!el) return;
   ESCARAMUZA_DIFFICULTIES.forEach((d) => el.classList.remove(`swrp-difficulty-card--${d.id}`));
-  const meta = getDifficultyMeta(difficulty);
+  const meta = getDifficultyMeta(resolveDifficulty(difficulty));
   if (!meta) return;
   el.classList.add(`swrp-difficulty-card--${meta.id}`);
   el.style.setProperty('--difficulty-color', meta.color);
+  el.dataset.difficulty = meta.id;
 }
 
 function stripUndefinedDeep(value) {
@@ -366,9 +371,7 @@ export function renderTemplatePickCard(template, { selected = false, onSelect } 
     : `<div class="swrp-template-pick-card__placeholder">Escaramuza</div>`;
 
   const diffLine = formatDifficultyLabel(template.difficulty);
-  const diffMeta = diffLine
-    ? `<span class="swrp-template-pick-card__difficulty">${escapeHtml(diffLine)}</span>`
-    : '';
+  const diffMeta = `<span class="swrp-template-pick-card__difficulty">${escapeHtml(diffLine)}</span>`;
 
   el.innerHTML = `
     <div class="swrp-template-pick-card__media">${media}</div>
@@ -393,7 +396,7 @@ export function renderEscaramuzaListCard(template, { mode = 'mine', userId, onDe
     : '<div class="swrp-party-card__placeholder"><span>Escaramuza</span></div>';
 
   const diffLine = formatDifficultyLabel(template.difficulty);
-  const diffMeta = diffLine ? ` · ${escapeHtml(diffLine)}` : '';
+  const diffMeta = ` · ${escapeHtml(diffLine)}`;
   const creatorMeta = mode === 'community'
     ? `<p class="swrp-party-card__meta">Por ${escapeHtml(template.creatorUsername || 'Usuario')}</p>`
     : '';
