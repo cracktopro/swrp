@@ -74,11 +74,11 @@ export function getMemberPlaySource(member) {
   if (!member) {
     return { sourceId: null, tokenKind: 'character', playMode: null };
   }
-  if (member.playMode === 'npc') {
+  if (member.playMode === 'npc' || member.npcId) {
     return {
       sourceId: member.npcId || member.characterSnapshot?.id || null,
       tokenKind: 'npc',
-      playMode: 'npc'
+      playMode: member.playMode || 'npc'
     };
   }
   return {
@@ -183,6 +183,13 @@ export function memberToActiveCharacter(member) {
 function resolveMembershipCharacter(playMode, character) {
   const hasChar = !!character?.id;
   if (playMode === 'gm') {
+    if (character?.type === 'NPC') {
+      return {
+        characterId: null,
+        npcId: character.id,
+        characterSnapshot: buildCharacterSnapshot(npcToMembershipCharacter(character))
+      };
+    }
     return {
       characterId: hasChar ? character.id : null,
       npcId: null,

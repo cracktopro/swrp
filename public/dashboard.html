@@ -7,7 +7,7 @@
   <link rel="icon" href="img/Logo%20SW-RP.png" type="image/png">
   <title>SWRP — Dashboard</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="css/theme.css?v=dashboard-tabs-maestro" rel="stylesheet">
+  <link href="css/theme.css?v=dashboard-predefined-picker" rel="stylesheet">
   <link href="css/character-card.css" rel="stylesheet">
 </head>
 <body class="swrp-app">
@@ -29,7 +29,7 @@
             <h2 class="swrp-panel__title mb-0">Partidas</h2>
             <button id="btn-new-party" class="btn btn-sm btn-swrp btn-swrp-ghost">+ Partida</button>
           </div>
-          <ul class="nav nav-tabs swrp-board-tabs mb-2" id="party-type-tabs" role="tablist">
+          <ul class="nav nav-tabs swrp-board-tabs swrp-dashboard-tabs mb-2" id="party-type-tabs" role="tablist">
             <li class="nav-item" role="presentation">
               <button type="button" class="nav-link active" data-party-type="Campaña" role="tab">Campañas</button>
             </li>
@@ -63,7 +63,7 @@
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
-          <ul class="nav nav-tabs swrp-board-tabs mb-3" id="party-create-tabs" role="tablist">
+          <ul class="nav nav-tabs swrp-board-tabs swrp-dashboard-tabs mb-3" id="party-create-tabs" role="tablist">
             <li class="nav-item" role="presentation">
               <button type="button" class="nav-link active" data-create-tab="custom" role="tab">Partida personalizada</button>
             </li>
@@ -108,10 +108,29 @@
           <div id="party-create-predefined" class="d-none">
             <p class="small text-muted mb-2">Elige una escaramuza creada en el editor de mapas. Se abrirá el tablero y otros jugadores podrán unirse si quedan plazas.</p>
             <div class="mb-3">
-              <label class="form-label" for="predefined-char-select">Tu personaje</label>
-              <select class="form-select" id="predefined-char-select">
-                <option value="">— Selecciona un personaje —</option>
+              <label class="form-label" for="predefined-join-mode">¿Con qué personaje jugarás?</label>
+              <select class="form-select" id="predefined-join-mode">
+                <option value="character">Con uno de mis personajes</option>
+                <option value="npc">Con un personaje NPC</option>
               </select>
+            </div>
+            <div class="mb-3" id="predefined-picker-wrap">
+              <label class="form-label mb-2" id="predefined-picker-label">Elige tu personaje</label>
+              <div class="row g-2 mb-2">
+                <div class="col-md-4">
+                  <label class="form-label small mb-1" for="predefined-filter-name">Nombre</label>
+                  <input type="search" class="form-control form-control-sm" id="predefined-filter-name" placeholder="Buscar…" autocomplete="off">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small mb-1" for="predefined-filter-class">Clase</label>
+                  <select class="form-select form-select-sm" id="predefined-filter-class"></select>
+                </div>
+                <div class="col-md-4 d-none" id="predefined-filter-era-wrap">
+                  <label class="form-label small mb-1" for="predefined-filter-era">Era</label>
+                  <select class="form-select form-select-sm" id="predefined-filter-era"></select>
+                </div>
+              </div>
+              <div id="predefined-picker-list" class="swrp-npc-picker-list swrp-scrollbar-thin"></div>
             </div>
             <div id="predefined-template-list" class="swrp-template-pick-list swrp-scrollbar-thin">
               <p class="text-muted mb-0">Cargando escaramuzas…</p>
@@ -190,7 +209,8 @@
       readPartyEra
     } from './js/dashboard.js';
     import { loadPartyMembers } from './js/party-members.js';
-    import { buildNpcEraSelectOptions, buildNpcEraFormOptions, DEFAULT_NPC_ERA } from './js/npcs.js';
+    import { buildNpcEraSelectOptions, buildNpcEraFormOptions, DEFAULT_NPC_ERA, loadAllNpcs, npcToCardData } from './js/npcs.js';
+    import { initNpcPicker, initCharacterPicker } from './js/npc-picker.js';
     import {
       loadAllEscaramuzaTemplates,
       createEscaramuzaFromTemplate,
@@ -209,6 +229,9 @@
     let createModalTab = 'custom';
     let selectedTemplateId = null;
     let userCharactersCache = [];
+    let predefinedNpcsCache = [];
+    let predefinedEntityPicker = null;
+    let predefinedPickerMode = null;
 
     const charsPanel = document.getElementById('characters-panel');
     const partiesEl = document.getElementById('parties-list');
@@ -341,6 +364,56 @@
         .forEach((el) => { el.disabled = !userIsAdmin && createModalTab === 'custom'; });
     }
 
+    function syncPredefinedPickerUi() {
+      const mode = document.getElementById('predefined-join-mode')?.value || 'character';
+      const eraWrap = document.getElementById('predefined-filter-era-wrap');
+      const label = document.getElementById('predefined-picker-label');
+
+      eraWrap?.classList.toggle('d-none', mode !== 'npc');
+      if (label) {
+        label.textContent = mode === 'npc' ? 'Elige un personaje NPC' : 'Elige tu personaje';
+      }
+
+      if (predefinedPickerMode !== mode) {
+        predefinedEntityPicker = null;
+        predefinedPickerMode = mode;
+      }
+
+      if (mode === 'npc') {
+        if (!predefinedEntityPicker) {
+          predefinedEntityPicker = initNpcPicker({
+            listEl: document.getElementById('predefined-picker-list'),
+            nameInput: document.getElementById('predefined-filter-name'),
+            classSelect: document.getElementById('predefined-filter-class'),
+            eraSelect: document.getElementById('predefined-filter-era'),
+            npcs: predefinedNpcsCache
+          });
+        } else {
+          predefinedEntityPicker.refresh(predefinedNpcsCache);
+        }
+        return;
+      }
+
+      if (!predefinedEntityPicker) {
+        predefinedEntityPicker = initCharacterPicker({
+          listEl: document.getElementById('predefined-picker-list'),
+          nameInput: document.getElementById('predefined-filter-name'),
+          classSelect: document.getElementById('predefined-filter-class'),
+          characters: userCharactersCache
+        });
+      } else {
+        predefinedEntityPicker.refresh(userCharactersCache);
+      }
+    }
+
+    async function preparePredefinedTab() {
+      if (!predefinedNpcsCache.length) {
+        predefinedNpcsCache = (await loadAllNpcs()).map(npcToCardData);
+      }
+      syncPredefinedPickerUi();
+      await loadPredefinedTemplates();
+    }
+
     async function loadPredefinedTemplates() {
       const listEl = document.getElementById('predefined-template-list');
       listEl.innerHTML = '<p class="text-muted mb-0">Cargando escaramuzas…</p>';
@@ -368,20 +441,14 @@
       }
     }
 
-    function fillPredefinedCharSelect(characters) {
-      const sel = document.getElementById('predefined-char-select');
-      sel.innerHTML = characters.length
-        ? '<option value="">— Selecciona un personaje —</option>' +
-          characters.map((c) => `<option value="${c.id}">${c.name}</option>`).join('')
-        : '<option value="">— Crea un personaje primero —</option>';
-    }
+    document.getElementById('predefined-join-mode')?.addEventListener('change', syncPredefinedPickerUi);
 
     document.getElementById('party-create-tabs')?.addEventListener('click', (e) => {
       const tab = e.target.closest('[data-create-tab]');
       if (!tab) return;
       createModalTab = tab.dataset.createTab;
       syncCreateModalTabs();
-      if (createModalTab === 'predefined') loadPredefinedTemplates();
+      if (createModalTab === 'predefined') preparePredefinedTab();
     });
 
     document.getElementById('btn-new-party').addEventListener('click', async () => {
@@ -392,10 +459,12 @@
       document.getElementById('party-difficulty').value = DEFAULT_ESCARAMUZA_DIFFICULTY;
       document.getElementById('party-image-url').value = '';
       document.getElementById('party-description').value = '';
+      document.getElementById('predefined-join-mode').value = 'character';
+      predefinedEntityPicker = null;
+      predefinedPickerMode = null;
       userCharactersCache = await loadUserCharacters(user.uid);
-      fillPredefinedCharSelect(userCharactersCache);
       syncCreateModalTabs();
-      if (createModalTab === 'predefined') await loadPredefinedTemplates();
+      if (createModalTab === 'predefined') await preparePredefinedTab();
       partyModal.show();
     });
 
@@ -434,10 +503,9 @@
         alert('Selecciona una escaramuza de la lista.');
         return;
       }
-      const charId = document.getElementById('predefined-char-select').value;
-      const character = userCharactersCache.find((c) => c.id === charId);
+      const character = predefinedEntityPicker?.getSelected();
       if (!character) {
-        alert('Selecciona un personaje para unirte.');
+        alert('Selecciona un personaje o NPC de la lista.');
         return;
       }
       const btn = document.getElementById('party-create-from-template');

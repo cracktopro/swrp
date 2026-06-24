@@ -2378,9 +2378,10 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
   cursor: crosshair;
 }
 
-.swrp-dashboard-panel--parties .swrp-board-tabs .nav-link {
-  font-size: 0.9rem;
-  padding: 0.5rem 0.9rem;
+.swrp-dashboard-panel--parties .swrp-board-tabs .nav-link,
+.swrp-dashboard-tabs.swrp-board-tabs .nav-link {
+  font-size: 0.95rem;
+  padding: 0.55rem 1rem;
 }
 
 .swrp-board-tabs .nav-link {
