@@ -14,6 +14,7 @@ import { docToCharacter } from './characters.js';
 import { getStats } from './compendium-store.js';
 import { npcToMembershipCharacter } from './npcs.js';
 import { loadParty } from './party.js';
+import { hasEscaramuzaSlotConfig } from './escaramuza-templates.js';
 
 export async function getPartyMember(partyId, userId) {
   if (!partyId || !userId) return null;
@@ -93,7 +94,7 @@ export async function joinParty(partyId, user, profile, { playMode, character })
 
   const members = await loadPartyMembers(partyId);
   const party = await loadParty(partyId);
-  if (party?.type === 'Escaramuza' && party.maxSlots) {
+  if (party?.type === 'Escaramuza' && hasEscaramuzaSlotConfig(party)) {
     if (members.length >= party.maxSlots) {
       throw new Error('No quedan plazas en esta escaramuza');
     }

@@ -21,6 +21,7 @@ import {
   DEFAULT_ESCARAMUZA_DIFFICULTY,
   renderEscaramuzaListCard
 } from './escaramuza-templates.js';
+import { renderSpawnListUi, renderSpawnMarkersOnLayer } from './escaramuza-spawns-ui.js';
 
 let board = null;
 let allySpawns = [];
@@ -189,41 +190,20 @@ function fillMetaForm(tpl) {
 
 function renderSpawnList() {
   const listEl = document.getElementById('editor-spawn-list');
-  if (!listEl) return;
-  if (!allySpawns.length) {
-    listEl.innerHTML = '<li class="text-muted">Sin spawns definidos.</li>';
-    renderEditorSpawnMarkersOnBoard();
-    return;
-  }
-  listEl.innerHTML = allySpawns.map((s, i) => `
-    <li class="d-flex justify-content-between align-items-center gap-2 mb-1">
-      <span>Spawn ${i + 1}: ${cellLabel(s.col, s.row)}</span>
-      <button type="button" class="btn btn-sm btn-swrp btn-swrp-ghost btn-remove-spawn" data-index="${i}">×</button>
-    </li>`).join('');
-  listEl.querySelectorAll('.btn-remove-spawn').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      allySpawns.splice(Number(btn.dataset.index), 1);
-      renderSpawnList();
-      spawnMiniBoard?.setMarkerSpawns(allySpawns);
-    });
+  renderSpawnListUi(listEl, allySpawns, (index) => {
+    allySpawns.splice(index, 1);
+    renderSpawnList();
+    spawnMiniBoard?.setMarkerSpawns(allySpawns);
   });
   renderEditorSpawnMarkersOnBoard();
 }
 
 function renderEditorSpawnMarkersOnBoard() {
-  const layer = document.getElementById('board-spawn-layer');
-  if (!layer || !board) return;
-  layer.innerHTML = '';
-  layer.style.width = `${board.cols * CELL}px`;
-  layer.style.height = `${board.rows * CELL}px`;
-  allySpawns.forEach((s) => {
-    const el = document.createElement('div');
-    el.className = 'board-spawn-marker';
-    el.style.left = `${s.col * CELL}px`;
-    el.style.top = `${s.row * CELL}px`;
-    el.innerHTML = '<span class="board-spawn-marker__badge">Spawn</span>';
-    layer.appendChild(el);
-  });
+  renderSpawnMarkersOnLayer(
+    document.getElementById('board-spawn-layer'),
+    board,
+    allySpawns
+  );
 }
 
 function wireSpawnModal() {

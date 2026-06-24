@@ -29,6 +29,7 @@
             <div class="board-stage" id="board-stage">
               <canvas id="board-canvas" class="board-canvas"></canvas>
               <div id="board-token-layer" class="board-token-layer"></div>
+              <div id="board-spawn-layer" class="board-spawn-layer" aria-hidden="true"></div>
             </div>
           </div>
         </div>
@@ -147,6 +148,24 @@
         </div>
 
         <div id="board-sidebar-opciones" class="d-none">
+          <section class="swrp-panel mb-3 d-none" id="board-escaramuza-slots-panel">
+            <h2 class="swrp-panel__title">Jugadores y spawns</h2>
+            <p class="small text-muted mb-2">Define el mínimo y máximo de jugadores y las celdas donde aparecerán al unirse.</p>
+            <div class="row g-2 mb-3">
+              <div class="col-6">
+                <label class="form-label small" for="board-min-players">Mín. jugadores</label>
+                <input type="number" class="form-control form-control-sm" id="board-min-players" min="1" max="16" value="1">
+              </div>
+              <div class="col-6">
+                <label class="form-label small" for="board-max-slots">Máx. plazas</label>
+                <input type="number" class="form-control form-control-sm" id="board-max-slots" min="1" max="16" value="4">
+              </div>
+            </div>
+            <button type="button" id="btn-board-add-ally-spawn" class="btn btn-sm btn-swrp btn-swrp-primary w-100 mb-2">Agregar spawn aliado</button>
+            <ul id="board-spawn-list" class="list-unstyled small mb-3"></ul>
+            <button type="button" id="btn-save-escaramuza-slots" class="btn btn-sm btn-swrp btn-swrp-primary w-100">Guardar jugadores y spawns</button>
+            <p id="board-escaramuza-slots-status" class="small text-muted mt-2 mb-0"></p>
+          </section>
           <section class="swrp-panel mb-3" id="board-progress-panel">
             <h2 class="swrp-panel__title">Progreso de partida</h2>
             <p class="small text-muted mb-2">Guarda o restaura el estado completo del tablero (chapas, mapa, combate y log).</p>
@@ -346,6 +365,28 @@
     </div>
   </div>
 
+  <div class="modal fade" id="allySpawnModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content swrp-modal-card">
+        <div class="modal-header border-secondary border-opacity-25">
+          <h5 class="modal-title text-gold">Spawn de aliado</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p class="small text-muted mb-2">Clic en una celda libre del mapa para marcar dónde aparecerá un jugador al unirse.</p>
+          <p class="small mb-2">Celda: <strong id="ally-spawn-label">—</strong></p>
+          <div class="board-mini-wrap">
+            <canvas id="ally-spawn-canvas" class="board-mini-canvas"></canvas>
+          </div>
+        </div>
+        <div class="modal-footer border-secondary border-opacity-25">
+          <button type="button" class="btn btn-swrp btn-swrp-ghost" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" id="btn-confirm-ally-spawn" class="btn btn-swrp btn-swrp-primary" disabled>Agregar spawn</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="modal fade" id="boardMentionModal" tabindex="-1" aria-labelledby="boardMentionModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-sm">
       <div class="modal-content swrp-modal-card">
@@ -385,12 +426,14 @@
     import { initBoardCombatUi } from './js/board-combat.js';
     import { initBoardProgressUi } from './js/board-progress.js';
     import { swrpConfirm, swrpAlert } from './js/swrp-dialog.js';
+    import { initPartyEscaramuzaSlotsPanel } from './js/escaramuza-spawns-ui.js';
 
     const charModal = new bootstrap.Modal(document.getElementById('charModal'));
     const mentionModal = new bootstrap.Modal(document.getElementById('boardMentionModal'));
     const charModalBody = document.getElementById('char-modal-body');
     let roster = [];
     let npcs = [];
+    let escaramuzaSpawnsEditor = null;
 
     function escapeHtml(str) {
       return String(str)
@@ -614,6 +657,7 @@
             onGridSizeChange: (cols, rows) => {
               gridColsInput.value = cols;
               gridRowsInput.value = rows;
+              escaramuzaSpawnsEditor?.renderMarkers();
             }
           }
         );
@@ -632,6 +676,12 @@
             openCharacterCard: openTokenCard
           });
           initBoardProgressUi({ board });
+          escaramuzaSpawnsEditor = initPartyEscaramuzaSlotsPanel({
+            board,
+            party,
+            partyId,
+            isGM
+          });
         }
 
         initBoardCombatUi({

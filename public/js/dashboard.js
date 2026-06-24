@@ -236,8 +236,9 @@ export function renderPartyCard(party, userId, container, { isAdmin, isMember, m
     : `<a href="${partyPageUrl(party.id)}" class="btn btn-sm btn-swrp btn-swrp-success">Unirse</a>`;
 
   const memberNames = formatPartyMemberNames(members);
-  const slotsLine = party.type === 'Escaramuza'
-    ? `<p class="swrp-party-card__meta swrp-party-card__slots">${buildPlayerRangeHtml(party.minPlayers, party.maxSlots)}</p>`
+  const playerRange = party.type === 'Escaramuza' ? buildPlayerRangeHtml(party) : '';
+  const slotsLine = playerRange
+    ? `<p class="swrp-party-card__meta swrp-party-card__slots">${playerRange}</p>`
     : '';
   const membersBlock = memberNames.length
     ? `<p class="swrp-party-card__members"><span class="swrp-party-card__members-label">Unidos:</span> ${memberNames.map((n) => escapeHtml(n)).join(', ')}</p>`

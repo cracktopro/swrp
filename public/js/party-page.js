@@ -20,7 +20,7 @@ import { initNpcPicker, initCharacterPicker } from './npc-picker.js';
 import { insertMention, renderMentionPickerItem } from './party-markup.js';
 import { renderCharacterCard } from './character-card.js';
 import { boardPageUrl } from './party-url.js';
-import { assignSpawnToMember } from './escaramuza-templates.js';
+import { assignSpawnToMember, hasEscaramuzaSlotConfig } from './escaramuza-templates.js';
 
 export async function initPartyPage({ user, profile, partyId, ui }) {
   const {
@@ -261,7 +261,7 @@ async function setupJoinFlow(partyId, user, profile, party, ui, onJoined) {
 
   const members = await loadPartyMembers(partyId);
   const hasGM = !!getPartyGM(members);
-  const slotsFull = isEscaramuza && party.maxSlots && members.length >= party.maxSlots;
+  const slotsFull = isEscaramuza && hasEscaramuzaSlotConfig(party) && members.length >= party.maxSlots;
 
   if (slotsFull) {
     joinSubmit.disabled = true;
@@ -354,7 +354,7 @@ async function setupJoinFlow(partyId, user, profile, party, ui, onJoined) {
         character = entityPicker?.getSelected() || null;
       }
       await joinParty(partyId, user, profile, { playMode, character });
-      if (party.templateId && playMode === 'character') {
+      if (hasEscaramuzaSlotConfig(party)) {
         await assignSpawnToMember(party, partyId, user.uid);
       }
       if (party.type === 'Escaramuza') {

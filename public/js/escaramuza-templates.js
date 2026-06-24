@@ -57,10 +57,50 @@ export function buildDifficultyCardHtml(value) {
   return `Dificultad: <span class="swrp-difficulty-value">${escapeHtml(meta.label)}</span>`;
 }
 
-export function buildPlayerRangeHtml(minPlayers, maxSlots) {
-  const min = Number(minPlayers) || 1;
-  const max = Number(maxSlots) || 4;
+export function buildPlayerRangeHtml(data) {
+  if (!hasEscaramuzaSlotConfig(data)) return '';
+  const min = Number(data.minPlayers);
+  const max = Number(data.maxSlots);
   return `<span class="swrp-player-range"><span class="swrp-player-range__num">${min}</span> - <span class="swrp-player-range__num">${max}</span> jugadores</span>`;
+}
+
+export function hasEscaramuzaSlotConfig(data) {
+  if (!data) return false;
+  const min = Number(data.minPlayers);
+  const max = Number(data.maxSlots);
+  const spawns = Array.isArray(data.allySpawns) ? data.allySpawns : [];
+  return Number.isFinite(min) && min >= 1
+    && Number.isFinite(max) && max >= min
+    && spawns.length >= min;
+}
+
+export function validateEscaramuzaPartySlots({ minPlayers, maxSlots, allySpawns }) {
+  const min = Number(minPlayers);
+  const max = Number(maxSlots);
+  if (!Number.isFinite(min) || min < 1) {
+    throw new Error('El mínimo de jugadores debe ser al menos 1');
+  }
+  if (!Number.isFinite(max) || max < min) {
+    throw new Error('El máximo de plazas debe ser mayor o igual al mínimo de jugadores');
+  }
+  const spawns = Array.isArray(allySpawns) ? allySpawns : [];
+  if (spawns.length < min) {
+    throw new Error(`Necesitas al menos ${min} spawn(s) de aliado (tienes ${spawns.length})`);
+  }
+  return {
+    minPlayers: min,
+    maxSlots: max,
+    allySpawns: spawns.map((s) => ({ col: Number(s.col), row: Number(s.row) }))
+  };
+}
+
+export async function savePartyEscaramuzaSlots(partyId, { minPlayers, maxSlots, allySpawns }) {
+  const payload = validateEscaramuzaPartySlots({ minPlayers, maxSlots, allySpawns });
+  await updateDoc(doc(db, 'parties', partyId), {
+    ...payload,
+    updatedAt: serverTimestamp()
+  });
+  return payload;
 }
 
 export function buildDifficultyFormOptions(selected = DEFAULT_ESCARAMUZA_DIFFICULTY) {
@@ -422,11 +462,14 @@ export function renderEscaramuzaListCard(template, { mode = 'mine', userId, onDe
     ? '<button type="button" class="btn btn-sm btn-swrp btn-swrp-danger btn-delete-template">Eliminar</button>'
     : '';
 
+  const playerRange = buildPlayerRangeHtml(template);
+  const playerRangeMeta = playerRange ? `<p class="swrp-party-card__meta">${playerRange}</p>` : '';
+
   card.innerHTML = `
     <div class="swrp-party-card__media">${media}</div>
     <div class="swrp-party-card__body">
       <h3 class="swrp-party-card__title">${escapeHtml(template.name)}</h3>
-      <p class="swrp-party-card__meta">${buildPlayerRangeHtml(template.minPlayers, template.maxSlots)}</p>
+      ${playerRangeMeta}
       ${diffMeta}
       ${creatorMeta}
       <p class="swrp-party-card__desc">${escapeHtml(template.description || 'Sin descripción.')}</p>
