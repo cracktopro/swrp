@@ -230,10 +230,14 @@ export function renderPartyCard(party, userId, container, { isAdmin, isMember, m
     ? `<p class="swrp-party-card__members"><span class="swrp-party-card__members-label">Unidos:</span> ${memberNames.map((n) => escapeHtml(n)).join(', ')}</p>`
     : '<p class="swrp-party-card__members swrp-party-card__members--empty text-muted">Nadie se ha unido aún.</p>';
 
+  const displayTitle = party.templateId && party.creatorUsername
+    ? `${party.name} (${party.creatorUsername})`
+    : (party.name || '');
+
   el.innerHTML = `
     <div class="swrp-party-card__media">${media}</div>
     <div class="swrp-party-card__body">
-      <h3 class="swrp-party-card__title">${escapeHtml(party.name)}</h3>
+      <h3 class="swrp-party-card__title">${escapeHtml(displayTitle)}</h3>
       <p class="swrp-party-card__meta">${escapeHtml(party.type)} · <span class="swrp-card__era-label">Era:</span> ${escapeHtml(readPartyEra(party))}${isMember ? ' · Unido' : ''}</p>
       ${slotsLine}
       ${membersBlock}

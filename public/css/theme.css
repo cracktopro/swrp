@@ -2879,3 +2879,38 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
   flex-direction: column;
   gap: 0.75rem;
 }
+
+.board-spawn-layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.board-spawn-marker {
+  position: absolute;
+  width: 48px;
+  height: 48px;
+  box-sizing: border-box;
+  background: rgba(57, 255, 20, 0.38);
+  border: 2px solid #6dff6a;
+  border-radius: 4px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 3px;
+  box-shadow: 0 0 10px rgba(57, 255, 20, 0.25);
+}
+
+.board-spawn-marker__badge {
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #c8ffc8;
+  background: rgba(10, 30, 10, 0.9);
+  padding: 1px 5px;
+  border-radius: 3px;
+  line-height: 1.2;
+}

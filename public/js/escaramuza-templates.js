@@ -232,7 +232,9 @@ export async function placeMemberTokenAtSpawn(partyId, member, col, row) {
 }
 
 export function getCharacterMemberSpawnIndex(members, userId) {
-  const chars = members.filter((m) => m.playMode === 'character' && m.characterSnapshot?.id);
+  const chars = members.filter(
+    (m) => m.characterSnapshot?.id && (m.playMode === 'character' || m.playMode === 'gm')
+  );
   return chars.findIndex((m) => m.userId === userId);
 }
 
@@ -275,7 +277,7 @@ export async function createEscaramuzaFromTemplate(user, profile, templateId, ch
     createdAt: serverTimestamp()
   });
 
-  await joinParty(ref.id, user, profile, { playMode: 'character', character });
+  await joinParty(ref.id, user, profile, { playMode: 'gm', character });
 
   const boardState = buildFreshBoardState(template.boardLayout);
   boardState.tokens = cloneTokensForInstance(boardState.tokens);

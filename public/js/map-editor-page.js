@@ -1,7 +1,7 @@
 import { renderNavbar } from './navbar.js';
 import { requireAuth, isAdmin } from './auth.js';
 import { appUrl } from './app-path.js';
-import { TacticalBoard, cellLabel, getTokenHp, getTokenMaxHp, getTokenEffectiveDefense, isTokenInCover } from './board.js';
+import { TacticalBoard, cellLabel, getTokenHp, getTokenMaxHp, getTokenEffectiveDefense, isTokenInCover, CELL } from './board.js';
 import { loadAllNpcs, npcToCardData, buildNpcEraFormOptions, DEFAULT_NPC_ERA } from './npcs.js';
 import { loadCompendiumData } from './compendium-store.js';
 import { renderCharacterCard, normalizeCharacter } from './character-card.js';
@@ -146,6 +146,7 @@ function renderSpawnList() {
   if (!listEl) return;
   if (!allySpawns.length) {
     listEl.innerHTML = '<li class="text-muted">Sin spawns definidos.</li>';
+    renderEditorSpawnMarkersOnBoard();
     return;
   }
   listEl.innerHTML = allySpawns.map((s, i) => `
@@ -160,6 +161,23 @@ function renderSpawnList() {
       spawnMiniBoard?.setMarkerSpawns(allySpawns);
     });
   });
+  renderEditorSpawnMarkersOnBoard();
+}
+
+function renderEditorSpawnMarkersOnBoard() {
+  const layer = document.getElementById('board-spawn-layer');
+  if (!layer || !board) return;
+  layer.innerHTML = '';
+  layer.style.width = `${board.cols * CELL}px`;
+  layer.style.height = `${board.rows * CELL}px`;
+  allySpawns.forEach((s) => {
+    const el = document.createElement('div');
+    el.className = 'board-spawn-marker';
+    el.style.left = `${s.col * CELL}px`;
+    el.style.top = `${s.row * CELL}px`;
+    el.innerHTML = '<span class="board-spawn-marker__badge">Spawn</span>';
+    layer.appendChild(el);
+  });
 }
 
 function wireSpawnModal() {
@@ -172,7 +190,10 @@ function wireSpawnModal() {
     if (!board) return;
     if (!spawnMiniBoard) {
       const canvas = document.getElementById('ally-spawn-canvas');
-      spawnMiniBoard = new MiniBoardPicker(canvas, board, { markerSpawns: allySpawns });
+      spawnMiniBoard = new MiniBoardPicker(canvas, board, {
+        markerSpawns: allySpawns,
+        spawnMarkerMode: true
+      });
       spawnMiniBoard.side = 'ally';
       spawnMiniBoard.onCellPick = () => {
         const hasCell = spawnMiniBoard.spawnCol != null;
@@ -208,7 +229,10 @@ function wireSpawnModal() {
     allySpawns.push({ col, row });
     renderSpawnList();
     spawnMiniBoard?.setMarkerSpawns(allySpawns);
-    modal.hide();
+    spawnMiniBoard?.setSpawn(null, null);
+    labelEl.textContent = '—';
+    confirmBtn.disabled = true;
+    spawnMiniBoard?.render();
   });
 }
 
@@ -291,6 +315,7 @@ async function initBoardEditor(user, profile, initialState) {
       onGridSizeChange: (cols, rows) => {
         gridColsInput.value = cols;
         gridRowsInput.value = rows;
+        renderEditorSpawnMarkersOnBoard();
       }
     }
   );

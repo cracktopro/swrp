@@ -70,6 +70,7 @@ class MiniBoardPicker {
     this.onCellPick = null;
     this.markerSpawns = options.markerSpawns || [];
     this.markerColor = options.markerColor || '#6dff6a';
+    this.spawnMarkerMode = !!options.spawnMarkerMode;
     canvas.addEventListener('mousedown', (e) => this.onClick(e));
   }
 
@@ -121,10 +122,31 @@ class MiniBoardPicker {
     const { col, row } = this.cellFromEvent(e);
     if (col < 0 || col >= this.board.cols || row < 0 || row >= this.board.rows) return;
     if (this.board.tokenAt(col, row)) return;
+    if (this.markerSpawns.some((s) => s.col === col && s.row === row)) return;
     this.spawnCol = col;
     this.spawnRow = row;
     this.render();
     this.onCellPick?.(col, row);
+  }
+
+  drawSpawnMarkerCell(ctx, col, row, { preview = false } = {}) {
+    const px = col * CELL + 2;
+    const py = row * CELL + 2;
+    const sz = CELL - 4;
+    ctx.fillStyle = preview ? 'rgba(57, 255, 20, 0.55)' : 'rgba(57, 255, 20, 0.42)';
+    ctx.fillRect(px, py, sz, sz);
+    ctx.strokeStyle = '#6dff6a';
+    ctx.lineWidth = preview ? 2.5 : 2;
+    ctx.strokeRect(px + 0.5, py + 0.5, sz - 1, sz - 1);
+    const badgeH = 13;
+    const badgeY = py + sz - badgeH - 2;
+    ctx.fillStyle = 'rgba(10, 30, 10, 0.92)';
+    ctx.fillRect(px + 3, badgeY, sz - 6, badgeH);
+    ctx.fillStyle = '#9dff9a';
+    ctx.font = 'bold 9px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Spawn', px + sz / 2, badgeY + badgeH / 2);
   }
 
   render() {
@@ -171,26 +193,20 @@ class MiniBoardPicker {
     });
 
     this.markerSpawns.forEach(({ col, row }) => {
-      const px = col * CELL + 5;
-      const py = row * CELL + 5;
-      const sz = CELL - 10;
-      ctx.strokeStyle = this.markerColor;
-      ctx.lineWidth = 2;
-      ctx.setLineDash([4, 3]);
-      ctx.strokeRect(px, py, sz, sz);
-      ctx.setLineDash([]);
-      ctx.fillStyle = 'rgba(57,255,20,0.2)';
-      ctx.fillRect(px + 1, py + 1, sz - 2, sz - 2);
+      this.drawSpawnMarkerCell(ctx, col, row);
     });
 
     if (this.spawnCol != null && this.spawnRow != null) {
-      if (this.side === 'enemy') {
+      if (this.spawnMarkerMode && this.side === 'ally') {
+        this.drawSpawnMarkerCell(ctx, this.spawnCol, this.spawnRow, { preview: true });
+      } else if (this.side === 'enemy') {
         drawVisionConeOnCanvas(ctx, this.spawnCol, this.spawnRow, this.facing, CELL, {
           preview: true,
           tint: '255, 80, 120'
         });
       }
 
+      if (!(this.spawnMarkerMode && this.side === 'ally')) {
       const px = this.spawnCol * CELL + 3;
       const py = this.spawnRow * CELL + 3;
       const sz = CELL - 6;
@@ -202,6 +218,7 @@ class MiniBoardPicker {
       ctx.shadowBlur = 0;
       ctx.fillStyle = this.side === 'enemy' ? 'rgba(255,23,68,0.35)' : 'rgba(57,255,20,0.3)';
       ctx.fillRect(px + 1, py + 1, sz - 2, sz - 2);
+      }
     }
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -631,8 +648,10 @@ export function initBoardPage(ctx) {
         side,
         facing
       });
-      addModal?.hide();
+      miniBoard.setSpawn(null, null);
+      miniBoard.render();
       renderActiveTokensList();
+      syncAddForm();
     } catch (err) {
       await swrpAlert({ title: 'Error', message: err.message });
     }
