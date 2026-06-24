@@ -1,429 +1,502 @@
 # SWRP — Contexto del Proyecto
 
-> Manuscrito técnico y funcional de la aplicación web Star Wars Roleplay Game.
-> **Mantener este fichero actualizado con cada cambio relevante** (modelo de datos, rutas, permisos, UI, comandos).
+> **Propósito de este documento:** referencia técnica y funcional **estática** de la aplicación Star Wars Roleplay Game (SWRP). Describe qué contiene la app, cómo está organizada y cómo funciona cada parte. **No es un changelog** — al implementar cambios, actualizar aquí el estado resultante del sistema, no el historial de commits.
 
 ---
 
-## Arrancar la app (desarrollo local)
+## 1. Visión general
 
-**Requisitos:** Node.js (v18+ recomendado), conexión a Internet (Firebase en la nube).
+SWRP es una aplicación web de rol Star Wars:
+
+- **Frontend:** HTML5, CSS3 (tema sci-fi/neon), JavaScript ES modules, Bootstrap 5. Todo el código de cliente vive en `public/`.
+- **Backend:** Firebase Authentication (email/contraseña) + Cloud Firestore. Sin servidor propio.
+- **Hosting:** Firebase Hosting con `cleanUrls: true`. En GitHub Pages la app puede estar bajo `/swrp/public/` (ver `app-path.js` y `swrp-base-init.js`).
+- **Assets multimedia:** retratos, mapas VTT y portadas de partida son **URLs externas** (no Firebase Storage).
+- **Datos de juego:** semilla en `game-data.js` (generado desde xlsx); overrides editables en Firestore `compendium/data`.
+
+**Proyecto Firebase:** `swrp-f623e`
+
+**Normas de juego:** `RULES.md` (referencia obligatoria para mecánicas).
+
+---
+
+## 2. Desarrollo y despliegue
+
+### Requisitos
+Node.js v18+, conexión a Internet (Firebase en la nube).
+
+### Comandos
 
 ```bash
 cd c:\dev\SWRP
-npm install          # solo la primera vez
-npm run serve        # sirve public/ en http://localhost:3000
-```
-
-Abrir en el navegador: **http://localhost:3000**
-
-| Ruta | Página |
-|------|--------|
-| `/` o `/index` | Login |
-| `/register` | Registro |
-| `/dashboard` | Dashboard (personajes + partidas) |
-| `/admin` | Panel de administración (solo admins) |
-| `/character-create` | Crear/editar personaje |
-| `/character-view?id=…` | Ver carta de personaje |
-| `/party?id=…` | Partida (foro + dados) |
-| `/board?party=…` | Tablero táctico VTT |
-| `/compendium` | Compendio de reglas/datos |
-
-> **URLs limpias:** Firebase Hosting usa `cleanUrls: true`. En local, `serve` también resuelve rutas sin `.html`. Evitar enlaces del tipo `party.html?id=…` — pierden el query string al redirigir.
-
-**Regenerar datos de juego** (solo si cambian los xlsx):
-
-```bash
-npm run build
-```
-
-**Despliegue a producción** (requiere [Firebase CLI](https://firebase.google.com/docs/cli) instalada y `firebase login`):
-
-```bash
+npm install              # primera vez
+npm run serve            # http://localhost:3000 — sirve public/
+npm run build            # regenera game-data.js desde xlsx (si cambian datos)
 firebase deploy --only firestore:rules
 firebase deploy --only hosting
 ```
 
-**Proyecto Firebase:** `swrp-f623e`
+### URLs limpias
+Usar siempre `appUrl()` (`js/app-path.js`) para enlaces internos. Evitar `party.html?id=…` — al redirigir con cleanUrls se pierde el query string.
 
 ---
 
-## Resumen
+## 3. Rutas y páginas
 
-Aplicación web de rol Star Wars con Firebase (Auth, Firestore, Hosting).
-Frontend estático: HTML5, CSS3 (tema sci-fi/neon), JavaScript ES modules, Bootstrap 5.
+| Ruta | Archivo | Descripción |
+|------|---------|-------------|
+| `/` o `/index` | `index.html` | Login |
+| `/register` | `register.html` | Registro |
+| `/dashboard` | `dashboard.html` | Personajes del usuario + listado de partidas |
+| `/admin` | `admin.html` | Otorgar/quitar rol Admin (solo admins) |
+| `/character-create` | `character-create.html` | Crear/editar personaje o NPC |
+| `/character-view?id=…` | `character-view.html` | Ver carta de personaje |
+| `/party?id=…` | `party.html` | Partida: unión, foro narrativo, dados |
+| `/board?party=…` | `board.html` | Tablero táctico VTT |
+| `/map-editor` | `map-editor.html` | Editor de escaramuzas (plantillas reutilizables) |
+| `/compendium` | `compendium.html` | Stats, habilidades, especies, galería NPC |
+| `/rules` | `rules.html` | Reglas renderizadas desde `RULES.md` |
+
+Query params habituales:
+- `party?id=` — ID de partida (`party-url.js`)
+- `board?party=` — ID de partida en tablero
+- `character-view?id=` / `character-create?char=` / `?npc=` — personajes
+- `map-editor?template=` — editar plantilla propia
+- `map-editor?fork=` — copiar plantilla ajena como nueva
+- `map-editor?new=1` — nueva escaramuza
 
 ---
 
-## Stack
-
-| Capa | Tecnología |
-|------|------------|
-| Frontend | HTML, CSS, JS (ES modules), Bootstrap 5 |
-| Auth | Firebase Authentication (email/password) |
-| BD | Cloud Firestore |
-| Archivos | URL externa (retratos, mapas VTT, imágenes de tarjetas de partida) |
-| Hosting | Firebase Hosting (`cleanUrls: true`) |
-| Datos de juego | xlsx → `game-data.js` (semilla); overrides en Firestore `compendium/data` |
-
----
-
-## Estructura de carpetas
+## 4. Estructura del repositorio
 
 ```
 SWRP/
-├── RULES.md                 # Normas del juego (referencia obligatoria)
-├── CONTEXT.md               # Este fichero
+├── RULES.md
+├── CONTEXT.md              ← este fichero
 ├── estadisticas.xlsx
 ├── habilidades.xlsx
 ├── npcs.xlsx
 ├── firebase.json
 ├── firestore.rules
-├── firestore.indexes.json   # Exenciones de índice (opcional; ver nota abajo)
-├── storage.rules            # Legacy; retratos/mapas ya no usan Storage
+├── firestore.indexes.json
+├── storage.rules           # legacy
 ├── scripts/
 │   ├── parse-xlsx.js
 │   └── build-game-data.js
 └── public/
-    ├── index.html
-    ├── register.html
-    ├── dashboard.html
-    ├── admin.html           # Panel admin (permisos de usuario)
-    ├── character-create.html
-    ├── character-view.html
-    ├── party.html
-    ├── board.html
-    ├── compendium.html
+    ├── *.html              # vistas (ver tabla anterior)
     ├── css/
-    │   ├── theme.css        # Tema global oscuro, foro, tablero, admin
+    │   ├── theme.css       # tema global, foro, tablero, tarjetas, dificultad
     │   └── character-card.css
-    ├── js/
-    │   ├── firebase-config.js
-    │   ├── auth.js          # Login, perfil, bootstrap admin
-    │   ├── admin.js         # Panel otorgar/quitar Admin
-    │   ├── navbar.js        # Nav con enlace "Opciones" solo admins
-    │   ├── dashboard.js     # CRUD partidas (admin), personajes, tarjetas
-    │   ├── characters.js
-    │   ├── character-creator.js
-    │   ├── character-card.js
-    │   ├── character-url.js
-    │   ├── party.js         # Foro, posts, tiradas
-    │   ├── party-page.js    # UI partida: join, rol, foro
-    │   ├── party-members.js # Membresía, roster, tokens
-    │   ├── party-markup.js  # [img], [C], @mentions
-    │   ├── party-url.js
-    │   ├── board.js         # Tablero VTT
-    │   ├── dice.js
-    │   ├── assets.js        # Rutas logos
-    │   └── game-data.js
+    ├── js/                 # módulos ES (ver §10)
     ├── data/
     └── img/
 ```
 
 ---
 
-## Roles y permisos
+## 5. Roles y permisos
 
-### Administrador global (`rol_global: 'Admin'`)
-- **Bootstrap:** la cuenta `cracktopro@gmail.com` recibe rol Admin al registrarse o al iniciar sesión (si el doc de usuario no existía, se crea automáticamente).
-- **Puede:** crear, editar y eliminar partidas; otorgar/quitar Admin a otras cuentas desde `/admin`.
-- **Nav:** enlace **Opciones** visible solo para admins.
+### Administrador global (`users.rol_global === 'Admin'`)
+- Bootstrap automático: `cracktopro@gmail.com` recibe Admin al registrarse o si no existía su doc de usuario.
+- Crear, editar y eliminar **partidas personalizadas** (Campaña o Escaramuza sin plantilla).
+- CRUD de NPCs en Firestore, compendio, panel `/admin`.
+- Nav: enlace **Opciones** → `/admin`.
 
 ### Usuario normal (`rol_global: 'User'`)
-- Crear/editar/eliminar sus personajes.
+- CRUD de sus personajes (`characters/`).
 - Ver todas las partidas; unirse y participar.
-- No puede crear/editar/eliminar partidas ni gestionar admins.
+- Crear **instancias** de escaramuza desde plantillas predefinidas (modal Dashboard → Partidas predefinidas).
+- Crear y editar **plantillas** propias en Editor de mapas (`escaramuzaTemplates/`).
+- No puede crear campañas personalizadas ni editar partidas de admin (salvo slots/spawns como GM — ver §8.3).
 
-### Dentro de una partida
-- **Primera visita:** pantalla de unión — elegir **GM** o **personaje propio**.
-- **Cambio en cualquier momento:** panel "Mi participación" en `party.html`.
-- **Jugador (`playMode: 'character'`):** solo publica y tira dados con su personaje asignado.
-- **GM (`playMode: 'gm'`):** narrativa situacional sin personaje; puede hablar/tirar como cualquier personaje unido; control total del tablero VTT.
-- Solo **un GM** por partida.
+### Dentro de una partida (`parties/{id}/members/{uid}`)
+
+| `playMode` | Comportamiento |
+|------------|----------------|
+| `gm` | Control narrativo y tablero; puede actuar como cualquier personaje unido; un solo GM por partida |
+| `character` | Juega con personaje propio del jugador |
+| `npc` | Juega con un NPC del compendio (escaramuzas no predefinidas) |
+
+El GM puede tener `characterId` (personaje propio) o `npcId` (NPC elegido como representación en tablero).
 
 ---
 
-## Modelo de datos (Firestore)
+## 6. Tipos de partida
+
+### Campaña (`type: 'Campaña'`)
+- Flujo clásico: foro narrativo en `/party`, tablero opcional.
+- `phase: 'narrative'` por defecto.
+- Creación solo por **admin** (modal Partida personalizada).
+
+### Escaramuza (`type: 'Escaramuza'`)
+Encuentro táctico corto. Dos orígenes:
+
+#### A) Desde plantilla (`templateId` presente)
+- Cualquier usuario autenticado la crea desde Dashboard → **Partidas predefinidas**.
+- Se copian: nombre, era, dificultad, imagen, descripción, `minPlayers`, `maxSlots`, `allySpawns`, layout del tablero.
+- Creador entra como **GM** con personaje o NPC elegido; redirección directa al tablero.
+- Otros jugadores se unen solo con **personaje propio**; plazas limitadas por `maxSlots` si hay config de slots.
+- Spawns aliados colocan automáticamente el token al unirse.
+
+#### B) Personalizada admin (`templateId` ausente)
+- Admin crea desde Dashboard → Partida personalizada → tipo Escaramuza.
+- Sin `minPlayers` / `maxSlots` / `allySpawns` inicialmente.
+- El **GM** configura jugadores y spawns en tablero → Opciones → **Jugadores y spawns** (persiste en doc `parties/{id}`).
+- Hasta que no hay config completa (mín, máx, spawns ≥ mín), las tarjetas **no muestran** el rango «N - M jugadores».
+
+---
+
+## 7. Sistema de dificultad (escaramuzas)
+
+Definido en `escaramuza-templates.js` → `ESCARAMUZA_DIFFICULTIES`:
+
+| ID | Etiqueta | Subtítulo | Color base |
+|----|----------|-----------|------------|
+| `padawan` | Padawan | Fácil | `#39ff14` |
+| `jedi` | Jedi | Normal | `#00e5ff` |
+| `caballero` | Caballero Jedi | Difícil | `#b24bf3` |
+| `maestro` | Maestro Jedi | Muy Difícil | `#ff4a1a` |
+
+- Campo obligatorio en plantillas del editor y en partidas creadas/editadas por admin.
+- Tarjetas: borde izquierdo + degradado en cuerpo; línea `Dificultad: <nombre>` con color mezclado hacia blanco.
+- Fallback visual si falta en datos antiguos: `jedi` (Normal).
+
+Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`, `applyDifficultyCardStyle`, `hasEscaramuzaSlotConfig`, `buildPlayerRangeHtml`.
+
+---
+
+## 8. Funcionalidad por área
+
+### 8.1 Dashboard (`dashboard.html` + `dashboard.js`)
+
+**Panel Personajes (izquierda)**
+- Selector desplegable + vista previa de carta (`renderCharacterPanel`).
+- Crear, editar, eliminar personajes propios.
+
+**Panel Partidas (derecha)**
+- Pestañas: **Campañas** | **Escaramuzas** (filtro por `party.type`).
+- Filtros: nombre, era.
+- Tarjetas (`renderPartyCard`): imagen, tipo, era, dificultad, rango de jugadores (si aplica), lista de unidos, descripción, Entrar/Unirse/Opciones(admin).
+- Admin: **+ Partida** abre modal Nueva Partida.
+
+**Modal Nueva Partida**
+- Pestañas ampliadas (`swrp-dashboard-tabs`).
+- **Partida personalizada** (solo admin): nombre, tipo, era, dificultad, imagen URL, descripción.
+- **Partidas predefinidas** (todos):
+  1. Modo personaje: mis personajes | NPC (selector tarjeta con filtros — `npc-picker.js`).
+  2. Título **Escaramuzas Predefinidas** + filtros nombre, era, dificultad (`filterEscaramuzaTemplates`).
+  3. Lista de plantillas (`renderTemplatePickCard`) — clic para seleccionar.
+  4. Botón **Crear escaramuza** → `createEscaramuzaFromTemplate` → tablero.
+
+**Modal Opciones de partida** (admin): editar metadatos incl. dificultad.
+
+**Carga de partidas del usuario:** `users.joinedPartyIds` + migración lazy desde `members/{uid}` (no usa `collectionGroup`).
+
+### 8.2 Editor de mapas (`map-editor.html` + `map-editor-page.js`)
+
+- Lista: pestañas **Mis escaramuzas** | **Escaramuzas de la comunidad**.
+- Editar ajena → `?fork=id` → guardar crea copia nueva.
+- Workspace: metadatos (nombre, era, dificultad, imagen, descripción), mín/máx jugadores, spawns aliados, tablero con enemigos.
+- Validación al guardar: al menos 1 enemigo, spawns ≥ mínimo jugadores, dificultad obligatoria.
+- Persistencia: colección `escaramuzaTemplates/{id}`.
+
+### 8.3 Tablero VTT (`board.html` + `board.js`, `board-page.js`, `board-combat.js`, `board-progress.js`, `board-vision.js`)
+
+**Acceso:** miembro de la partida. Escaramuza oculta enlace al foro; entra directo al tablero.
+
+**Sidebar (GM):** pestañas Combate | Log | Opciones.
+
+**Opciones GM:**
+- Progreso: guardar/cargar snapshots completos del estado (`board-progress.js`).
+- Mapa URL, tamaño de cuadrícula (4–48).
+- Chapas en juego: añadir personajes/NPCs, control modal (stats, HP, facción, visión).
+- **Jugadores y spawns** (solo escaramuza sin `templateId`): mín/máx, lista de spawns, modal minitablero (`escaramuza-spawns-ui.js` → `savePartyEscaramuzaSlots`).
+
+**Combate:**
+- Fase narrativa con turnos (2 acciones: movimiento / atacar) antes y durante combate.
+- Iniciativa D20, orden de turnos, log estructurado.
+- Visión enemiga: conos, estados alerta (`board-vision.js`).
+- Sincronización en tiempo real vía `parties/{id}/state/board`.
+
+**Spawns en partida:** `assignSpawnToMember` coloca token aliado en celda según orden de unión si `hasEscaramuzaSlotConfig`.
+
+### 8.4 Partida / Foro (`party.html` + `party-page.js`, `party.js`, `party-markup.js`)
+
+- Pantalla de unión si no es miembro (modos según tipo de partida).
+- Escaramuza predefinida: solo personaje propio al unirse.
+- Escaramuza custom: personaje, NPC o GM (si no hay GM).
+- Foro en tiempo real: posts narrativos y tiradas de dados.
+- Markup: `[img]`, `[C]color[/C]`, `@` menciones (solo personajes unidos).
+- Panel «Mi participación»: cambiar rol/personaje.
+
+### 8.5 Personajes y NPCs
+
+- **Personajes** (`characters/`): héroes del jugador; creador en `character-create.html`.
+- **NPCs** (`npcs/`): solo admin; usados en tablero, compendio y escaramuzas.
+- Cartas: `character-card.js` + `character-card.css` (temas por clase).
+- Selector reutilizable: `npc-picker.js` (`initCharacterPicker`, `initNpcPicker`) — filas estilo tarjeta con thumb, clase, especie, nivel.
+
+### 8.6 Compendio (`compendium.html` + `compendium-page.js`, `compendium-store.js`)
+
+- Progresión 1–20, habilidades por clase, especies.
+- Galería NPC con filtros.
+- Admin: CRUD completo; no admin: solo lectura.
+
+### 8.7 Administración (`admin.html` + `admin.js`)
+
+- Listado de usuarios; toggle `rol_global` Admin/User.
+
+---
+
+## 9. Modelo de datos Firestore
 
 ### `users/{uid}`
 ```js
 {
   username, email,
   rol_global: 'User' | 'Admin',
-  joinedPartyIds: [partyId, ...],   // cache local de partidas unidas
+  joinedPartyIds: [partyId, ...],
   createdAt
 }
 ```
 
-### `characters/{id}` (héroes del jugador)
+### `characters/{id}`
 ```js
 {
   userId, name, species, class, classKey, level, type: 'Heroe',
-  hp, maxHp, currentHp, defense, attack, damage, force,
-  skills: [skillId, ...],
-  portraitUrl,
-  createdAt, updatedAt
-}
-```
-
-### `npcs/{id}` (admin; tablero y compendio)
-```js
-{
-  name, species, class, classKey, level, type: 'NPC',
   hp, maxHp, defense, attack, damage, force,
   skills: [skillId, ...],
-  portraitUrl, createdBy, createdAt, updatedAt
-}
-```
-
-### `compendium/data` (overrides de stats/habilidades/especies; admin CRUD)
-```js
-{ progression: { ... }, skills: { ... }, species: ['Humanos', ...], seedVersion: 2, updatedAt }
-```
-Semilla inicial: `game-data.js` (`npm run build:data`). Si Firestore tiene `seedVersion` menor, al cargar se fusionan en memoria las clases derivadas (Guerrero Sith, Inquisidor Sith, Cazarrecompensas). Admin en `/compendium`: **Aplicar semilla a Firestore** (solo esas clases) o **Restaurar todo el compendio**.
-
-### `parties/{id}`
-```js
-{
-  name, type: 'Campaña' | 'Escaramuza',
-  imageUrl,                          // URL portada tarjeta dashboard
-  description,
-  status: 'active',
-  phase: 'narrative' | 'combat',
+  portraitUrl, era?,
+  activePartyId?,  // enlace a partida activa
   createdAt, updatedAt
 }
 ```
-> Partidas antiguas pueden tener `gmId` / `playerIds` (legacy); el código actual usa la subcolección `members`.
 
-### `parties/{id}/members/{userId}`
+### `npcs/{id}`
 ```js
 {
-  userId, username,
-  playMode: 'gm' | 'character',
-  characterId,                       // null si playMode === 'gm'
-  characterSnapshot,                 // snapshot stats al unirse/cambiar
-  joinedAt, updatedAt
+  name, species, class, classKey, level, type: 'NPC', era?,
+  hp, maxHp, defense, attack, damage, force,
+  skills: [skillId, ...],
+  portraitUrl / image,
+  createdBy, createdAt, updatedAt
 }
 ```
 
-### `parties/{id}/posts/{id}`
+### `compendium/data`
 ```js
 {
-  type: 'narrative' | 'dice',
-  authorId,
-  content,
-  roll?, rollLabel?,                 // si type === 'dice'
-  characterSnapshot?,                // null = narrativa situacional (GM)
-  createdAt
-}
-```
-
-### `parties/{id}/state/board`
-```js
-{
-  mapUrl,                            // URL imagen de mapa (no Storage)
-  tokens: [{
-    id, sourceId, kind: 'character' | 'npc',
-    name, level, class, theme, color, side: 'ally' | 'enemy',
-    portraitUrl, col, row,
-    facing: 'up' | 'down' | 'left' | 'right',  // enemigos
-    alerted: false                               // enemigo vio a un aliado alguna vez
-  }],
-  combatStarted: false,
-  grid: { cols: 24, rows: 16, cellSize: 48 },
-  log: [{ time, type, actor, ... }],   // objetos estructurados; legacy: strings
+  progression: { [classKey]: { levels: { [n]: { hp, defense, ... } } } },
+  skills: { [skillId]: { name, class, type, ... } },
+  species: ['Humanos', ...],
+  seedVersion: number,
   updatedAt
 }
 ```
 
-### Consulta de partidas del usuario
-- **No usa** `collectionGroup('members')` (evita índice compuesto en Firestore).
-- Lee `users/{uid}.joinedPartyIds`; si falta, migra en la primera carga del dashboard comprobando `members/{uid}` en cada partida.
+### `escaramuzaTemplates/{templateId}`
+```js
+{
+  creatorId, creatorUsername,
+  name, imageUrl, description, era, difficulty,
+  minPlayers, maxSlots,
+  allySpawns: [{ col, row }, ...],
+  boardLayout: {
+    tokens: [...],           // enemigos (side: 'enemy')
+    mapUrl,
+    grid: { cols, rows, cellSize }
+  },
+  createdAt, updatedAt
+}
+```
+
+### `parties/{partyId}`
+```js
+{
+  name,
+  type: 'Campaña' | 'Escaramuza',
+  era, difficulty,           // dificultad obligatoria en partidas nuevas/editadas
+  imageUrl, description,
+  status: 'active',
+  phase: 'narrative' | 'board' | ...,
+  // Escaramuza desde plantilla:
+  templateId?, createdBy?, creatorUsername?,
+  minPlayers?, maxSlots?, allySpawns?,
+  createdAt, updatedAt
+}
+```
+
+### `parties/{partyId}/members/{userId}`
+```js
+{
+  userId, username,
+  playMode: 'gm' | 'character' | 'npc',
+  characterId, npcId,       // según modo
+  characterSnapshot,
+  joinedAt, updatedAt
+}
+```
+
+### `parties/{partyId}/posts/{postId}`
+```js
+{
+  type: 'narrative' | 'dice',
+  authorId, content,
+  roll?, rollLabel?,
+  characterSnapshot?,
+  createdAt
+}
+```
+
+### `parties/{partyId}/state/board`
+```js
+{
+  mapUrl,
+  grid: { cols, rows, cellSize },
+  tokens: [{
+    id, sourceId, kind: 'character' | 'npc',
+    name, level, class, theme, color,
+    side: 'ally' | 'enemy',
+    col, row, facing?, portraitUrl,
+    hp, maxHp, defense, ...
+    alerted?, spawnCol?, spawnRow?
+  }],
+  combatStarted: boolean,
+  log: [...],
+  initiativeLog: [...],
+  initiativeOpen: boolean,
+  turnOrder: [...],
+  turnOrderIndex: number,
+  activeTurn: string | null,
+  turnActions: { movesUsed, attacksUsed, activeMode, bonusMoves, bonusAttacks },
+  updatedAt
+}
+```
 
 ---
 
-## Reglas Firestore (`firestore.rules`)
+## 10. Reglas Firestore (resumen)
 
 | Recurso | Lectura | Escritura |
 |---------|---------|-----------|
-| `users` | Usuarios autenticados | Propietario; Admin puede cambiar roles |
-| `characters` | Autenticados | Propietario |
+| `users` | Autenticados | Propietario; Admin actualiza roles |
+| `characters` | Autenticados | Propietario; GM de partida puede editar personaje de miembro |
 | `npcs` | Autenticados | Solo Admin |
 | `compendium` | Autenticados | Solo Admin |
-| `parties` | Autenticados | Solo Admin (create/update/delete) |
-| `parties/.../members` | Autenticados | Usuario crea el suyo; update propio o GM de partida |
-| `parties/.../posts` | Miembros de partida | Miembros (authorId = uid) |
-| `parties/.../state` | Miembros de partida | Miembros |
+| `escaramuzaTemplates` | Autenticados | Crear cualquiera; update/delete solo `creatorId` |
+| `parties` | Autenticados | Create: Admin **o** escaramuza con `templateId`+`createdBy`; Update: Admin **o** GM slots en escaramuza sin plantilla; Delete: Admin |
+| `parties/.../members` | Autenticados | Usuario crea el suyo; update propio o GM; delete propio, GM o Admin |
+| `parties/.../posts` | Miembros | Miembros (`authorId` = uid) |
+| `parties/.../state` | Miembros | Cualquier miembro (tablero colaborativo) |
+
+Funciones auxiliares en reglas: `isAdmin`, `isPartyMember`, `isPartyGM`, `isEscaramuzaPartyCreate`, `isEscaramuzaGmSlotUpdate`.
 
 ---
 
-## Clases y temas visuales
+## 11. Módulos JavaScript (`public/js/`)
 
-| Clave xlsx | Etiqueta UI | Tema CSS | Color neón |
-|------------|-------------|----------|------------|
-| Jedi Guardian | Guardián Jedi | `theme-guardian` | `#00e5ff` |
-| Jedi Consul | Cónsul Jedi | `theme-consul` | `#39ff14` |
-| Guerrero Sith | Guerrero Sith | `theme-sith-guardian` | `#ff1744` |
-| Inquisidor Sith | Inquisidor Sith | `theme-sith-consul` | `#c44dff` |
-| Soldado | Soldado | `theme-soldado` | `#ff0055` |
-| Especialista Técnico | Especialista Técnico | `theme-tecnico` | `#ff3366` |
-| Cazarrecompensas | Cazarrecompensas | `theme-cazarrecompensas` | `#ff9100` |
-| Contrabandista | Contrabandista | `theme-contrabandista` | `#b24bf3` |
-| Noble | Noble | `theme-noble` | `#d4af37` |
-
-**Especies** (select): lista en `compendium/data.species` (CRUD admin en compendio); fallback `GAME_DATA.SPECIES_LIST`.
-
-**Badges de habilidad:** Rol → violeta pastel, Pasiva → amarillo pastel, Activa → rojo pastel.
-
-Usados en: cartas de personaje, degradado de posts del foro, tokens del tablero.
-
----
-
-## Datos de juego
-
-### Progresión de estadísticas
-- **Fuente:** `estadisticas.xlsx` (6 clases × 20 niveles)
-- **Regenerar:** `npm run build`
-
-### Habilidades
-- **Fuente:** `habilidades.xlsx`
-- Desbloqueo en niveles **1, 5, 10, 15** (máx. 4 combate); Rol siempre visible
-- Reglas en `RULES.md`
-
-### NPCs
-- **Fuente:** `npcs.xlsx`
-- Paleta del GM en tablero VTT (hasta 12 NPCs del compendio)
-
----
-
-## Módulos implementados
-
-### Módulo I — Autenticación y Dashboard ✅
-- Login / Registro
-- Perfil Firestore con auto-creación si falta doc de usuario
-- Dashboard: selector + carta completa de personajes; editar/eliminar
-- Listado de **todas** las partidas; botón Entrar/Unirse según membresía
-- Admin: botón **+ Partida** y modal Opciones (editar partida) en tarjetas
-
-### Módulo II — Creador y cartas ✅
-- Pestañas **Personajes** / **NPCs** (NPC solo admin)
-- NPCs: stats base de clase editables; guardados en `npcs/`
-- Campo **especie** en formulario y carta
-- 9 clases (incl. Sith y Cazarrecompensas)
-- Stats/habilidades vía `compendium-store.js`
-
-### Módulo III — Partidas (Foro + Dados) ✅
-- Pantalla de **unión** (GM o personaje)
-- Panel **Mi participación** (cambiar rol/personaje)
-- Foro en tiempo real con markup: `[img]URL[/img]`, `[C]texto[/C]`, `@` menciones
-- `@` solo lista personajes unidos (GM no aparece)
-- Posts con degradado desaturado del color de clase (izquierda → transparente)
-- GM: personaje activo seleccionable entre todos los unidos; jugador: solo el suyo
-- Tiradas D20/D6 publicadas al foro con snapshot del personaje
-
-### Módulo IV — Tablero VTT ✅
-- Grid configurable (4–48); ejes A… / 1… en bordes exteriores; celdas 48px
-- **Visión enemiga:** cono unificado (4 celdas, ancho 1→3→5→7), estilo glow; iconos de estado
-- **GM:** panel «Chapas en juego» + modal control; botón «Añadir» con minitablero (estilo RPG Maker)
-- Log de combate solo tras **Iniciar combate** (GM); entradas con [GM] dorado, actores en color de clase, celdas en cyan
-- **Borrar historial** vacía el log (no reset de acciones)
-
-### Módulo V — Compendio ✅
-- Progresión 1–20, habilidades por clase, lista de especies
-- Galería NPCs desde Firestore con filtros por nombre y clase
-- Galería NPCs desde Firestore
-- Admin: CRUD progresión (tabla editable), habilidades (+/editar/borrar), especies (+/editar/borrar), enlace crear NPC
-- No admin: solo lectura en todas las pestañas (banner informativo)
-
-### Administración ✅
-- Página `/admin`: otorgar/quitar `rol_global: 'Admin'`
-- Enlace **Opciones** en nav (solo admins)
+| Módulo | Responsabilidad |
+|--------|-----------------|
+| `firebase-config.js` | Init Firebase, exports Firestore helpers |
+| `auth.js` | Login, registro, perfil, bootstrap admin |
+| `app-path.js` | `appUrl()`, rutas base, fix GitHub Pages |
+| `swrp-base-init.js` | Redirect rutas mal formadas al cargar |
+| `navbar.js` | Nav global con enlaces según rol |
+| `dashboard.js` | CRUD partidas (admin), tarjetas, filtros, personajes panel |
+| `characters.js` | CRUD personajes Firestore |
+| `character-creator.js` | Formulario crear/editar héroe o NPC |
+| `character-card.js` | Render carta, temas de clase, normalización |
+| `character-url.js` | URLs de personaje |
+| `npcs.js` | CRUD NPC, eras, filtros, `npcToCardData` |
+| `npc-picker.js` | Selectores tarjeta personaje/NPC |
+| `party.js` | Carga partida, posts, tiradas foro |
+| `party-page.js` | UI partida: join, rol, foro |
+| `party-members.js` | Membresía, roster, tokens, `joinParty` |
+| `party-markup.js` | Parser `[img]`, `[C]`, `@` |
+| `party-url.js` | URLs partida/tablero, `rememberPartyId` |
+| `escaramuza-templates.js` | Plantillas, dificultad, crear instancia, tarjetas pick/list |
+| `escaramuza-spawns-ui.js` | UI spawns en tablero y editor |
+| `map-editor-page.js` | Vista editor de mapas |
+| `board.js` | `TacticalBoard`, grid, tokens, persistencia |
+| `board-page.js` | UI GM: añadir/controlar chapas, `MiniBoardPicker` |
+| `board-combat.js` | Turnos, iniciativa, dados en tablero |
+| `board-progress.js` | Guardados de progreso del tablero |
+| `board-vision.js` | Conos visión, normalización tokens |
+| `compendium-store.js` | Carga/merge compendio, stats, clases |
+| `compendium-page.js` | UI compendio |
+| `dice.js` | Utilidades tiradas |
+| `token-stats-editor.js` | Editor stats inline en modal chapa |
+| `admin.js` | Panel admin usuarios |
+| `assets.js` | Rutas logos |
+| `swrp-dialog.js` | Modales confirmación/alerta |
+| `rules-renderer.js` | Render `RULES.md` |
+| `game-data.js` | Semilla generada (no editar a mano) |
 
 ---
 
-## UI global
+## 12. Datos de juego y clases
 
-- Tema oscuro Star Wars (`theme.css`): inputs, modales, scrollbars personalizados
-- Nav: logo SW-RP + logo expandido centrado; nombre de usuario
-- Logos: `img/Logo SW-RP.png` (favicon/nav), `img/StarWars Expanded RP Logo.png` (nav centro)
+### Pipeline xlsx
+- `estadisticas.xlsx` → progresión por clase y nivel
+- `habilidades.xlsx` → habilidades (desbloqueo niveles 1/5/10/15; máx. 4 + Rol)
+- `npm run build` → `public/js/game-data.js`
+
+### Clases y temas CSS (`theme-*`)
+
+| Clave | Etiqueta | Color neón |
+|-------|----------|------------|
+| Jedi Guardian | Guardián Jedi | `#00e5ff` |
+| Jedi Consul | Cónsul Jedi | `#39ff14` |
+| Guerrero Sith | Guerrero Sith | `#ff1744` |
+| Inquisidor Sith | Inquisidor Sith | `#c44dff` |
+| Soldado | Soldado | `#ff0055` |
+| Especialista Técnico | Especialista Técnico | `#ff3366` |
+| Cazarrecompensas | Cazarrecompensas | `#ff9100` |
+| Contrabandista | Contrabandista | `#b24bf3` |
+| Noble | Noble | `#d4af37` |
+
+Especies: lista en `compendium/data.species` (CRUD admin).
 
 ---
 
-## Pendiente / mejoras futuras
+## 13. UI y convenciones
 
-- [ ] Fase combate vs narrativa conmutables por GM
-- [ ] Conos de luz / línea de visión en VTT
-- [ ] Validación de prerequisitos entre habilidades
-- [ ] Expulsar miembros de partida (GM)
-- [ ] Sincronizar `joinedPartyIds` al abandonar partida
-- [ ] Migración automática de partidas legacy (`gmId`/`playerIds`)
-- [ ] PWA / notificaciones
-- [ ] Tests automatizados
+- **Tema:** `theme.css` — fondo oscuro, acentos dorados (`--swrp-gold`), neón por clase.
+- **Botones:** clases `btn-swrp`, variantes `-primary`, `-ghost`, `-success`, `-danger`.
+- **Paneles:** `swrp-panel`, títulos `swrp-panel__title`.
+- **Tarjetas partida:** `swrp-party-card` + clases dificultad `swrp-difficulty-card--{id}`.
+- **Cache bust CSS:** query `?v=…` en enlaces `theme.css` por página cuando cambia el tema.
+- **Logos:** `img/Logo SW-RP.png` (favicon/nav), `img/StarWars Expanded RP Logo.png` (nav centro).
 
 ---
 
-## Comandos útiles
+## 14. Flujos principales (diagrama)
 
-```bash
-npm install
-npm run serve          # http://localhost:3000
-npm run build          # Regenera JSON y game-data.js desde xlsx
-firebase deploy --only firestore:rules
-firebase deploy --only hosting
-firebase deploy --only firestore:indexes   # opcional; ya no requerido por el código
+```
+Registro/Login → Dashboard
+  ├─ Personajes → character-create / character-view
+  └─ Partidas
+       ├─ Campaña (admin crea) → party (foro) ⇄ board
+       └─ Escaramuza
+            ├─ Predefinida (plantilla) → board (GM creador)
+            └─ Custom admin → party o board; GM configura slots/spawns en tablero
+
+Editor mapas → escaramuzaTemplates → usadas en Dashboard (predefinidas)
 ```
 
-### Despliegue Firebase (primera vez)
-1. Authentication → **Email/Password** activado
-2. Firestore creado (modo producción)
-3. `firebase deploy --only firestore:rules`
-4. `firebase deploy --only hosting`
+---
 
-> **Imágenes:** retratos, mapas VTT y portadas de partida usan URLs externas (ImgBB, ibb.co, etc.). No requiere Firebase Storage.
+## 15. Notas para desarrollo
+
+- **Minimizar scope:** reutilizar `npc-picker`, `escaramuza-templates`, `appUrl`.
+- **Partidas antiguas:** pueden carecer de `difficulty`, `era`, slots; el código aplica fallbacks visuales.
+- **Índices Firestore:** no se usa `collectionGroup('members')`; `joinedPartyIds` evita índices compuestos.
+- **Despliegue reglas:** tras cambiar `firestore.rules`, ejecutar `firebase deploy --only firestore:rules`.
+- **Tests:** no hay suite automatizada actualmente.
 
 ---
 
-## Referencias de diseño
+## 16. Referencias de diseño
 
 Cartas de referencia en `public/img/cards/` (Vic Harper, Adaya Kritt, Olu Mirr, Asuryan Tyr, Dak Besand).
-
----
-
-## Historial de cambios
-
-### 2025-06-21 — Personajes, NPCs, clases y compendio CRUD
-- Pestañas Personajes/NPCs en creador; NPCs en Firestore (`npcs/`)
-- 3 clases nuevas (Guerrero Sith, Inquisidor Sith, Cazarrecompensas) con habilidades propias (lore sith/caza; mismas mecánicas que sus homólogos)
-- `compendium/data` + CRUD admin de stats, habilidades y especies
-- Badges de tipo de habilidad con color; npcs.xlsx obsoleto
-
-### 2025-06-21 — Tablero: log, grid, paleta
-- Tooltip flotante (fix clip); NPCs con imagen correcta; ejes de celdas
-- GM: tamaño de cuadrícula, pestañas+buscador en paleta
-- Combate con `combatStarted`; log formateado; borrar historial
-
-### 2025-06-21 — Tablero VTT ampliado
-- Grid 24×16 (celdas 48px); chapas ocupan una celda con iniciales
-- Mapa URL visible para todos; panel GM añadir/quitar tokens
-- Clic en chapa abre carta; tooltip hover; drag con umbral anti-conflicto
-
-### 2025-06-20 — Partidas, admin y tablero (sesión actual)
-- Modelo de membresía: `parties/{id}/members/{userId}` con `playMode` gm/character
-- Solo admins crean/editan/eliminan partidas; bootstrap admin `cracktopro@gmail.com`
-- Panel admin en `/admin` (nav "Opciones"); eliminado del dashboard
-- Unión a partida + cambio de rol/personaje en cualquier momento
-- Foro: degradado por clase, `@` solo personajes unidos, markup narrativo
-- Tablero: mapa URL, tokens badge, reset acciones, tablero vacío inicial
-- `users.joinedPartyIds` en lugar de `collectionGroup('members')`
-- `auth.js`: creación automática de perfil si falta doc Firestore
-- Tarjetas de partida con `imageUrl` + `description` en dashboard
-- URLs limpias sin `.html` para preservar query strings
-
-### 2025-06-20 — Retratos por URL
-- Creador: campo URL en lugar de Storage; `portraitUrl` en Firestore
-
-### 2025-06-20 — Storage + layout carta
-- `storage.rules` (legacy); layout carta sin solapamiento stats/retrato
-
-### 2025-06-20 — Inicialización
-- Estructura del proyecto, pipeline xlsx, módulos I–V base, `firestore.rules`

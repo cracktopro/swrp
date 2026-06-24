@@ -132,6 +132,23 @@
               </div>
               <div id="predefined-picker-list" class="swrp-npc-picker-list swrp-scrollbar-thin"></div>
             </div>
+            <div class="mb-3">
+              <label class="form-label mb-2" id="predefined-templates-label">Escaramuzas Predefinidas</label>
+              <div class="row g-2 mb-2">
+                <div class="col-md-4">
+                  <label class="form-label small mb-1" for="predefined-template-filter-name">Nombre</label>
+                  <input type="search" class="form-control form-control-sm" id="predefined-template-filter-name" placeholder="Buscar escaramuza…" autocomplete="off">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small mb-1" for="predefined-template-filter-era">Era</label>
+                  <select class="form-select form-select-sm" id="predefined-template-filter-era"></select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small mb-1" for="predefined-template-filter-difficulty">Dificultad</label>
+                  <select class="form-select form-select-sm" id="predefined-template-filter-difficulty"></select>
+                </div>
+              </div>
+            </div>
             <div id="predefined-template-list" class="swrp-template-pick-list swrp-scrollbar-thin">
               <p class="text-muted mb-0">Cargando escaramuzas…</p>
             </div>
@@ -216,6 +233,8 @@
       createEscaramuzaFromTemplate,
       renderTemplatePickCard,
       buildDifficultyFormOptions,
+      buildDifficultyFilterOptions,
+      filterEscaramuzaTemplates,
       DEFAULT_ESCARAMUZA_DIFFICULTY,
       readDifficulty
     } from './js/escaramuza-templates.js';
@@ -230,6 +249,7 @@
     let selectedTemplateId = null;
     let userCharactersCache = [];
     let predefinedNpcsCache = [];
+    let predefinedTemplatesCache = [];
     let predefinedEntityPicker = null;
     let predefinedPickerMode = null;
 
@@ -414,32 +434,61 @@
       await loadPredefinedTemplates();
     }
 
+    const predefinedTemplateFilterEra = document.getElementById('predefined-template-filter-era');
+    const predefinedTemplateFilterDifficulty = document.getElementById('predefined-template-filter-difficulty');
+
+    predefinedTemplateFilterEra.innerHTML = buildNpcEraSelectOptions();
+    predefinedTemplateFilterDifficulty.innerHTML = buildDifficultyFilterOptions();
+
+    function renderPredefinedTemplatesFromCache() {
+      const listEl = document.getElementById('predefined-template-list');
+      const filtered = filterEscaramuzaTemplates(predefinedTemplatesCache, {
+        nameQ: document.getElementById('predefined-template-filter-name')?.value || '',
+        eraQ: predefinedTemplateFilterEra?.value || '',
+        difficultyQ: predefinedTemplateFilterDifficulty?.value || ''
+      });
+
+      if (!filtered.length) {
+        listEl.innerHTML = predefinedTemplatesCache.length
+          ? '<p class="text-muted mb-0">Ninguna escaramuza coincide con los filtros.</p>'
+          : '<p class="text-muted mb-0">No hay escaramuzas predefinidas. Créalas en el Editor de mapas.</p>';
+        selectedTemplateId = null;
+        return;
+      }
+
+      if (selectedTemplateId && !filtered.some((t) => t.id === selectedTemplateId)) {
+        selectedTemplateId = null;
+      }
+
+      listEl.innerHTML = '';
+      filtered.forEach((tpl) => {
+        listEl.appendChild(renderTemplatePickCard(tpl, {
+          selected: selectedTemplateId === tpl.id,
+          onSelect: (t) => {
+            selectedTemplateId = t.id;
+            listEl.querySelectorAll('.swrp-template-pick-card').forEach((card) => {
+              card.classList.toggle('is-selected', card.dataset.templateId === t.id);
+            });
+          }
+        }));
+      });
+    }
+
     async function loadPredefinedTemplates() {
       const listEl = document.getElementById('predefined-template-list');
       listEl.innerHTML = '<p class="text-muted mb-0">Cargando escaramuzas…</p>';
       selectedTemplateId = null;
       try {
-        const templates = await loadAllEscaramuzaTemplates();
-        if (!templates.length) {
-          listEl.innerHTML = '<p class="text-muted mb-0">No hay escaramuzas predefinidas. Créalas en el Editor de mapas.</p>';
-          return;
-        }
-        listEl.innerHTML = '';
-        templates.forEach((tpl) => {
-          listEl.appendChild(renderTemplatePickCard(tpl, {
-            selected: selectedTemplateId === tpl.id,
-            onSelect: (t) => {
-              selectedTemplateId = t.id;
-              listEl.querySelectorAll('.swrp-template-pick-card').forEach((card) => {
-                card.classList.toggle('is-selected', card.dataset.templateId === t.id);
-              });
-            }
-          }));
-        });
+        predefinedTemplatesCache = await loadAllEscaramuzaTemplates();
+        renderPredefinedTemplatesFromCache();
       } catch (err) {
         listEl.innerHTML = `<p class="text-danger mb-0">${err.message}</p>`;
       }
     }
+
+    document.getElementById('predefined-template-filter-name')?.addEventListener('input', renderPredefinedTemplatesFromCache);
+    predefinedTemplateFilterEra?.addEventListener('change', renderPredefinedTemplatesFromCache);
+    predefinedTemplateFilterDifficulty?.addEventListener('change', renderPredefinedTemplatesFromCache);
 
     document.getElementById('predefined-join-mode')?.addEventListener('change', syncPredefinedPickerUi);
 
@@ -460,6 +509,9 @@
       document.getElementById('party-image-url').value = '';
       document.getElementById('party-description').value = '';
       document.getElementById('predefined-join-mode').value = 'character';
+      document.getElementById('predefined-template-filter-name').value = '';
+      predefinedTemplateFilterEra.value = '';
+      predefinedTemplateFilterDifficulty.value = '';
       predefinedEntityPicker = null;
       predefinedPickerMode = null;
       userCharactersCache = await loadUserCharacters(user.uid);

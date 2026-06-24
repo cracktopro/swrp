@@ -110,6 +110,25 @@ export function buildDifficultyFormOptions(selected = DEFAULT_ESCARAMUZA_DIFFICU
   ).join('');
 }
 
+export function buildDifficultyFilterOptions(selected = '') {
+  const current = readDifficulty(selected) || '';
+  const opts = ESCARAMUZA_DIFFICULTIES.map(
+    (d) => `<option value="${d.id}"${d.id === current ? ' selected' : ''}>${d.label} — ${d.subtitle}</option>`
+  ).join('');
+  return `<option value="">Todas las dificultades</option>${opts}`;
+}
+
+export function filterEscaramuzaTemplates(templates, { nameQ = '', eraQ = '', difficultyQ = '' } = {}) {
+  const needle = nameQ.trim().toLowerCase();
+  const diff = readDifficulty(difficultyQ);
+  return (templates || []).filter((t) => {
+    if (needle && !(t.name || '').toLowerCase().includes(needle)) return false;
+    if (eraQ && readTemplateEra(t.era) !== eraQ) return false;
+    if (diff && resolveDifficulty(t.difficulty) !== diff) return false;
+    return true;
+  });
+}
+
 export function resolveDifficulty(value) {
   return readDifficulty(value) || DEFAULT_ESCARAMUZA_DIFFICULTY;
 }
