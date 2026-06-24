@@ -22,12 +22,22 @@ export { NPC_ERAS as PARTY_ERAS, DEFAULT_NPC_ERA as DEFAULT_PARTY_ERA };
 
 export function readPartyEra(party) {
   const era = party?.era;
-  return NPC_ERAS.includes(era) ? era : DEFAULT_NPC_ERA;
+  if (!era) return DEFAULT_NPC_ERA;
+  if (NPC_ERAS.includes(era)) return era;
+  const normalized = NPC_ERAS.find(
+    (candidate) => candidate.toLowerCase() === String(era).toLowerCase()
+  );
+  return normalized || DEFAULT_NPC_ERA;
+}
+
+function unwrapPartyEntry(entry) {
+  return entry?.party ?? entry;
 }
 
 export function filterParties(parties, { nameQ = '', eraQ = '' } = {}) {
   const needle = String(nameQ).trim().toLowerCase();
-  return (parties || []).filter((party) => {
+  return (parties || []).filter((entry) => {
+    const party = unwrapPartyEntry(entry);
     if (needle && !(party.name || '').toLowerCase().includes(needle)) return false;
     if (eraQ && readPartyEra(party) !== eraQ) return false;
     return true;
