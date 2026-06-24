@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <script src="js/swrp-base-init.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" href="img/Logo%20SW-RP.png" type="image/png">
   <title>SWRP — Creador de Personaje</title>
@@ -95,6 +96,7 @@
     import { loadCompendiumData } from './js/compendium-store.js';
     import { initCharacterCreator } from './js/character-creator.js';
     import { getCharacterIdFromQuery } from './js/character-url.js';
+    import { appUrl } from './js/app-path.js';
 
     const { user, profile } = await requireAuth();
     renderNavbar('characters', user, { isAdmin: isAdmin(profile) });
@@ -106,7 +108,7 @@
     const userIsAdmin = isAdmin(profile);
 
     if (npcId && !userIsAdmin) {
-      window.location.href = 'dashboard.html';
+      window.location.href = appUrl('dashboard');
     } else {
       if (characterId) {
         document.getElementById('form-title').textContent = 'Editar Personaje';

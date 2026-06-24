@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <script src="js/swrp-base-init.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" href="img/Logo%20SW-RP.png" type="image/png">
   <title>SWRP — Partida</title>
@@ -20,7 +21,7 @@
       <div class="d-flex gap-2 flex-wrap">
         <a id="board-link" href="#" class="btn btn-sm btn-swrp btn-swrp-ghost">Tablero VTT</a>
         <a href="compendium.html" class="btn btn-sm btn-swrp btn-swrp-ghost">Compendio</a>
-        <a href="dashboard.html" class="btn btn-sm btn-swrp btn-swrp-ghost">Salir</a>
+        <a href="dashboard" class="btn btn-sm btn-swrp btn-swrp-ghost">Salir</a>
       </div>
     </div>
 
@@ -117,7 +118,7 @@
     <div class="swrp-panel text-center" style="max-width:520px;margin:0 auto;">
       <h2 class="h5 text-gold">No se pudo abrir la partida</h2>
       <p id="party-error-msg" class="text-muted mb-3"></p>
-      <a href="dashboard.html" class="btn btn-swrp btn-swrp-primary">Volver al Dashboard</a>
+      <a href="dashboard" class="btn btn-swrp btn-swrp-primary">Volver al Dashboard</a>
     </div>
   </div>
 
@@ -151,6 +152,7 @@
     import { requireAuth, isAdmin } from './js/auth.js';
     import { getPartyIdFromUrl, rememberPartyId, boardPageUrl } from './js/party-url.js';
     import { initPartyPage } from './js/party-page.js';
+    import { appUrl } from './js/app-path.js';
     import { renderCharacterCard } from './js/character-card.js';
 
     const charModal = new bootstrap.Modal(document.getElementById('charModal'));
@@ -201,7 +203,7 @@
     async function initParty() {
       const partyId = getPartyIdFromUrl();
       if (!partyId) {
-        window.location.href = 'dashboard.html';
+        window.location.href = appUrl('dashboard');
         return;
       }
       rememberPartyId(partyId);

@@ -25,12 +25,20 @@ jobs:
         uses: actions/configure-pages@v5
 
       - name: Verify site entrypoint
-        run: test -f public/index.html
+        run: test -f public/index.html && test -f index.html
+
+      - name: Prepare site
+        run: |
+          mkdir -p _site
+          cp index.html _site/
+          cp 404.html _site/
+          cp -r public _site/public
+          touch _site/.nojekyll
 
       - name: Upload site artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: public
+          path: _site
 
   deploy:
     needs: build

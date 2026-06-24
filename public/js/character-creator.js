@@ -19,6 +19,7 @@ import { renderCharacterCard } from './character-card.js';
 import { loadCharacterById } from './characters.js';
 import { loadNpcById, createNpc, updateNpc, buildNpcEraFormOptions, DEFAULT_NPC_ERA } from './npcs.js';
 import { characterViewUrl } from './character-url.js';
+import { appUrl } from './app-path.js';
 
 let selectedSkills = [];
 let editingCharacterId = null;
@@ -445,10 +446,10 @@ async function saveNpc(userId) {
 
   if (editingNpcId) {
     await updateNpc(editingNpcId, payload);
-    window.location.href = 'compendium.html#npcs';
+    window.location.href = appUrl('compendium#npcs');
   } else {
     await createNpc(payload);
-    window.location.href = 'compendium.html#npcs';
+    window.location.href = appUrl('compendium#npcs');
   }
 }
 

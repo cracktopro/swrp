@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <script src="js/swrp-base-init.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" href="img/Logo%20SW-RP.png" type="image/png">
   <title>SWRP — Login</title>
@@ -36,11 +37,12 @@
   <script type="module">
     import { renderNavbar } from './js/navbar.js';
     import { login, watchAuth } from './js/auth.js';
+    import { appUrl } from './js/app-path.js';
 
     renderNavbar('login');
 
     watchAuth((user) => {
-      if (user) window.location.href = 'dashboard.html';
+      if (user) window.location.href = appUrl('dashboard');
     });
 
     const form = document.getElementById('login-form');
@@ -54,7 +56,7 @@
           document.getElementById('email').value.trim(),
           document.getElementById('password').value
         );
-        window.location.href = 'dashboard.html';
+        window.location.href = appUrl('dashboard');
       } catch (err) {
         alertEl.textContent = err.message || 'Error al iniciar sesión';
         alertEl.classList.remove('d-none');

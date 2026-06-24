@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <script src="js/swrp-base-init.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" href="img/Logo%20SW-RP.png" type="image/png">
   <title>SWRP — Opciones de administración</title>
@@ -18,10 +19,11 @@
     import { renderNavbar } from './js/navbar.js';
     import { requireAuth, isAdmin } from './js/auth.js';
     import { loadAllUsers, renderAdminPanel, setUserAdminRole } from './js/admin.js';
+    import { appUrl } from './js/app-path.js';
 
     const { user, profile } = await requireAuth();
     if (!isAdmin(profile)) {
-      window.location.href = 'dashboard.html';
+      window.location.href = appUrl('dashboard');
     } else {
       renderNavbar('admin', user, { isAdmin: true });
 

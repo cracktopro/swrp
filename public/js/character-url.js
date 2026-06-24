@@ -1,4 +1,6 @@
 /** Solo parámetros de la URL (sin sessionStorage). Útil al crear personaje nuevo. */
+import { appUrl } from './app-path.js';
+
 export function getCharacterIdFromQuery() {
   const params = new URLSearchParams(window.location.search);
   const fromUrl = params.get('id') || params.get('characterId') || params.get('char');
@@ -24,13 +26,13 @@ export function rememberCharacterId(characterId) {
 }
 
 export function characterViewUrl(characterId) {
-  if (!characterId) return 'dashboard';
+  if (!characterId) return appUrl('dashboard');
   rememberCharacterId(characterId);
-  return `character-view?id=${encodeURIComponent(characterId)}`;
+  return appUrl(`character-view?id=${encodeURIComponent(characterId)}`);
 }
 
 export function characterEditUrl(characterId) {
-  if (!characterId) return 'character-create';
+  if (!characterId) return appUrl('character-create');
   rememberCharacterId(characterId);
-  return `character-create?id=${encodeURIComponent(characterId)}`;
+  return appUrl(`character-create?id=${encodeURIComponent(characterId)}`);
 }

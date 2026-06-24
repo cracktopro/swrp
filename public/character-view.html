@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <script src="js/swrp-base-init.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" href="img/Logo%20SW-RP.png" type="image/png">
   <title>SWRP — Carta de Personaje</title>
@@ -30,6 +31,7 @@
     import { loadCharacterById } from './js/characters.js';
     import { renderCharacterCard } from './js/character-card.js';
     import { getCharacterIdFromUrl, characterEditUrl } from './js/character-url.js';
+    import { appUrl } from './js/app-path.js';
 
     function showViewError(msg) {
       document.getElementById('page-loading').classList.add('d-none');
@@ -41,7 +43,7 @@
     async function initView() {
       const characterId = getCharacterIdFromUrl();
       if (!characterId) {
-        window.location.href = 'dashboard';
+        window.location.href = appUrl('dashboard');
         return;
       }
 

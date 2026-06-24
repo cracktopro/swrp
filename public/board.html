@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <script src="js/swrp-base-init.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" href="img/Logo%20SW-RP.png" type="image/png">
   <title>SWRP — Tablero Táctico</title>
@@ -375,6 +376,7 @@
     import { loadParty, isPartyMember, loadPartyRoster } from './js/party.js';
     import { loadPartyMembers, isPartyGMUser, getMemberPlaySource } from './js/party-members.js';
     import { getPartyIdFromUrl, partyPageUrl } from './js/party-url.js';
+    import { appUrl } from './js/app-path.js';
     import { TacticalBoard, getTokenHp, getTokenMaxHp, getTokenEffectiveDefense, isTokenInCover } from './js/board.js';
     import { loadAllNpcs, npcToCardData } from './js/npcs.js';
     import { loadCompendiumData } from './js/compendium-store.js';
@@ -542,7 +544,7 @@
 
     const partyId = getPartyIdFromUrl();
     if (!partyId) {
-      window.location.href = 'dashboard.html';
+      window.location.href = appUrl('dashboard');
     } else {
       document.getElementById('party-link').href = partyPageUrl(partyId);
 

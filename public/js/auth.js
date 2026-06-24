@@ -13,6 +13,7 @@ import {
   onAuthStateChanged,
   updateProfile
 } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js';
+import { appUrl } from './app-path.js';
 
 export const BOOTSTRAP_ADMIN_EMAIL = 'cracktopro@gmail.com';
 
@@ -43,7 +44,7 @@ async function ensureBootstrapAdmin(user, profile) {
   return { ...profile, id: user.uid, rol_global: 'Admin' };
 }
 
-export async function requireAuth(redirectTo = 'index.html') {
+export async function requireAuth(redirectTo = appUrl('index')) {
   await auth.authStateReady();
 
   const user = auth.currentUser;
@@ -85,7 +86,7 @@ export async function login(email, password) {
 
 export async function logout() {
   await signOut(auth);
-  window.location.href = 'index.html';
+  window.location.href = appUrl('index');
 }
 
 export function watchAuth(callback) {

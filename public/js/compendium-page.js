@@ -1,5 +1,5 @@
+import { appUrl } from './app-path.js';
 import {
-  loadCompendiumData,
   getStats,
   getClassList,
   getCompendiumProgression,
@@ -93,7 +93,7 @@ export async function initCompendiumPage({ isAdmin }) {
     document.getElementById('btn-add-species')?.addEventListener('click', () => openSpeciesModal(null));
     document.getElementById('btn-save-species')?.addEventListener('click', saveSpeciesFromModal);
     document.getElementById('btn-new-npc')?.addEventListener('click', () => {
-      window.location.href = 'character-create?mode=npc';
+      window.location.href = appUrl('character-create?mode=npc');
     });
   }
 
@@ -418,7 +418,7 @@ function renderNpcsFromCache(isAdmin) {
       const actions = document.createElement('div');
       actions.className = 'd-flex gap-2 justify-content-center mt-2 flex-wrap';
       actions.innerHTML = `
-        <a href="character-create?npc=${encodeURIComponent(npc.id)}" class="btn btn-sm btn-swrp btn-swrp-ghost">Editar</a>
+        <a href="${appUrl(`character-create?npc=${encodeURIComponent(npc.id)}`)}" class="btn btn-sm btn-swrp btn-swrp-ghost">Editar</a>
         <button type="button" class="btn btn-sm btn-swrp btn-swrp-danger btn-del-npc">Eliminar</button>`;
       actions.querySelector('.btn-del-npc').addEventListener('click', async () => {
         if (!confirm(`¿Eliminar NPC «${npc.name}»?`)) return;

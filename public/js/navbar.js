@@ -1,4 +1,5 @@
 import { NAV_LOGO_SRC, EXPANDED_LOGO_SRC } from './assets.js';
+import { appUrl } from './app-path.js';
 
 export function renderNavbar(active = '', user = null, options = {}) {
   const nav = document.getElementById('swrp-nav');
@@ -8,23 +9,23 @@ export function renderNavbar(active = '', user = null, options = {}) {
 
   const link = (key, href, label) => {
     const isActive = active === key ? ' is-active' : '';
-    return `<li class="nav-item"><a class="nav-link swrp-nav-link${isActive}" href="${href}">${label}</a></li>`;
+    return `<li class="nav-item"><a class="nav-link swrp-nav-link${isActive}" href="${appUrl(href)}">${label}</a></li>`;
   };
 
-  const homeHref = user ? 'dashboard.html' : 'index.html';
+  const homeHref = appUrl(user ? 'dashboard' : 'index');
 
   const links = user
     ? [
-      link('dashboard', 'dashboard.html', 'Dashboard'),
+      link('dashboard', 'dashboard', 'Dashboard'),
       link('characters', 'character-create', 'Personajes'),
-      link('compendium', 'compendium.html', 'Compendio'),
-      link('rules', 'rules.html', 'Reglas'),
-      ...(isAdmin ? [link('admin', 'admin.html', 'Opciones')] : []),
+      link('compendium', 'compendium', 'Compendio'),
+      link('rules', 'rules', 'Reglas'),
+      ...(isAdmin ? [link('admin', 'admin', 'Opciones')] : []),
       '<li class="nav-item"><a class="nav-link swrp-nav-link swrp-nav-link--logout" href="#" id="btn-logout">Salir</a></li>'
     ].join('')
     : [
-      link('login', 'index.html', 'Login'),
-      link('register', 'register.html', 'Registro')
+      link('login', 'index', 'Login'),
+      link('register', 'register', 'Registro')
     ].join('');
 
   const userLabel = user?.displayName || user?.email || '';

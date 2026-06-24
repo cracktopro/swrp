@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>SWRP — Redirigiendo…</title>
+  <script>
+    (function () {
+      var path = window.location.pathname;
+      var search = window.location.search;
+      var hash = window.location.hash;
+      var misroute = path.match(
+        /^(\/[^/]+)\/(board|party|dashboard|compendium|rules|admin|register|character-create|character-view)(?:\.html)?$/
+      );
+      if (misroute) {
+        window.location.replace(misroute[1] + '/public/' + misroute[2] + search + hash);
+        return;
+      }
+      var root = path.match(/^(\/[^/]+)/);
+      if (root) {
+        window.location.replace(root[1] + '/public/index.html' + search + hash);
+      }
+    })();
+  </script>
+</head>
+<body>
+  <p>Redirigiendo…</p>
+</body>
+</html>
