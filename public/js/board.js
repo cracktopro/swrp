@@ -75,7 +75,7 @@ function stripUndefinedDeep(value) {
   return out;
 }
 
-const MOVE_RANGE = 5;
+const MOVE_RANGE = 6;
 const MAX_TURN_ACTIONS = 2;
 const MAX_ATTACKS_PER_TURN = 1;
 const ORTHO_DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
@@ -119,7 +119,13 @@ function normalizeTurnActions(value) {
     bonusAttacks: Number(value.bonusAttacks) || 0
   };
 }
-const CELL = 48;
+const DEFAULT_CELL_WIDTH = 28;
+const DEFAULT_CELL_HEIGHT = 28;
+const MAX_CELL_WIDTH = 28;
+const MAX_CELL_HEIGHT = 28;
+const MIN_CELL_SIZE = 12;
+/** @deprecated Usar cellWidth/cellHeight de TacticalBoard */
+const CELL = DEFAULT_CELL_WIDTH;
 const DEFAULT_COLS = 24;
 const DEFAULT_ROWS = 16;
 const MIN_GRID = 4;
@@ -155,6 +161,8 @@ export class TacticalBoard {
     this.isGM = options.isGM || false;
     this.cols = DEFAULT_COLS;
     this.rows = DEFAULT_ROWS;
+    this.cellWidth = DEFAULT_CELL_WIDTH;
+    this.cellHeight = DEFAULT_CELL_HEIGHT;
     this.tokens = [];
     this.mapImage = null;
     this._mapUrl = null;
@@ -190,8 +198,8 @@ export class TacticalBoard {
   }
 
   applyGridDimensions() {
-    const w = this.cols * CELL;
-    const h = this.rows * CELL;
+    const w = this.cols * this.cellWidth;
+    const h = this.rows * this.cellHeight;
     this.canvas.width = w;
     this.canvas.height = h;
     this.canvas.style.width = `${w}px`;
@@ -201,28 +209,28 @@ export class TacticalBoard {
       this.tokenLayer.style.height = `${h}px`;
     }
     this.renderAxisLabels();
-    this.onGridSizeChange(this.cols, this.rows);
+    this.onGridSizeChange(this.cols, this.rows, this.cellWidth, this.cellHeight);
   }
 
   renderAxisLabels() {
     if (this.colLabelsEl) {
       this.colLabelsEl.innerHTML = '';
-      this.colLabelsEl.style.width = `${this.cols * CELL}px`;
+      this.colLabelsEl.style.width = `${this.cols * this.cellWidth}px`;
       for (let c = 0; c < this.cols; c++) {
         const el = document.createElement('span');
         el.className = 'board-axis-label board-axis-label--col';
-        el.style.width = `${CELL}px`;
+        el.style.width = `${this.cellWidth}px`;
         el.textContent = colLetter(c);
         this.colLabelsEl.appendChild(el);
       }
     }
     if (this.rowLabelsEl) {
       this.rowLabelsEl.innerHTML = '';
-      this.rowLabelsEl.style.height = `${this.rows * CELL}px`;
+      this.rowLabelsEl.style.height = `${this.rows * this.cellHeight}px`;
       for (let r = 0; r < this.rows; r++) {
         const el = document.createElement('span');
         el.className = 'board-axis-label board-axis-label--row';
-        el.style.height = `${CELL}px`;
+        el.style.height = `${this.cellHeight}px`;
         el.textContent = String(r + 1);
         this.rowLabelsEl.appendChild(el);
       }
@@ -242,6 +250,7 @@ export class TacticalBoard {
     this.turnActions = normalizeTurnActions(data.turnActions);
     if (data.grid?.cols) this.cols = clampGrid(data.grid.cols);
     if (data.grid?.rows) this.rows = clampGrid(data.grid.rows);
+    this.applyGridCellSizes(data.grid);
     this.tokens = this.tokens.filter(
       (t) => t.col >= 0 && t.col < this.cols && t.row >= 0 && t.row < this.rows
     );
@@ -284,7 +293,7 @@ export class TacticalBoard {
       tokens: this.tokens.map((t) => stripUndefinedDeep(t)),
       mapUrl: this._mapUrl ?? current.mapUrl ?? null,
       combatStarted: this.combatStarted,
-      grid: { cols: this.cols, rows: this.rows, cellSize: CELL },
+      grid: this.gridPayload(),
       activeTurn: this.activeTurn,
       log: current.log || [],
       initiativeLog: this.initiativeLog,
@@ -338,7 +347,7 @@ export class TacticalBoard {
       tokens: this.tokens.map((t) => stripUndefinedDeep(t)),
       mapUrl: this._mapUrl ?? current.mapUrl ?? null,
       combatStarted: this.combatStarted,
-      grid: { cols: this.cols, rows: this.rows, cellSize: CELL },
+      grid: this.gridPayload(),
       activeTurn: this.activeTurn,
       log: current.log || [],
       initiativeLog: this.initiativeLog,
@@ -437,6 +446,8 @@ export class TacticalBoard {
       this.turnOrderIndex = data.turnOrderIndex ?? 0;
       this.turnActions = normalizeTurnActions(data.turnActions);
       let gridChanged = false;
+      const prevCellW = this.cellWidth;
+      const prevCellH = this.cellHeight;
       if (data.grid?.cols && data.grid.cols !== this.cols) {
         this.cols = clampGrid(data.grid.cols);
         gridChanged = true;
@@ -445,6 +456,8 @@ export class TacticalBoard {
         this.rows = clampGrid(data.grid.rows);
         gridChanged = true;
       }
+      this.applyGridCellSizes(data.grid);
+      if (this.cellWidth !== prevCellW || this.cellHeight !== prevCellH) gridChanged = true;
       if (gridChanged) {
         this.tokens = this.tokens.filter(
           (t) => t.col >= 0 && t.col < this.cols && t.row >= 0 && t.row < this.rows
@@ -522,19 +535,49 @@ export class TacticalBoard {
     }
   }
 
-  async setGridSize(cols, rows) {
+  async setGridSize(cols, rows, cellWidth = null, cellHeight = null) {
     if (!this.isGM) return;
     this.cols = clampGrid(cols);
     this.rows = clampGrid(rows);
+    if (cellWidth != null) this.cellWidth = clampCellSize(cellWidth, MAX_CELL_WIDTH);
+    if (cellHeight != null) this.cellHeight = clampCellSize(cellHeight, MAX_CELL_HEIGHT);
     this.tokens = this.tokens.filter(
       (t) => t.col >= 0 && t.col < this.cols && t.row >= 0 && t.row < this.rows
     );
     this.applyGridDimensions();
     this.render();
-    await this.saveState({ grid: { cols: this.cols, rows: this.rows, cellSize: CELL } });
+    await this.saveState({ grid: this.gridPayload() });
     if (this.combatStarted) {
       await this.appendLog(logEntrySystem(`ajustó la cuadrícula a ${this.cols}×${this.rows}`));
     }
+  }
+
+  async applyCompendiumLayout({ mapUrl, cols, rows, cellWidth, cellHeight } = {}) {
+    if (!this.isGM) return;
+    if (mapUrl) await this.setMapUrl(mapUrl);
+    await this.setGridSize(
+      cols ?? this.cols,
+      rows ?? this.rows,
+      cellWidth ?? this.cellWidth,
+      cellHeight ?? this.cellHeight
+    );
+  }
+
+  gridPayload() {
+    return {
+      cols: this.cols,
+      rows: this.rows,
+      cellWidth: this.cellWidth,
+      cellHeight: this.cellHeight
+    };
+  }
+
+  applyGridCellSizes(grid) {
+    if (!grid) return;
+    if (grid.cellWidth != null) this.cellWidth = clampCellSize(grid.cellWidth, MAX_CELL_WIDTH);
+    else if (grid.cellSize != null) this.cellWidth = clampCellSize(grid.cellSize, MAX_CELL_WIDTH);
+    if (grid.cellHeight != null) this.cellHeight = clampCellSize(grid.cellHeight, MAX_CELL_HEIGHT);
+    else if (grid.cellSize != null) this.cellHeight = clampCellSize(grid.cellSize, MAX_CELL_HEIGHT);
   }
 
   isStructuredCombat() {
@@ -772,7 +815,7 @@ export class TacticalBoard {
       species: entity.species || 'Humanos',
       class: entity.class || entity.classKey,
       classKey: entity.classKey || entity.class,
-      level: Number(entity.level) || 1,
+      ...(isHero ? { level: Number(entity.level) || 1 } : {}),
       type: token.characterSnapshot?.type || (isHero ? 'Heroe' : 'NPC'),
       portraitUrl: entity.portraitUrl || '',
       skills: entity.skills || [],
@@ -785,7 +828,8 @@ export class TacticalBoard {
     });
 
     token.name = entity.name;
-    token.level = snapshot.level;
+    if (isHero) token.level = snapshot.level;
+    else delete token.level;
     token.class = snapshot.class;
     token.classLabel = meta.label;
     token.theme = meta.theme;
@@ -1223,8 +1267,8 @@ export class TacticalBoard {
     const x = (e.clientX - rect.left) * scaleX;
     const y = (e.clientY - rect.top) * scaleY;
     return {
-      col: Math.floor(x / CELL),
-      row: Math.floor(y / CELL)
+      col: Math.floor(x / this.cellWidth),
+      row: Math.floor(y / this.cellHeight)
     };
   }
 
@@ -1440,7 +1484,7 @@ export class TacticalBoard {
         tokens: this.tokens.map((t) => stripUndefinedDeep(t)),
         mapUrl: partial.mapUrl !== undefined ? partial.mapUrl : (this._mapUrl ?? current.mapUrl ?? null),
         combatStarted: partial.combatStarted ?? this.combatStarted,
-        grid: partial.grid ?? current.grid ?? { cols: this.cols, rows: this.rows, cellSize: CELL },
+        grid: partial.grid ?? current.grid ?? this.gridPayload(),
         activeTurn: partial.activeTurn !== undefined
           ? partial.activeTurn
           : (this.activeTurn ?? current.activeTurn ?? null),
@@ -1476,7 +1520,7 @@ export class TacticalBoard {
         tokens: this.tokens.map((t) => stripUndefinedDeep(t)),
         mapUrl: partial.mapUrl !== undefined ? partial.mapUrl : (current.mapUrl ?? null),
         combatStarted: partial.combatStarted ?? this.combatStarted,
-        grid: partial.grid ?? current.grid ?? { cols: this.cols, rows: this.rows, cellSize: CELL },
+        grid: partial.grid ?? current.grid ?? this.gridPayload(),
         activeTurn: partial.activeTurn !== undefined
           ? partial.activeTurn
           : (this.activeTurn ?? current.activeTurn ?? null),
@@ -1537,14 +1581,14 @@ export class TacticalBoard {
     ctx.lineWidth = 1;
     for (let c = 0; c <= this.cols; c++) {
       ctx.beginPath();
-      ctx.moveTo(c * CELL, 0);
-      ctx.lineTo(c * CELL, this.canvas.height);
+      ctx.moveTo(c * this.cellWidth, 0);
+      ctx.lineTo(c * this.cellWidth, this.canvas.height);
       ctx.stroke();
     }
     for (let r = 0; r <= this.rows; r++) {
       ctx.beginPath();
-      ctx.moveTo(0, r * CELL);
-      ctx.lineTo(this.canvas.width, r * CELL);
+      ctx.moveTo(0, r * this.cellHeight);
+      ctx.lineTo(this.canvas.width, r * this.cellHeight);
       ctx.stroke();
     }
 
@@ -1570,7 +1614,7 @@ export class TacticalBoard {
     for (let c = 0; c < this.cols; c++) {
       for (let r = 0; r < this.rows; r++) {
         if (!this.isCellReachableForMove(originToken, c, r, fromCol, fromRow)) continue;
-        ctx.fillRect(c * CELL + 1, r * CELL + 1, CELL - 2, CELL - 2);
+        ctx.fillRect(c * this.cellWidth + 1, r * this.cellHeight + 1, this.cellWidth - 2, this.cellHeight - 2);
       }
     }
   }
@@ -1580,7 +1624,7 @@ export class TacticalBoard {
     getEnemyTokens(this.tokens).forEach((enemy) => {
       if (isTokenDefeated(enemy)) return;
       const hovered = enemy.id === this.highlightedTokenId;
-      drawVisionConeOnCanvas(ctx, enemy.col, enemy.row, enemy.facing || 'left', CELL, {
+      drawVisionConeOnCanvas(ctx, enemy.col, enemy.row, enemy.facing || 'left', Math.max(this.cellWidth, this.cellHeight), {
         tint: hovered ? '255, 214, 0' : '0, 229, 255',
         preview: hovered
       });
@@ -1604,8 +1648,10 @@ export class TacticalBoard {
       const wrap = document.createElement('div');
       const highlighted = token.id === this.highlightedTokenId;
       wrap.className = `swrp-board-token-wrap swrp-board-token-wrap--${side}${defeated ? ' is-defeated' : ''}${this.isTokenActiveTurn(token) ? ' is-active-turn' : ''}${highlighted ? ' is-highlighted' : ''}`;
-      wrap.style.left = `${token.col * CELL + pad}px`;
-      wrap.style.top = `${token.row * CELL + pad}px`;
+      wrap.style.left = `${token.col * this.cellWidth + pad}px`;
+      wrap.style.top = `${token.row * this.cellHeight + pad}px`;
+      wrap.style.width = `${this.cellWidth}px`;
+      wrap.style.height = `${this.cellHeight}px`;
 
       if (statusHtml) {
         wrap.insertAdjacentHTML('afterbegin', statusHtml);
@@ -2102,7 +2148,7 @@ export function buildTokenTooltipHtml(token, allTokens = [], cols = 0, rows = 0)
           ${renderCellBadgeHtml(cellLabel(token.col, token.row))}
         </div>
         <span class="board-token-tooltip__class" style="color:${escapeHtml(meta.color)}">${escapeHtml(classLabel)}</span>
-        <span class="board-token-tooltip__level" style="color:${escapeHtml(meta.color)}">Nv. ${level}</span>
+        ${inferBoardTokenKind(token) === 'npc' ? '' : `<span class="board-token-tooltip__level" style="color:${escapeHtml(meta.color)}">Nv. ${level}</span>`}
         <span class="board-token-tooltip__side board-token-tooltip__side--${sideClass}">${sideLabel}</span>
         ${enemyExtra}
         ${coverExtra}
@@ -2142,6 +2188,10 @@ function colLetter(col) {
   return String.fromCharCode(65 + Math.floor(col / 26) - 1) + String.fromCharCode(65 + (col % 26));
 }
 
+function clampCellSize(n, max = MAX_CELL_WIDTH) {
+  return Math.min(max, Math.max(MIN_CELL_SIZE, Math.round(Number(n) || DEFAULT_CELL_WIDTH)));
+}
+
 function clampGrid(n) {
   return Math.min(MAX_GRID, Math.max(MIN_GRID, Math.round(Number(n) || MIN_GRID)));
 }
@@ -2158,4 +2208,15 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
-export { CELL, DEFAULT_COLS, DEFAULT_ROWS, MIN_GRID, MAX_GRID, LABEL_SIZE };
+export {
+  CELL,
+  DEFAULT_CELL_WIDTH,
+  DEFAULT_CELL_HEIGHT,
+  MAX_CELL_WIDTH,
+  MAX_CELL_HEIGHT,
+  DEFAULT_COLS,
+  DEFAULT_ROWS,
+  MIN_GRID,
+  MAX_GRID,
+  LABEL_SIZE
+};

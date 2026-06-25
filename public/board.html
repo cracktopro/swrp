@@ -202,8 +202,21 @@
                 <label class="form-label small" for="grid-rows">Alto (filas)</label>
                 <input type="number" class="form-control form-control-sm" id="grid-rows" min="4" max="48" value="16">
               </div>
+              <div class="col-6">
+                <label class="form-label small" for="grid-cell-width">Celda ancho (máx. 28)</label>
+                <input type="number" class="form-control form-control-sm" id="grid-cell-width" min="12" max="28" value="28">
+              </div>
+              <div class="col-6">
+                <label class="form-label small" for="grid-cell-height">Celda alto (máx. 28)</label>
+                <input type="number" class="form-control form-control-sm" id="grid-cell-height" min="12" max="28" value="28">
+              </div>
             </div>
-            <button type="button" id="grid-apply" class="btn btn-sm btn-swrp btn-swrp-primary w-100">Aplicar tamaño</button>
+            <button type="button" id="grid-apply" class="btn btn-sm btn-swrp btn-swrp-primary w-100 mb-3">Aplicar tamaño</button>
+            <label class="form-label small" for="compendium-board-select">Tablero del compendio (opcional)</label>
+            <select class="form-select form-select-sm mb-2" id="compendium-board-select">
+              <option value="">— Tablero del compendio —</option>
+            </select>
+            <button type="button" id="compendium-board-load" class="btn btn-sm btn-swrp btn-swrp-ghost w-100">Cargar tablero seleccionado</button>
           </section>
           <section class="swrp-panel mb-3" id="gm-token-panel">
             <div class="d-flex justify-content-between align-items-center gap-2 mb-3 flex-wrap">
@@ -427,6 +440,7 @@
     import { initBoardProgressUi } from './js/board-progress.js';
     import { swrpConfirm, swrpAlert } from './js/swrp-dialog.js';
     import { initPartyEscaramuzaSlotsPanel } from './js/escaramuza-spawns-ui.js';
+    import { initBoardGridPanel, syncBoardGridInputs } from './js/board-grid-panel.js';
 
     const charModal = new bootstrap.Modal(document.getElementById('charModal'));
     const mentionModal = new bootstrap.Modal(document.getElementById('boardMentionModal'));
@@ -620,6 +634,8 @@
         const mapClearBtn = document.getElementById('map-url-clear');
         const gridColsInput = document.getElementById('grid-cols');
         const gridRowsInput = document.getElementById('grid-rows');
+        const gridCellWidthInput = document.getElementById('grid-cell-width');
+        const gridCellHeightInput = document.getElementById('grid-cell-height');
 
         const boardSidebar = initBoardSidebar(isGM);
 
@@ -654,9 +670,13 @@
               boardSidebar.syncGmSidebar(board);
             },
             onInitiativeStateChange: () => boardSidebar.syncGmSidebar(board),
-            onGridSizeChange: (cols, rows) => {
-              gridColsInput.value = cols;
-              gridRowsInput.value = rows;
+            onGridSizeChange: (cols, rows, cellWidth, cellHeight) => {
+              syncBoardGridInputs(board, {
+                colsInput: gridColsInput,
+                rowsInput: gridRowsInput,
+                cellWidthInput: gridCellWidthInput,
+                cellHeightInput: gridCellHeightInput
+              });
               escaramuzaSpawnsEditor?.renderMarkers();
             }
           }
@@ -676,6 +696,23 @@
             openCharacterCard: openTokenCard
           });
           initBoardProgressUi({ board });
+          await initBoardGridPanel({
+            board,
+            colsInput: gridColsInput,
+            rowsInput: gridRowsInput,
+            cellWidthInput: gridCellWidthInput,
+            cellHeightInput: gridCellHeightInput,
+            applyBtn: document.getElementById('grid-apply'),
+            compendiumSelect: document.getElementById('compendium-board-select'),
+            compendiumLoadBtn: document.getElementById('compendium-board-load'),
+            mapUrlInput
+          });
+          syncBoardGridInputs(board, {
+            colsInput: gridColsInput,
+            rowsInput: gridRowsInput,
+            cellWidthInput: gridCellWidthInput,
+            cellHeightInput: gridCellHeightInput
+          });
           escaramuzaSpawnsEditor = initPartyEscaramuzaSlotsPanel({
             board,
             party,
@@ -721,14 +758,6 @@
             await board.clearMapUrl();
           } catch (err) {
             await swrpAlert({ title: 'Error', message: err.message });
-          }
-        });
-
-        document.getElementById('grid-apply').addEventListener('click', async () => {
-          try {
-            await board.setGridSize(gridColsInput.value, gridRowsInput.value);
-          } catch (err) {
-            await swrpAlert({ title: 'Error de cuadrícula', message: err.message });
           }
         });
       }

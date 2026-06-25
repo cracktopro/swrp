@@ -54,7 +54,7 @@ Usar siempre `appUrl()` (`js/app-path.js`) para enlaces internos. Evitar `party.
 | `/party?id=…` | `party.html` | Partida: unión, foro narrativo, dados |
 | `/board?party=…` | `board.html` | Tablero táctico VTT |
 | `/map-editor` | `map-editor.html` | Editor de escaramuzas (plantillas reutilizables) |
-| `/compendium` | `compendium.html` | Stats, habilidades, especies, galería NPC |
+| `/compendium` | `compendium.html` | Stats, habilidades, especies, NPCs, tableros VTT |
 | `/rules` | `rules.html` | Reglas renderizadas desde `RULES.md` |
 
 Query params habituales:
@@ -209,12 +209,13 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 
 **Opciones GM:**
 - Progreso: guardar/cargar snapshots completos del estado (`board-progress.js`).
-- Mapa URL, tamaño de cuadrícula (4–48).
+- Mapa URL, tamaño de cuadrícula (4–48 columnas/filas, celda ancho/alto máx. 28 px).
+- Cargar tablero predefinido del compendio (opcional) o pegar URL manual.
 - Chapas en juego: añadir personajes/NPCs, control modal (stats, HP, facción, visión).
 - **Jugadores y spawns** (solo escaramuza sin `templateId`): mín/máx, lista de spawns, modal minitablero (`escaramuza-spawns-ui.js` → `savePartyEscaramuzaSlots`).
 
 **Combate:**
-- Fase narrativa con turnos (2 acciones: movimiento / atacar) antes y durante combate.
+- Fase narrativa con turnos (2 acciones: movimiento hasta 6 casillas / atacar) antes y durante combate.
 - Iniciativa D20, orden de turnos, log estructurado.
 - Visión enemiga: conos, estados alerta (`board-vision.js`).
 - Sincronización en tiempo real vía `parties/{id}/state/board`.
@@ -233,13 +234,14 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 ### 8.5 Personajes y NPCs
 
 - **Personajes** (`characters/`): héroes del jugador; creador en `character-create.html`.
-- **NPCs** (`npcs/`): solo admin; usados en tablero, compendio y escaramuzas.
+- **NPCs** (`npcs/`): solo admin; sin campo nivel; stats editables; usados en tablero, compendio y escaramuzas.
 - Cartas: `character-card.js` + `character-card.css` (temas por clase).
 - Selector reutilizable: `npc-picker.js` (`initCharacterPicker`, `initNpcPicker`) — filas estilo tarjeta con thumb, clase, especie, nivel.
 
 ### 8.6 Compendio (`compendium.html` + `compendium-page.js`, `compendium-store.js`)
 
 - Progresión 1–20, habilidades por clase, especies.
+- Pestañas: Progresión, Habilidades, Especies, NPCs, **Tableros** (mapas VTT reutilizables, solo admin edita).
 - Galería NPC con filtros.
 - Admin: CRUD completo; no admin: solo lectura.
 
@@ -276,7 +278,7 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 ### `npcs/{id}`
 ```js
 {
-  name, species, class, classKey, level, type: 'NPC', era?,
+  name, species, class, classKey, type: 'NPC', era?,
   hp, maxHp, defense, attack, damage, force,
   skills: [skillId, ...],
   portraitUrl / image,
@@ -290,6 +292,7 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
   progression: { [classKey]: { levels: { [n]: { hp, defense, ... } } } },
   skills: { [skillId]: { name, class, type, ... } },
   species: ['Humanos', ...],
+  boards: [{ id, name, mapUrl, cols, rows, cellWidth, cellHeight }],
   seedVersion: number,
   updatedAt
 }
@@ -305,7 +308,7 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
   boardLayout: {
     tokens: [...],           // enemigos (side: 'enemy')
     mapUrl,
-    grid: { cols, rows, cellSize }
+    grid: { cols, rows, cellWidth, cellHeight }
   },
   createdAt, updatedAt
 }
@@ -353,10 +356,11 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 ```js
 {
   mapUrl,
-  grid: { cols, rows, cellSize },
+  grid: { cols, rows, cellWidth, cellHeight },
   tokens: [{
     id, sourceId, kind: 'character' | 'npc',
-    name, level, class, theme, color,
+    name, class, theme, color,
+    level?,  // solo personajes jugador, no NPC
     side: 'ally' | 'enemy',
     col, row, facing?, portraitUrl,
     hp, maxHp, defense, ...
@@ -420,6 +424,7 @@ Funciones auxiliares en reglas: `isAdmin`, `isPartyMember`, `isPartyGM`, `isEsca
 | `map-editor-page.js` | Vista editor de mapas |
 | `board.js` | `TacticalBoard`, grid, tokens, persistencia |
 | `board-page.js` | UI GM: añadir/controlar chapas, `MiniBoardPicker` |
+| `board-grid-panel.js` | Panel GM cuadrícula y carga de tableros del compendio |
 | `board-combat.js` | Turnos, iniciativa, dados en tablero |
 | `board-progress.js` | Guardados de progreso del tablero |
 | `board-vision.js` | Conos visión, normalización tokens |

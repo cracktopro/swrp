@@ -25,7 +25,7 @@ let selectedSkills = [];
 let editingCharacterId = null;
 let editingNpcId = null;
 let mode = 'hero';
-let statsOverride = null;
+const NPC_SKILL_LEVEL = 20;
 
 function showSaveAlert(message) {
   const alertEl = document.getElementById('save-alert');
@@ -66,6 +66,7 @@ function syncNpcOnlyFields() {
   const isNpc = isNpcMode();
   document.getElementById('char-era-wrap')?.classList.toggle('d-none', !isNpc);
   document.getElementById('stats-edit-wrap')?.classList.toggle('d-none', !isNpc);
+  document.getElementById('char-level-wrap')?.classList.toggle('d-none', isNpc);
 }
 
 function populateSpeciesSelect() {
@@ -244,7 +245,9 @@ function onFormChange(e) {
 function applyEntityToForm(entity) {
   document.getElementById('char-name').value = entity.name;
   document.getElementById('char-class').value = entity.class || entity.classKey;
-  document.getElementById('char-level').value = entity.level;
+  if (!isNpcMode()) {
+    document.getElementById('char-level').value = entity.level;
+  }
   document.getElementById('char-species').value = entity.species || getSpeciesList()[0];
   const eraEl = document.getElementById('char-era');
   if (eraEl) eraEl.value = entity.era || DEFAULT_NPC_ERA;
@@ -281,17 +284,18 @@ function updatePortraitPreview(url) {
 
 function getFormCharacter() {
   const classKey = document.getElementById('char-class').value;
-  const level = parseInt(document.getElementById('char-level').value, 10) || 1;
+  const level = isNpcMode()
+    ? NPC_SKILL_LEVEL
+    : (parseInt(document.getElementById('char-level').value, 10) || 1);
   const stats = isNpcMode() ? readStatsFromFields() : (getStats(classKey, level) || {});
   const skillObjs = selectedSkills.map((id) =>
     getSkillsForClass(classKey, level).find((s) => s.id === id)
   ).filter(Boolean);
 
-  return {
+  const char = {
     name: document.getElementById('char-name').value.trim() || 'Sin nombre',
     class: classKey,
     classKey,
-    level,
     species: document.getElementById('char-species').value,
     era: isNpcMode() ? (document.getElementById('char-era')?.value || DEFAULT_NPC_ERA) : undefined,
     type: isNpcMode() ? 'NPC' : 'Heroe',
@@ -305,6 +309,8 @@ function getFormCharacter() {
     force: stats.force ?? null,
     skills: skillObjs
   };
+  if (!isNpcMode()) char.level = level;
+  return char;
 }
 
 function updatePreview() {
@@ -326,7 +332,9 @@ function updatePreview() {
 
 function updateSkillPicker() {
   const classKey = document.getElementById('char-class').value;
-  const level = parseInt(document.getElementById('char-level').value, 10) || 1;
+  const level = isNpcMode()
+    ? NPC_SKILL_LEVEL
+    : (parseInt(document.getElementById('char-level').value, 10) || 1);
   const container = document.getElementById('skills-picker');
   const available = getSkillsForClass(classKey, level)
     .filter((s) => s.unlockLevel !== 'always' && s.type !== 'Rol');
@@ -430,7 +438,6 @@ async function saveNpc(userId) {
     species: char.species,
     classKey: char.classKey,
     class: char.classKey,
-    level: char.level,
     type: 'NPC',
     era: document.getElementById('char-era')?.value || DEFAULT_NPC_ERA,
     portraitUrl,

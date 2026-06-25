@@ -1,5 +1,5 @@
 import { tokenFromCharacter, tokenFromNpc } from './party-members.js';
-import { cellLabel, CELL, getTokenHp, getTokenMaxHp, getTokenForce, tokenHasForceStat, updateHealthBarElement } from './board.js';
+import { cellLabel, getTokenHp, getTokenMaxHp, getTokenForce, tokenHasForceStat, updateHealthBarElement } from './board.js';
 import {
   drawVisionConeOnCanvas,
   facingLabel,
@@ -100,8 +100,10 @@ class MiniBoardPicker {
     const wrap = this.canvas.parentElement;
     const maxW = wrap?.clientWidth || 480;
     const maxH = 280;
-    const w = this.board.cols * CELL;
-    const h = this.board.rows * CELL;
+    const cw = this.board.cellWidth;
+    const ch = this.board.cellHeight;
+    const w = this.board.cols * cw;
+    const h = this.board.rows * ch;
     this.scale = Math.min(maxW / w, maxH / h, 1);
     this.canvas.width = Math.floor(w * this.scale);
     this.canvas.height = Math.floor(h * this.scale);
@@ -112,9 +114,11 @@ class MiniBoardPicker {
     const rect = this.canvas.getBoundingClientRect();
     const x = (e.clientX - rect.left) / this.scale;
     const y = (e.clientY - rect.top) / this.scale;
+    const cw = this.board.cellWidth;
+    const ch = this.board.cellHeight;
     return {
-      col: Math.floor(x / CELL),
-      row: Math.floor(y / CELL)
+      col: Math.floor(x / cw),
+      row: Math.floor(y / ch)
     };
   }
 
@@ -130,23 +134,26 @@ class MiniBoardPicker {
   }
 
   drawSpawnMarkerCell(ctx, col, row, { preview = false } = {}) {
-    const px = col * CELL + 2;
-    const py = row * CELL + 2;
-    const sz = CELL - 4;
+    const cw = this.board.cellWidth;
+    const ch = this.board.cellHeight;
+    const px = col * cw + 2;
+    const py = row * ch + 2;
+    const szW = cw - 4;
+    const szH = ch - 4;
     ctx.fillStyle = preview ? 'rgba(57, 255, 20, 0.55)' : 'rgba(57, 255, 20, 0.42)';
-    ctx.fillRect(px, py, sz, sz);
+    ctx.fillRect(px, py, szW, szH);
     ctx.strokeStyle = '#6dff6a';
     ctx.lineWidth = preview ? 2.5 : 2;
-    ctx.strokeRect(px + 0.5, py + 0.5, sz - 1, sz - 1);
+    ctx.strokeRect(px + 0.5, py + 0.5, szW - 1, szH - 1);
     const badgeH = 13;
-    const badgeY = py + sz - badgeH - 2;
+    const badgeY = py + szH - badgeH - 2;
     ctx.fillStyle = 'rgba(10, 30, 10, 0.92)';
-    ctx.fillRect(px + 3, badgeY, sz - 6, badgeH);
+    ctx.fillRect(px + 3, badgeY, szW - 6, badgeH);
     ctx.fillStyle = '#9dff9a';
     ctx.font = 'bold 9px system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('Spawn', px + sz / 2, badgeY + badgeH / 2);
+    ctx.fillText('Spawn', px + szW / 2, badgeY + badgeH / 2);
   }
 
   render() {
@@ -154,42 +161,47 @@ class MiniBoardPicker {
     const cols = this.board.cols;
     const rows = this.board.rows;
     const scale = this.scale;
+    const cw = this.board.cellWidth;
+    const ch = this.board.cellHeight;
+    const gridW = cols * cw;
+    const gridH = rows * ch;
 
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
-    ctx.clearRect(0, 0, cols * CELL, rows * CELL);
+    ctx.clearRect(0, 0, gridW, gridH);
 
     if (this.board.mapImage) {
-      ctx.drawImage(this.board.mapImage, 0, 0, cols * CELL, rows * CELL);
+      ctx.drawImage(this.board.mapImage, 0, 0, gridW, gridH);
     } else {
       ctx.fillStyle = '#0a0c12';
-      ctx.fillRect(0, 0, cols * CELL, rows * CELL);
+      ctx.fillRect(0, 0, gridW, gridH);
     }
 
     ctx.strokeStyle = 'rgba(0, 229, 255, 0.18)';
     ctx.lineWidth = 1;
     for (let c = 0; c <= cols; c++) {
       ctx.beginPath();
-      ctx.moveTo(c * CELL, 0);
-      ctx.lineTo(c * CELL, rows * CELL);
+      ctx.moveTo(c * cw, 0);
+      ctx.lineTo(c * cw, gridH);
       ctx.stroke();
     }
     for (let r = 0; r <= rows; r++) {
       ctx.beginPath();
-      ctx.moveTo(0, r * CELL);
-      ctx.lineTo(cols * CELL, r * CELL);
+      ctx.moveTo(0, r * ch);
+      ctx.lineTo(gridW, r * ch);
       ctx.stroke();
     }
 
     this.board.tokens.forEach((token) => {
-      const x = token.col * CELL + 4;
-      const y = token.row * CELL + 4;
-      const size = CELL - 8;
+      const x = token.col * cw + 4;
+      const y = token.row * ch + 4;
+      const sizeW = cw - 8;
+      const sizeH = ch - 8;
       ctx.fillStyle = token.side === 'enemy'
         ? 'rgba(255, 23, 68, 0.45)'
         : 'rgba(57, 255, 20, 0.35)';
-      ctx.fillRect(x, y, size, size);
+      ctx.fillRect(x, y, sizeW, sizeH);
       ctx.strokeStyle = 'rgba(255,255,255,0.25)';
-      ctx.strokeRect(x + 0.5, y + 0.5, size - 1, size - 1);
+      ctx.strokeRect(x + 0.5, y + 0.5, sizeW - 1, sizeH - 1);
     });
 
     this.markerSpawns.forEach(({ col, row }) => {
@@ -200,24 +212,25 @@ class MiniBoardPicker {
       if (this.spawnMarkerMode && this.side === 'ally') {
         this.drawSpawnMarkerCell(ctx, this.spawnCol, this.spawnRow, { preview: true });
       } else if (this.side === 'enemy') {
-        drawVisionConeOnCanvas(ctx, this.spawnCol, this.spawnRow, this.facing, CELL, {
+        drawVisionConeOnCanvas(ctx, this.spawnCol, this.spawnRow, this.facing, Math.max(cw, ch), {
           preview: true,
           tint: '255, 80, 120'
         });
       }
 
       if (!(this.spawnMarkerMode && this.side === 'ally')) {
-      const px = this.spawnCol * CELL + 3;
-      const py = this.spawnRow * CELL + 3;
-      const sz = CELL - 6;
+      const px = this.spawnCol * cw + 3;
+      const py = this.spawnRow * ch + 3;
+      const szW = cw - 6;
+      const szH = ch - 6;
       ctx.strokeStyle = this.side === 'enemy' ? '#ff4569' : '#6dff6a';
       ctx.lineWidth = 2;
       ctx.shadowColor = ctx.strokeStyle;
       ctx.shadowBlur = 10;
-      ctx.strokeRect(px, py, sz, sz);
+      ctx.strokeRect(px, py, szW, szH);
       ctx.shadowBlur = 0;
       ctx.fillStyle = this.side === 'enemy' ? 'rgba(255,23,68,0.35)' : 'rgba(57,255,20,0.3)';
-      ctx.fillRect(px + 1, py + 1, sz - 2, sz - 2);
+      ctx.fillRect(px + 1, py + 1, szW - 2, szH - 2);
       }
     }
 

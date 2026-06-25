@@ -228,7 +228,7 @@ export async function ensureTokenStatsEditor(container) {
         <label class="form-label small" for="ctrl-stat-class">Clase</label>
         <select class="form-select form-select-sm" id="ctrl-stat-class"></select>
       </div>
-      <div class="col-md-3">
+      <div class="col-md-3" id="ctrl-stat-level-wrap">
         <label class="form-label small" for="ctrl-stat-level">Nivel</label>
         <input type="number" class="form-control form-control-sm" id="ctrl-stat-level" min="1" max="20" value="1">
       </div>
@@ -268,6 +268,7 @@ export async function ensureTokenStatsEditor(container) {
 
 export function loadTokenStatsEditor(token) {
   tokenKind = token.kind === 'npc' ? 'npc' : 'character';
+  document.getElementById('ctrl-stat-level-wrap')?.classList.toggle('d-none', tokenKind === 'npc');
   setStatsFieldsEditable(!isPartyCharacter());
   updateStatsHint();
 
@@ -277,7 +278,7 @@ export function loadTokenStatsEditor(token) {
       ...snap,
       name: token.name || snap.name,
       class: token.class || snap.class,
-      level: token.level ?? snap.level,
+      ...(tokenKind === 'npc' ? {} : { level: token.level ?? snap.level }),
       portraitUrl: token.portraitUrl || snap.portraitUrl || ''
     },
     snap.id || token.sourceId
@@ -285,7 +286,9 @@ export function loadTokenStatsEditor(token) {
 
   document.getElementById('ctrl-stat-name').value = entity.name || '';
   document.getElementById('ctrl-stat-class').value = entity.class || entity.classKey;
-  document.getElementById('ctrl-stat-level').value = String(entity.level || 1);
+  if (tokenKind !== 'npc') {
+    document.getElementById('ctrl-stat-level').value = String(entity.level || 1);
+  }
   document.getElementById('ctrl-stat-species').value = entity.species || getSpeciesList()[0];
   document.getElementById('ctrl-stat-portrait').value = entity.portraitUrl || '';
 
@@ -311,13 +314,14 @@ export function loadTokenStatsEditor(token) {
 
 export function readTokenStatsEditor() {
   const classKey = document.getElementById('ctrl-stat-class')?.value;
-  const level = parseInt(document.getElementById('ctrl-stat-level')?.value, 10) || 1;
+  const level = tokenKind === 'npc'
+    ? 20
+    : (parseInt(document.getElementById('ctrl-stat-level')?.value, 10) || 1);
   const stats = resolveStatsForSave();
-  return {
+  const payload = {
     name: document.getElementById('ctrl-stat-name')?.value.trim() || 'Sin nombre',
     class: classKey,
     classKey,
-    level,
     species: document.getElementById('ctrl-stat-species')?.value,
     portraitUrl: document.getElementById('ctrl-stat-portrait')?.value.trim() || '',
     skills: [...selectedSkills],
@@ -328,4 +332,6 @@ export function readTokenStatsEditor() {
     damage: stats.damage,
     force: stats.force
   };
+  if (tokenKind !== 'npc') payload.level = level;
+  return payload;
 }

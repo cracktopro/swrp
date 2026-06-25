@@ -143,7 +143,6 @@ export function renderNpcPickerRow(npc, { selected = false, classMeta } = {}) {
   const url = npc.portraitUrl || npc.image || '';
   const era = readNpcEra(npc);
   const species = npc.species || 'Humanos';
-  const level = Number(npc.level) || 1;
   const thumb = url
     ? `<img src="${escapeHtml(url)}" alt="" loading="lazy">`
     : `<span class="swrp-npc-picker-row__initials">${escapeHtml(nameInitials(npc.name))}</span>`;
@@ -162,8 +161,6 @@ export function renderNpcPickerRow(npc, { selected = false, classMeta } = {}) {
           <span>${escapeHtml(species)}</span>
           <span class="swrp-npc-picker-row__dot" aria-hidden="true">·</span>
           <span><span class="swrp-card__era-label">Era:</span> ${escapeHtml(era)}</span>
-          <span class="swrp-npc-picker-row__dot" aria-hidden="true">·</span>
-          <span>Nv.${level}</span>
         </span>
       </span>
     </button>`;

@@ -335,7 +335,7 @@ function skillUnlockOrder(skill) {
 function collectBoardSkills(character) {
   if (!character?.class) return [];
   const classKey = character.class;
-  const level = Number(character.level) || 1;
+  const level = character.type === 'NPC' ? 20 : (Number(character.level) || 1);
   const byId = new Map();
 
   (character.skills || []).forEach((skillId) => {
@@ -692,7 +692,7 @@ export function initBoardCombatUi(ctx) {
     const turnHint = document.getElementById('board-turn-assign-hint');
     if (turnHint) {
       turnHint.textContent = narrative
-        ? 'Fase narrativa: 2 acciones por turno (máx. 5 casillas en movimiento). «Terminar turno» para ceder antes; «Siguiente turno» al completarlas. «Ataque sorpresa» abre el combate.'
+        ? 'Fase narrativa: 2 acciones por turno (máx. 6 casillas en movimiento). «Terminar turno» para ceder antes; «Siguiente turno» al completarlas. «Ataque sorpresa» abre el combate.'
         : 'Asigna el turno manualmente o deja que el jugador activo gestione sus acciones.';
       turnHint.classList.toggle('d-none', !isGM);
     }

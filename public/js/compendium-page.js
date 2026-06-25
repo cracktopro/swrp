@@ -12,7 +12,10 @@ import {
   syncCompendiumSeed,
   resetCompendiumToDefaults,
   isCompendiumSeedStale,
-  skillTypeBadgeClass
+  skillTypeBadgeClass,
+  getCompendiumBoards,
+  saveCompendiumBoards,
+  normalizeCompendiumBoard
 } from './compendium-store.js';
 import { renderCharacterCard } from './character-card.js';
 import { loadAllNpcs, deleteNpc, npcToCardData, filterNpcs, buildNpcEraSelectOptions } from './npcs.js';
@@ -96,12 +99,16 @@ export async function initCompendiumPage({ isAdmin }) {
     document.getElementById('btn-new-npc')?.addEventListener('click', () => {
       window.location.href = appUrl('character-create?mode=npc');
     });
+    document.getElementById('admin-boards-actions')?.classList.remove('d-none');
+    document.getElementById('btn-add-board')?.addEventListener('click', () => openBoardModal(null));
+    document.getElementById('btn-save-board')?.addEventListener('click', saveBoardFromModal);
   }
 
   const firstClass = getClassList()[0]?.key;
   renderStatsTable(firstClass, isAdmin);
   renderSkillsList(firstClass, isAdmin);
   renderSpeciesList(isAdmin);
+  renderBoardsList(isAdmin);
   await renderNpcs(isAdmin);
 }
 
@@ -435,3 +442,104 @@ function renderNpcsFromCache(isAdmin) {
     container.appendChild(wrap);
   });
 }
+
+function renderBoardsList(isAdmin) {
+  const container = document.getElementById('boards-list');
+  if (!container) return;
+  const boards = getCompendiumBoards();
+  if (!boards.length) {
+    container.innerHTML = '<p class="text-muted mb-0">No hay tableros definidos en el compendio.</p>';
+    return;
+  }
+  container.innerHTML = boards.map((board) => `
+    <div class="border border-secondary border-opacity-25 rounded p-3 mb-3" data-board-id="${escapeHtml(board.id)}">
+      <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+        <div>
+          <h3 class="h6 text-gold mb-1">${escapeHtml(board.name)}</h3>
+          <p class="small text-muted mb-1">${board.cols}×${board.rows} · celda ${board.cellWidth}×${board.cellHeight} px</p>
+          <p class="small mb-0 text-break">${escapeHtml(board.mapUrl)}</p>
+        </div>
+        ${board.mapUrl ? `<img src="${escapeHtml(board.mapUrl)}" alt="" class="swrp-board-compendium-thumb" loading="lazy">` : ''}
+      </div>
+      ${isAdmin ? `<div class="d-flex gap-2 mt-3">
+        <button type="button" class="btn btn-sm btn-swrp btn-swrp-ghost btn-edit-board">Editar</button>
+        <button type="button" class="btn btn-sm btn-swrp btn-swrp-danger btn-del-board">Eliminar</button>
+      </div>` : ''}
+    </div>`).join('');
+
+  if (!isAdmin) return;
+  container.querySelectorAll('.btn-edit-board').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = btn.closest('[data-board-id]')?.dataset.boardId;
+      const board = boards.find((b) => b.id === id);
+      if (board) openBoardModal(board);
+    });
+  });
+  container.querySelectorAll('.btn-del-board').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const id = btn.closest('[data-board-id]')?.dataset.boardId;
+      const board = boards.find((b) => b.id === id);
+      if (!board || !confirm(`¿Eliminar tablero «${board.name}»?`)) return;
+      try {
+        await saveCompendiumBoards(boards.filter((b) => b.id !== id));
+        renderBoardsList(true);
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+  });
+}
+
+function openBoardModal(board) {
+  document.getElementById('board-edit-id').value = board?.id || '';
+  document.getElementById('board-edit-name').value = board?.name || '';
+  document.getElementById('board-edit-url').value = board?.mapUrl || '';
+  document.getElementById('board-edit-cols').value = String(board?.cols ?? 24);
+  document.getElementById('board-edit-rows').value = String(board?.rows ?? 16);
+  document.getElementById('board-edit-cell-width').value = String(board?.cellWidth ?? 28);
+  document.getElementById('board-edit-cell-height').value = String(board?.cellHeight ?? 28);
+  updateBoardModalPreview();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('boardModal')).show();
+}
+
+function updateBoardModalPreview() {
+  const preview = document.getElementById('board-edit-preview');
+  const url = document.getElementById('board-edit-url')?.value.trim();
+  if (!preview) return;
+  if (!url) {
+    preview.innerHTML = 'Introduce una URL de imagen para ver la vista previa.';
+    return;
+  }
+  preview.innerHTML = `<img src="${escapeHtml(url)}" alt="" class="swrp-board-compendium-thumb" loading="lazy">`;
+}
+
+async function saveBoardFromModal() {
+  const id = document.getElementById('board-edit-id').value.trim();
+  const normalized = normalizeCompendiumBoard({
+    id: id || undefined,
+    name: document.getElementById('board-edit-name').value,
+    mapUrl: document.getElementById('board-edit-url').value,
+    cols: document.getElementById('board-edit-cols').value,
+    rows: document.getElementById('board-edit-rows').value,
+    cellWidth: document.getElementById('board-edit-cell-width').value,
+    cellHeight: document.getElementById('board-edit-cell-height').value
+  });
+  if (!normalized) {
+    alert('Nombre y URL del mapa son obligatorios.');
+    return;
+  }
+  const boards = getCompendiumBoards();
+  const idx = boards.findIndex((b) => b.id === normalized.id);
+  if (idx >= 0) boards[idx] = normalized;
+  else boards.push(normalized);
+  boards.sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  try {
+    await saveCompendiumBoards(boards);
+    bootstrap.Modal.getInstance(document.getElementById('boardModal')).hide();
+    renderBoardsList(true);
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+document.getElementById('board-edit-url')?.addEventListener('input', updateBoardModalPreview);

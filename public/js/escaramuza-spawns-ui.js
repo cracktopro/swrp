@@ -1,4 +1,4 @@
-import { CELL, cellLabel } from './board.js';
+import { cellLabel } from './board.js';
 import { MiniBoardPicker } from './board-page.js';
 import { swrpAlert } from './swrp-dialog.js';
 import { savePartyEscaramuzaSlots } from './escaramuza-templates.js';
@@ -6,13 +6,13 @@ import { savePartyEscaramuzaSlots } from './escaramuza-templates.js';
 export function renderSpawnMarkersOnLayer(layerEl, board, spawns) {
   if (!layerEl || !board) return;
   layerEl.innerHTML = '';
-  layerEl.style.width = `${board.cols * CELL}px`;
-  layerEl.style.height = `${board.rows * CELL}px`;
+  layerEl.style.width = `${board.cols * board.cellWidth}px`;
+  layerEl.style.height = `${board.rows * board.cellHeight}px`;
   (spawns || []).forEach((s) => {
     const el = document.createElement('div');
     el.className = 'board-spawn-marker';
-    el.style.left = `${s.col * CELL}px`;
-    el.style.top = `${s.row * CELL}px`;
+    el.style.left = `${s.col * board.cellWidth}px`;
+    el.style.top = `${s.row * board.cellHeight}px`;
     el.innerHTML = '<span class="board-spawn-marker__badge">Spawn</span>';
     layerEl.appendChild(el);
   });

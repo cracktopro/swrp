@@ -1,7 +1,8 @@
 import { renderNavbar } from './navbar.js';
 import { requireAuth, isAdmin } from './auth.js';
 import { appUrl } from './app-path.js';
-import { TacticalBoard, cellLabel, getTokenHp, getTokenMaxHp, getTokenEffectiveDefense, isTokenInCover, CELL } from './board.js';
+import { TacticalBoard, cellLabel, getTokenHp, getTokenMaxHp, getTokenEffectiveDefense, isTokenInCover } from './board.js';
+import { initBoardGridPanel, syncBoardGridInputs } from './board-grid-panel.js';
 import { loadAllNpcs, npcToCardData, buildNpcEraFormOptions, DEFAULT_NPC_ERA } from './npcs.js';
 import { loadCompendiumData } from './compendium-store.js';
 import { renderCharacterCard, normalizeCharacter } from './character-card.js';
@@ -318,6 +319,8 @@ async function initBoardEditor(user, profile, initialState) {
   const mapClearBtn = document.getElementById('map-url-clear');
   const gridColsInput = document.getElementById('grid-cols');
   const gridRowsInput = document.getElementById('grid-rows');
+  const gridCellWidthInput = document.getElementById('grid-cell-width');
+  const gridCellHeightInput = document.getElementById('grid-cell-height');
 
   const boardSidebar = initBoardSidebar(isGM);
 
@@ -347,9 +350,13 @@ async function initBoardEditor(user, profile, initialState) {
         boardSidebar.syncGmSidebar(board);
       },
       onInitiativeStateChange: () => boardSidebar.syncGmSidebar(board),
-      onGridSizeChange: (cols, rows) => {
-        gridColsInput.value = cols;
-        gridRowsInput.value = rows;
+      onGridSizeChange: () => {
+        syncBoardGridInputs(board, {
+          colsInput: gridColsInput,
+          rowsInput: gridRowsInput,
+          cellWidthInput: gridCellWidthInput,
+          cellHeightInput: gridCellHeightInput
+        });
         renderEditorSpawnMarkersOnBoard();
       }
     }
@@ -363,6 +370,22 @@ async function initBoardEditor(user, profile, initialState) {
 
   syncCombatUi(board.combatStarted, isGM);
   boardSidebar.syncGmSidebar(board);
+
+  await initBoardGridPanel({
+    board,
+    colsInput: gridColsInput,
+    rowsInput: gridRowsInput,
+    cellWidthInput: gridCellWidthInput,
+    cellHeightInput: gridCellHeightInput,
+    applyBtn: document.getElementById('grid-apply'),
+    mapUrlInput
+  });
+  syncBoardGridInputs(board, {
+    colsInput: gridColsInput,
+    rowsInput: gridRowsInput,
+    cellWidthInput: gridCellWidthInput,
+    cellHeightInput: gridCellHeightInput
+  });
 
   initBoardPage({
     board,
@@ -434,13 +457,6 @@ async function initBoardEditor(user, profile, initialState) {
     }
   });
 
-  document.getElementById('grid-apply')?.addEventListener('click', async () => {
-    try {
-      await board.setGridSize(gridColsInput.value, gridRowsInput.value);
-    } catch (err) {
-      await swrpAlert({ title: 'Error de cuadrícula', message: err.message });
-    }
-  });
 }
 
 function openTokenCard(token, { roster, npcs, charModal, charModalBody }) {

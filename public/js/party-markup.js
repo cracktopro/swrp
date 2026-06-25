@@ -1,4 +1,4 @@
-import { normalizeCharacter, getClassMeta, renderCharacterTag } from './character-card.js';
+import { normalizeCharacter, getClassMeta, renderCharacterTag, isNpcEntity } from './character-card.js';
 import {
   mentionToken,
   colorMarkup,
@@ -65,8 +65,11 @@ function renderCharacterTagHtml(snapshot, { cell = null, mentionId = null, inlin
   const cellBadge = cell
     ? `<span class="board-cell-badge swrp-char-tag__cell">${escapeHtml(cell)}</span>`
     : '';
+  const levelTag = isNpcEntity(snapshot)
+    ? ''
+    : `<span class="swrp-char-tag__level">Nv.${Number(snapshot.level) || 1}</span>`;
   return `<button type="button" class="swrp-char-tag theme-${escapeHtml(meta.theme)}${inline ? ' swrp-char-tag--inline' : ''}" data-mention-id="${escapeHtml(id)}" title="Ver carta de personaje">
-    <span class="swrp-char-tag__name">${escapeHtml(snapshot.name)}</span>${cellBadge}<span class="swrp-char-tag__level">Nv.${Number(snapshot.level) || 1}</span>
+    <span class="swrp-char-tag__name">${escapeHtml(snapshot.name)}</span>${cellBadge}${levelTag}
   </button>`;
 }
 

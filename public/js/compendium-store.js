@@ -14,6 +14,7 @@ const DERIVED_SEED_CLASSES = ['Guerrero Sith', 'Inquisidor Sith', 'Cazarrecompen
 let progression = null;
 let skills = null;
 let speciesList = null;
+let boardsList = null;
 let firestoreSeedVersion = 0;
 let loaded = false;
 
@@ -54,6 +55,7 @@ async function persistCompendium(partial = {}) {
     progression: partial.progression ?? getCompendiumProgression(),
     skills: partial.skills ?? getCompendiumSkills(),
     species: partial.species ?? getSpeciesList(),
+    boards: partial.boards ?? getCompendiumBoards(),
     seedVersion: partial.seedVersion ?? firestoreSeedVersion,
     updatedAt: serverTimestamp()
   }, { merge: true });
@@ -64,6 +66,7 @@ export async function loadCompendiumData() {
   progression = cloneProgression();
   skills = cloneSkills();
   speciesList = cloneSpecies();
+  boardsList = cloneBoards();
   firestoreSeedVersion = 0;
 
   try {
@@ -73,6 +76,7 @@ export async function loadCompendiumData() {
       if (data.progression) progression = data.progression;
       if (data.skills) skills = data.skills;
       if (Array.isArray(data.species) && data.species.length) speciesList = data.species;
+      if (Array.isArray(data.boards)) boardsList = data.boards;
       firestoreSeedVersion = data.seedVersion || 0;
     }
   } catch (err) {
@@ -95,6 +99,7 @@ export async function syncCompendiumSeed() {
     progression,
     skills,
     species: getSpeciesList(),
+    boards: getCompendiumBoards(),
     seedVersion: firestoreSeedVersion
   });
 }
@@ -109,6 +114,33 @@ export function getCompendiumSkills() {
 
 export function getSpeciesList() {
   return speciesList ? [...speciesList] : cloneSpecies();
+}
+
+export function getCompendiumBoards() {
+  return boardsList ? boardsList.map((b) => ({ ...b })) : [];
+}
+
+export async function saveCompendiumBoards(list) {
+  boardsList = (list || []).map((b) => normalizeCompendiumBoard(b)).filter(Boolean);
+  await persistCompendium({ boards: boardsList });
+  return boardsList;
+}
+
+export function normalizeCompendiumBoard(raw) {
+  if (!raw?.name?.trim() || !raw?.mapUrl?.trim()) return null;
+  const cols = Math.min(48, Math.max(4, Math.round(Number(raw.cols) || 24)));
+  const rows = Math.min(48, Math.max(4, Math.round(Number(raw.rows) || 16)));
+  const cellWidth = Math.min(28, Math.max(12, Math.round(Number(raw.cellWidth ?? raw.cellSize) || 28)));
+  const cellHeight = Math.min(28, Math.max(12, Math.round(Number(raw.cellHeight ?? raw.cellSize) || 28)));
+  return {
+    id: raw.id || `board_${Date.now().toString(36)}`,
+    name: String(raw.name).trim(),
+    mapUrl: String(raw.mapUrl).trim(),
+    cols,
+    rows,
+    cellWidth,
+    cellHeight
+  };
 }
 
 export function getStats(classKey, level) {
@@ -154,6 +186,7 @@ export async function resetCompendiumToDefaults() {
   progression = cloneProgression();
   skills = cloneSkills();
   speciesList = cloneSpecies();
+  boardsList = cloneBoards();
   firestoreSeedVersion = getTargetSeedVersion();
   await persistCompendium({
     progression,

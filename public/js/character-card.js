@@ -114,6 +114,13 @@ export function renderCharacterCard(character, options = {}) {
     ? `<button type="button" class="btn btn-sm btn-swrp btn-swrp-ghost swrp-card__copy-id" data-copy-mention="@{${escapeHtml(copyMentionId)}}">Copiar ID</button>`
     : '';
 
+  const levelBlock = isNpc
+    ? ''
+    : `<div class="swrp-card__level">
+          <span class="swrp-card__level-label">NIVEL</span>
+          <div class="swrp-card__hex swrp-card__hex--level">${char.level}</div>
+        </div>`;
+
   card.innerHTML = `
     <header class="swrp-card__header">
       <div class="swrp-card__identity">
@@ -125,10 +132,7 @@ export function renderCharacterCard(character, options = {}) {
       </div>
       <div class="swrp-card__header-actions">
         ${copyIdBtn}
-        <div class="swrp-card__level">
-          <span class="swrp-card__level-label">NIVEL</span>
-          <div class="swrp-card__hex swrp-card__hex--level">${char.level}</div>
-        </div>
+        ${levelBlock}
       </div>
     </header>
     <div class="swrp-card__body">
@@ -216,6 +220,10 @@ export function fitAllCardNames(root = document) {
   root.querySelectorAll('.swrp-card').forEach((card) => scheduleCardNameFit(card));
 }
 
+export function isNpcEntity(char) {
+  return char?.type === 'NPC' || char?.kind === 'npc';
+}
+
 export function renderCharacterTag(snapshot, onClick) {
   if (!snapshot?.name) return null;
   const meta = getClassMeta(snapshot.class);
@@ -223,9 +231,12 @@ export function renderCharacterTag(snapshot, onClick) {
   btn.type = 'button';
   btn.className = `swrp-char-tag theme-${meta.theme}`;
   btn.title = 'Ver carta de personaje';
+  const levelTag = isNpcEntity(snapshot)
+    ? ''
+    : `<span class="swrp-char-tag__level">Nv.${Number(snapshot.level) || 1}</span>`;
   btn.innerHTML = `
     <span class="swrp-char-tag__name">${escapeHtml(snapshot.name)}</span>
-    <span class="swrp-char-tag__level">Nv.${Number(snapshot.level) || 1}</span>`;
+    ${levelTag}`;
   if (onClick) {
     btn.addEventListener('click', () => onClick(normalizeCharacter(snapshot)));
   }

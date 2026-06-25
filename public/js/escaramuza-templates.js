@@ -21,7 +21,7 @@ import {
   loadPartyMembers
 } from './party-members.js';
 import { normalizeBoardToken } from './board-vision.js';
-import { CELL, DEFAULT_COLS, DEFAULT_ROWS } from './board.js';
+import { DEFAULT_CELL_WIDTH, DEFAULT_CELL_HEIGHT, DEFAULT_COLS, DEFAULT_ROWS } from './board.js';
 import { appUrl } from './app-path.js';
 
 const COLLECTION = 'escaramuzaTemplates';
@@ -216,11 +216,7 @@ export function buildLayoutFromBoard(board, { enemyOnly = true } = {}) {
   return stripUndefinedDeep({
     tokens: tokens.map((t) => stripUndefinedDeep({ ...t })),
     mapUrl: board._mapUrl ?? null,
-    grid: {
-      cols: board.cols,
-      rows: board.rows,
-      cellSize: CELL
-    }
+    grid: board.gridPayload(),
   });
 }
 
@@ -229,7 +225,12 @@ export function buildFreshBoardState(boardLayout) {
   return stripUndefinedDeep({
     tokens: (layout.tokens || []).map((t) => normalizeBoardToken({ ...t })),
     mapUrl: layout.mapUrl ?? null,
-    grid: layout.grid || { cols: DEFAULT_COLS, rows: DEFAULT_ROWS, cellSize: CELL },
+    grid: layout.grid || {
+      cols: DEFAULT_COLS,
+      rows: DEFAULT_ROWS,
+      cellWidth: DEFAULT_CELL_WIDTH,
+      cellHeight: DEFAULT_CELL_HEIGHT
+    },
     combatStarted: false,
     log: [],
     initiativeLog: [],
