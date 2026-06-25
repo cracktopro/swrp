@@ -1,56 +1,18 @@
 import { normalizeCharacter, getClassMeta, renderCharacterTag } from './character-card.js';
+import {
+  mentionToken,
+  colorMarkup,
+  urlMarkup,
+  tokenizeNarrativeMarkup,
+  resolveNarrativeColor,
+  isValidNarrativeImageUrl
+} from './narrative-markup.js';
+
+export { mentionToken, colorMarkup, urlMarkup, tokenizeNarrativeMarkup };
 
 function boardCellLabel(col, row) {
   const letter = String.fromCharCode(65 + Number(col));
   return `${letter}${Number(row) + 1}`;
-}
-
-
-export function mentionToken(characterId) {
-  return `@{${characterId}}`;
-}
-
-export function colorMarkup(text, color) {
-  const trimmed = String(text || '').trim();
-  if (!trimmed) return '';
-  const c = String(color || '').trim();
-  if (c && c !== 'var(--swrp-gold)') {
-    return `[C=${c}]${trimmed}[/C]`;
-  }
-  return `[C]${trimmed}[/C]`;
-}
-
-export function urlMarkup(url) {
-  const trimmed = String(url || '').trim();
-  if (!trimmed) return '';
-  return `[URL]${trimmed}[/URL]`;
-}
-
-export function tokenizeNarrativeMarkup(content) {
-  if (!content) return [];
-  const tokens = [];
-  const re = /\[URL\]([\s\S]*?)\[\/URL\]|\[img\]([\s\S]*?)\[\/img\]|\[C(?:=([^[\]]*))?\]([\s\S]*?)\[\/C\]|@\{([^}]+)\}/gi;
-  let lastIndex = 0;
-  let match;
-  while ((match = re.exec(content)) !== null) {
-    if (match.index > lastIndex) {
-      tokens.push({ type: 'text', text: content.slice(lastIndex, match.index) });
-    }
-    if (match[1] !== undefined) {
-      tokens.push({ type: 'url', url: match[1], raw: match[0] });
-    } else if (match[2] !== undefined) {
-      tokens.push({ type: 'img', url: match[2], raw: match[0] });
-    } else if (match[4] !== undefined) {
-      tokens.push({ type: 'color', color: match[3], text: match[4], raw: match[0] });
-    } else if (match[5] !== undefined) {
-      tokens.push({ type: 'mention', id: match[5].trim(), raw: match[0] });
-    }
-    lastIndex = re.lastIndex;
-  }
-  if (lastIndex < content.length) {
-    tokens.push({ type: 'text', text: content.slice(lastIndex) });
-  }
-  return tokens;
 }
 
 export function insertMention(textarea, atIndex, characterId) {
@@ -117,13 +79,13 @@ export function renderNarrativeMarkupHtml(content, { rosterMap = new Map(), boar
     }
     if (token.type === 'url' || token.type === 'img') {
       const url = token.url.trim();
-      if (isValidHttpUrl(url)) {
+      if (isValidNarrativeImageUrl(url)) {
         return `<img src="${escapeHtml(url)}" alt="Imagen narrativa" class="swrp-post__img" loading="lazy">`;
       }
       return escapeHtml(token.raw);
     }
     if (token.type === 'color') {
-      const color = resolveColor(token.color);
+      const color = resolveNarrativeColor(token.color);
       const inner = escapeHtml(token.text).replace(/\n/g, '<br>');
       return `<span class="swrp-narrative-color" style="color:${escapeHtml(color)}">${inner}</span>`;
     }
@@ -168,24 +130,6 @@ function escapeHtml(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
-
-function isValidHttpUrl(url) {
-  try {
-    const parsed = new URL(url.trim());
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
-  } catch {
-    return false;
-  }
-}
-
-function resolveColor(raw) {
-  if (!raw?.trim()) return 'var(--swrp-gold)';
-  const value = raw.trim();
-  if (/^#[0-9a-f]{3,8}$/i.test(value)) return value;
-  if (/^[a-z]+$/i.test(value)) return value;
-  return 'var(--swrp-gold)';
-}
-
 function appendTextWithBreaks(parent, text) {
   const lines = String(text).split('\n');
   lines.forEach((line, i) => {
@@ -207,7 +151,7 @@ export function renderNarrativeContent(content, { rosterMap = new Map(), boardTo
     }
     if (token.type === 'url' || token.type === 'img') {
       const url = token.url.trim();
-      if (isValidHttpUrl(url)) {
+      if (isValidNarrativeImageUrl(url)) {
         const img = document.createElement('img');
         img.src = url;
         img.alt = 'Imagen narrativa';
@@ -225,7 +169,7 @@ export function renderNarrativeContent(content, { rosterMap = new Map(), boardTo
     if (token.type === 'color') {
       const span = document.createElement('span');
       span.className = 'swrp-narrative-color';
-      span.style.color = resolveColor(token.color);
+      span.style.color = resolveNarrativeColor(token.color);
       appendTextWithBreaks(span, token.text);
       wrap.appendChild(span);
       return;

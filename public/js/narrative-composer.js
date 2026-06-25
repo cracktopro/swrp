@@ -5,7 +5,7 @@ import {
   colorMarkup,
   urlMarkup,
   tokenizeNarrativeMarkup
-} from './party-markup.js';
+} from './narrative-markup.js';
 
 const COLOR_PRESETS = [
   { label: 'Dorado', value: '#d4af37' },
