@@ -30,6 +30,10 @@ function cloneSpecies() {
   return [...(GAME_DATA.SPECIES_LIST || [])];
 }
 
+function cloneBoards() {
+  return [];
+}
+
 function getTargetSeedVersion() {
   return GAME_DATA.COMPENDIUM_SEED_VERSION || 1;
 }
@@ -192,6 +196,7 @@ export async function resetCompendiumToDefaults() {
     progression,
     skills,
     species: speciesList,
+    boards: boardsList,
     seedVersion: firestoreSeedVersion
   });
 }
