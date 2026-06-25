@@ -119,10 +119,10 @@ function normalizeTurnActions(value) {
     bonusAttacks: Number(value.bonusAttacks) || 0
   };
 }
-const DEFAULT_CELL_WIDTH = 28;
-const DEFAULT_CELL_HEIGHT = 28;
-const MAX_CELL_WIDTH = 28;
-const MAX_CELL_HEIGHT = 28;
+const DEFAULT_CELL_WIDTH = 48;
+const DEFAULT_CELL_HEIGHT = 48;
+const MAX_CELL_WIDTH = 48;
+const MAX_CELL_HEIGHT = 48;
 const MIN_CELL_SIZE = 12;
 /** @deprecated Usar cellWidth/cellHeight de TacticalBoard */
 const CELL = DEFAULT_CELL_WIDTH;

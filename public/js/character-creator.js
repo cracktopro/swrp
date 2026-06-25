@@ -87,7 +87,9 @@ function populateClassSelect() {
 
 function syncStatsFieldsFromBase() {
   const classKey = document.getElementById('char-class').value;
-  const level = parseInt(document.getElementById('char-level').value, 10) || 1;
+  const level = isNpcMode()
+    ? NPC_SKILL_LEVEL
+    : (parseInt(document.getElementById('char-level').value, 10) || 1);
   const base = getStats(classKey, level) || {};
   if (!isNpcMode() || !statsOverride) {
     statsOverride = { ...base };
@@ -125,6 +127,7 @@ export async function initCharacterCreator(userId, { characterId = null, npcId =
   populateEraSelect();
   setupCreatorTabs(isAdmin);
   bindFormEvents(userId);
+  syncNpcOnlyFields();
 
   if (npcId) {
     const npc = await loadNpcById(npcId);
@@ -233,8 +236,8 @@ function bindFormEvents(userId) {
 
 function onFormChange(e) {
   if (e.target.id === 'portrait-url') hideSaveAlert();
-  if (['char-class', 'char-level'].includes(e.target.id) && isNpcMode() && !statsOverride) {
-    syncStatsFieldsFromBase();
+  if (['char-class'].includes(e.target.id) && isNpcMode()) {
+    if (!statsOverride) syncStatsFieldsFromBase();
   } else if (['char-class', 'char-level'].includes(e.target.id)) {
     selectedSkills = [];
     if (!isNpcMode()) syncStatsFieldsFromBase();
@@ -244,23 +247,30 @@ function onFormChange(e) {
 }
 
 function applyEntityToForm(entity) {
-  document.getElementById('char-name').value = entity.name;
-  document.getElementById('char-class').value = entity.class || entity.classKey;
+  syncNpcOnlyFields();
+  document.getElementById('char-name').value = entity.name || '';
+  document.getElementById('char-class').value = entity.class || entity.classKey || getClassList()[0]?.key;
   if (!isNpcMode()) {
-    document.getElementById('char-level').value = entity.level;
+    document.getElementById('char-level').value = entity.level ?? 1;
   }
   document.getElementById('char-species').value = entity.species || getSpeciesList()[0];
   const eraEl = document.getElementById('char-era');
   if (eraEl) eraEl.value = entity.era || DEFAULT_NPC_ERA;
   document.getElementById('portrait-url').value = entity.portraitUrl || entity.image || '';
-  selectedSkills = [...(entity.skills || [])];
-  statsOverride = {
-    hp: entity.hp ?? entity.maxHp,
-    defense: entity.defense,
-    attack: entity.attack,
-    damage: entity.damage,
-    force: entity.force
-  };
+  selectedSkills = (entity.skills || [])
+    .map((s) => (typeof s === 'string' ? s : s?.id))
+    .filter(Boolean);
+  if (isNpcMode()) {
+    statsOverride = {
+      hp: entity.hp ?? entity.maxHp ?? entity.currentHp ?? 0,
+      defense: entity.defense ?? 0,
+      attack: entity.attack ?? 0,
+      damage: entity.damage ?? 0,
+      force: entity.force ?? null
+    };
+  } else {
+    statsOverride = null;
+  }
   syncStatsFieldsFromBase();
   updatePortraitPreview(entity.portraitUrl || entity.image);
   updateSkillPicker();

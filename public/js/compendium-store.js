@@ -166,8 +166,8 @@ export function normalizeCompendiumBoard(raw) {
     mapUrl: String(raw.mapUrl).trim(),
     cols,
     rows,
-    cellWidth: 28,
-    cellHeight: 28
+    cellWidth: 48,
+    cellHeight: 48
   };
 }
 
