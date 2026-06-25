@@ -209,7 +209,7 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 
 **Opciones GM:**
 - Progreso: guardar/cargar snapshots completos del estado (`board-progress.js`).
-- Mapa URL, tamaño de cuadrícula (4–48 columnas/filas, celda ancho/alto máx. 28 px).
+- Mapa URL, tamaño de cuadrícula (4–48 columnas/filas; celda fija 28 px).
 - Cargar tablero predefinido del compendio (opcional) o pegar URL manual.
 - Chapas en juego: añadir personajes/NPCs, control modal (stats, HP, facción, visión).
 - **Jugadores y spawns** (solo escaramuza sin `templateId`): mín/máx, lista de spawns, modal minitablero (`escaramuza-spawns-ui.js` → `savePartyEscaramuzaSlots`).

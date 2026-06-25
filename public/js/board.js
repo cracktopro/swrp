@@ -194,10 +194,10 @@ export class TacticalBoard {
     this._onUp = (e) => this.onPointerUp(e);
     document.addEventListener('mousemove', this._onMove);
     document.addEventListener('mouseup', this._onUp);
-    this.applyGridDimensions();
+    this.applyGridDimensions({ notify: false });
   }
 
-  applyGridDimensions() {
+  applyGridDimensions({ notify = true } = {}) {
     const w = this.cols * this.cellWidth;
     const h = this.rows * this.cellHeight;
     this.canvas.width = w;
@@ -209,7 +209,7 @@ export class TacticalBoard {
       this.tokenLayer.style.height = `${h}px`;
     }
     this.renderAxisLabels();
-    this.onGridSizeChange(this.cols, this.rows, this.cellWidth, this.cellHeight);
+    if (notify) this.onGridSizeChange(this.cols, this.rows);
   }
 
   renderAxisLabels() {
@@ -535,12 +535,12 @@ export class TacticalBoard {
     }
   }
 
-  async setGridSize(cols, rows, cellWidth = null, cellHeight = null) {
+  async setGridSize(cols, rows) {
     if (!this.isGM) return;
     this.cols = clampGrid(cols);
     this.rows = clampGrid(rows);
-    if (cellWidth != null) this.cellWidth = clampCellSize(cellWidth, MAX_CELL_WIDTH);
-    if (cellHeight != null) this.cellHeight = clampCellSize(cellHeight, MAX_CELL_HEIGHT);
+    this.cellWidth = DEFAULT_CELL_WIDTH;
+    this.cellHeight = DEFAULT_CELL_HEIGHT;
     this.tokens = this.tokens.filter(
       (t) => t.col >= 0 && t.col < this.cols && t.row >= 0 && t.row < this.rows
     );
@@ -552,15 +552,10 @@ export class TacticalBoard {
     }
   }
 
-  async applyCompendiumLayout({ mapUrl, cols, rows, cellWidth, cellHeight } = {}) {
+  async applyCompendiumLayout({ mapUrl, cols, rows } = {}) {
     if (!this.isGM) return;
     if (mapUrl) await this.setMapUrl(mapUrl);
-    await this.setGridSize(
-      cols ?? this.cols,
-      rows ?? this.rows,
-      cellWidth ?? this.cellWidth,
-      cellHeight ?? this.cellHeight
-    );
+    await this.setGridSize(cols ?? this.cols, rows ?? this.rows);
   }
 
   gridPayload() {
@@ -574,10 +569,8 @@ export class TacticalBoard {
 
   applyGridCellSizes(grid) {
     if (!grid) return;
-    if (grid.cellWidth != null) this.cellWidth = clampCellSize(grid.cellWidth, MAX_CELL_WIDTH);
-    else if (grid.cellSize != null) this.cellWidth = clampCellSize(grid.cellSize, MAX_CELL_WIDTH);
-    if (grid.cellHeight != null) this.cellHeight = clampCellSize(grid.cellHeight, MAX_CELL_HEIGHT);
-    else if (grid.cellSize != null) this.cellHeight = clampCellSize(grid.cellSize, MAX_CELL_HEIGHT);
+    this.cellWidth = DEFAULT_CELL_WIDTH;
+    this.cellHeight = DEFAULT_CELL_HEIGHT;
   }
 
   isStructuredCombat() {

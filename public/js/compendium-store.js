@@ -66,7 +66,15 @@ async function persistCompendium(partial = {}) {
 }
 
 export async function loadCompendiumData() {
-  if (loaded) return { progression, skills, species: speciesList };
+  if (loaded) {
+    return {
+      progression,
+      skills,
+      species: speciesList,
+      boards: getCompendiumBoards(),
+      seedStale: isCompendiumSeedStale()
+    };
+  }
   progression = cloneProgression();
   skills = cloneSkills();
   speciesList = cloneSpecies();
@@ -92,7 +100,13 @@ export async function loadCompendiumData() {
   }
 
   loaded = true;
-  return { progression, skills, species: speciesList, seedStale: isCompendiumSeedStale() };
+  return {
+    progression,
+    skills,
+    species: speciesList,
+    boards: getCompendiumBoards(),
+    seedStale: isCompendiumSeedStale()
+  };
 }
 
 /** Admin: escribe en Firestore las clases derivadas desde game-data.js */
@@ -130,20 +144,30 @@ export async function saveCompendiumBoards(list) {
   return boardsList;
 }
 
+export async function refreshCompendiumBoards() {
+  try {
+    const snap = await getDoc(COMPENDIUM_DOC);
+    if (snap.exists() && Array.isArray(snap.data().boards)) {
+      boardsList = snap.data().boards;
+    }
+  } catch (err) {
+    console.warn('refreshCompendiumBoards:', err);
+  }
+  return getCompendiumBoards();
+}
+
 export function normalizeCompendiumBoard(raw) {
   if (!raw?.name?.trim() || !raw?.mapUrl?.trim()) return null;
   const cols = Math.min(48, Math.max(4, Math.round(Number(raw.cols) || 24)));
   const rows = Math.min(48, Math.max(4, Math.round(Number(raw.rows) || 16)));
-  const cellWidth = Math.min(28, Math.max(12, Math.round(Number(raw.cellWidth ?? raw.cellSize) || 28)));
-  const cellHeight = Math.min(28, Math.max(12, Math.round(Number(raw.cellHeight ?? raw.cellSize) || 28)));
   return {
     id: raw.id || `board_${Date.now().toString(36)}`,
     name: String(raw.name).trim(),
     mapUrl: String(raw.mapUrl).trim(),
     cols,
     rows,
-    cellWidth,
-    cellHeight
+    cellWidth: 28,
+    cellHeight: 28
   };
 }
 

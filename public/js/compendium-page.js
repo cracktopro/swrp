@@ -456,7 +456,7 @@ function renderBoardsList(isAdmin) {
       <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
         <div>
           <h3 class="h6 text-gold mb-1">${escapeHtml(board.name)}</h3>
-          <p class="small text-muted mb-1">${board.cols}×${board.rows} · celda ${board.cellWidth}×${board.cellHeight} px</p>
+          <p class="small text-muted mb-1">${board.cols}×${board.rows} · celda 28 px</p>
           <p class="small mb-0 text-break">${escapeHtml(board.mapUrl)}</p>
         </div>
         ${board.mapUrl ? `<img src="${escapeHtml(board.mapUrl)}" alt="" class="swrp-board-compendium-thumb" loading="lazy">` : ''}
@@ -496,8 +496,6 @@ function openBoardModal(board) {
   document.getElementById('board-edit-url').value = board?.mapUrl || '';
   document.getElementById('board-edit-cols').value = String(board?.cols ?? 24);
   document.getElementById('board-edit-rows').value = String(board?.rows ?? 16);
-  document.getElementById('board-edit-cell-width').value = String(board?.cellWidth ?? 28);
-  document.getElementById('board-edit-cell-height').value = String(board?.cellHeight ?? 28);
   updateBoardModalPreview();
   bootstrap.Modal.getOrCreateInstance(document.getElementById('boardModal')).show();
 }
@@ -520,9 +518,7 @@ async function saveBoardFromModal() {
     name: document.getElementById('board-edit-name').value,
     mapUrl: document.getElementById('board-edit-url').value,
     cols: document.getElementById('board-edit-cols').value,
-    rows: document.getElementById('board-edit-rows').value,
-    cellWidth: document.getElementById('board-edit-cell-width').value,
-    cellHeight: document.getElementById('board-edit-cell-height').value
+    rows: document.getElementById('board-edit-rows').value
   });
   if (!normalized) {
     alert('Nombre y URL del mapa son obligatorios.');

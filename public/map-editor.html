@@ -235,16 +235,13 @@
                 <label class="form-label small" for="grid-rows">Alto (filas)</label>
                 <input type="number" class="form-control form-control-sm" id="grid-rows" min="4" max="48" value="16">
               </div>
-              <div class="col-6">
-                <label class="form-label small" for="grid-cell-width">Celda ancho (máx. 28)</label>
-                <input type="number" class="form-control form-control-sm" id="grid-cell-width" min="12" max="28" value="28">
-              </div>
-              <div class="col-6">
-                <label class="form-label small" for="grid-cell-height">Celda alto (máx. 28)</label>
-                <input type="number" class="form-control form-control-sm" id="grid-cell-height" min="12" max="28" value="28">
-              </div>
             </div>
-            <button type="button" id="grid-apply" class="btn btn-sm btn-swrp btn-swrp-primary w-100">Aplicar tamaño</button>
+            <button type="button" id="grid-apply" class="btn btn-sm btn-swrp btn-swrp-primary w-100 mb-3">Aplicar tamaño</button>
+            <label class="form-label small" for="compendium-board-select">Tablero del compendio (opcional)</label>
+            <select class="form-select form-select-sm mb-2" id="compendium-board-select">
+              <option value="">— Tablero del compendio —</option>
+            </select>
+            <button type="button" id="compendium-board-load" class="btn btn-sm btn-swrp btn-swrp-ghost w-100">Cargar tablero seleccionado</button>
           </section>
           <section class="swrp-panel mb-3" id="gm-token-panel">
             <div class="d-flex justify-content-between align-items-center gap-2 mb-3 flex-wrap">

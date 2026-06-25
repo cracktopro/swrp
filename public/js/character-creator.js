@@ -26,6 +26,7 @@ let editingCharacterId = null;
 let editingNpcId = null;
 let mode = 'hero';
 const NPC_SKILL_LEVEL = 20;
+let statsOverride = null;
 
 function showSaveAlert(message) {
   const alertEl = document.getElementById('save-alert');

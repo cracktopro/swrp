@@ -202,14 +202,6 @@
                 <label class="form-label small" for="grid-rows">Alto (filas)</label>
                 <input type="number" class="form-control form-control-sm" id="grid-rows" min="4" max="48" value="16">
               </div>
-              <div class="col-6">
-                <label class="form-label small" for="grid-cell-width">Celda ancho (máx. 28)</label>
-                <input type="number" class="form-control form-control-sm" id="grid-cell-width" min="12" max="28" value="28">
-              </div>
-              <div class="col-6">
-                <label class="form-label small" for="grid-cell-height">Celda alto (máx. 28)</label>
-                <input type="number" class="form-control form-control-sm" id="grid-cell-height" min="12" max="28" value="28">
-              </div>
             </div>
             <button type="button" id="grid-apply" class="btn btn-sm btn-swrp btn-swrp-primary w-100 mb-3">Aplicar tamaño</button>
             <label class="form-label small" for="compendium-board-select">Tablero del compendio (opcional)</label>
@@ -634,8 +626,6 @@
         const mapClearBtn = document.getElementById('map-url-clear');
         const gridColsInput = document.getElementById('grid-cols');
         const gridRowsInput = document.getElementById('grid-rows');
-        const gridCellWidthInput = document.getElementById('grid-cell-width');
-        const gridCellHeightInput = document.getElementById('grid-cell-height');
 
         const boardSidebar = initBoardSidebar(isGM);
 
@@ -670,12 +660,10 @@
               boardSidebar.syncGmSidebar(board);
             },
             onInitiativeStateChange: () => boardSidebar.syncGmSidebar(board),
-            onGridSizeChange: (cols, rows, cellWidth, cellHeight) => {
-              syncBoardGridInputs(board, {
+            onGridSizeChange: (cols, rows) => {
+              syncBoardGridInputs({ cols, rows }, {
                 colsInput: gridColsInput,
-                rowsInput: gridRowsInput,
-                cellWidthInput: gridCellWidthInput,
-                cellHeightInput: gridCellHeightInput
+                rowsInput: gridRowsInput
               });
               escaramuzaSpawnsEditor?.renderMarkers();
             }
@@ -700,18 +688,14 @@
             board,
             colsInput: gridColsInput,
             rowsInput: gridRowsInput,
-            cellWidthInput: gridCellWidthInput,
-            cellHeightInput: gridCellHeightInput,
             applyBtn: document.getElementById('grid-apply'),
             compendiumSelect: document.getElementById('compendium-board-select'),
             compendiumLoadBtn: document.getElementById('compendium-board-load'),
             mapUrlInput
           });
-          syncBoardGridInputs(board, {
+          syncBoardGridInputs({ cols: board.cols, rows: board.rows }, {
             colsInput: gridColsInput,
-            rowsInput: gridRowsInput,
-            cellWidthInput: gridCellWidthInput,
-            cellHeightInput: gridCellHeightInput
+            rowsInput: gridRowsInput
           });
           escaramuzaSpawnsEditor = initPartyEscaramuzaSlotsPanel({
             board,

@@ -319,8 +319,6 @@ async function initBoardEditor(user, profile, initialState) {
   const mapClearBtn = document.getElementById('map-url-clear');
   const gridColsInput = document.getElementById('grid-cols');
   const gridRowsInput = document.getElementById('grid-rows');
-  const gridCellWidthInput = document.getElementById('grid-cell-width');
-  const gridCellHeightInput = document.getElementById('grid-cell-height');
 
   const boardSidebar = initBoardSidebar(isGM);
 
@@ -350,12 +348,10 @@ async function initBoardEditor(user, profile, initialState) {
         boardSidebar.syncGmSidebar(board);
       },
       onInitiativeStateChange: () => boardSidebar.syncGmSidebar(board),
-      onGridSizeChange: () => {
-        syncBoardGridInputs(board, {
+      onGridSizeChange: (cols, rows) => {
+        syncBoardGridInputs({ cols, rows }, {
           colsInput: gridColsInput,
-          rowsInput: gridRowsInput,
-          cellWidthInput: gridCellWidthInput,
-          cellHeightInput: gridCellHeightInput
+          rowsInput: gridRowsInput
         });
         renderEditorSpawnMarkersOnBoard();
       }
@@ -375,16 +371,14 @@ async function initBoardEditor(user, profile, initialState) {
     board,
     colsInput: gridColsInput,
     rowsInput: gridRowsInput,
-    cellWidthInput: gridCellWidthInput,
-    cellHeightInput: gridCellHeightInput,
     applyBtn: document.getElementById('grid-apply'),
+    compendiumSelect: document.getElementById('compendium-board-select'),
+    compendiumLoadBtn: document.getElementById('compendium-board-load'),
     mapUrlInput
   });
-  syncBoardGridInputs(board, {
+  syncBoardGridInputs({ cols: board.cols, rows: board.rows }, {
     colsInput: gridColsInput,
-    rowsInput: gridRowsInput,
-    cellWidthInput: gridCellWidthInput,
-    cellHeightInput: gridCellHeightInput
+    rowsInput: gridRowsInput
   });
 
   initBoardPage({
