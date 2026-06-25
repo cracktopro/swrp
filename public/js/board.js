@@ -1511,7 +1511,8 @@ export class TacticalBoard {
     }
     this.logEl.innerHTML = list.map((entry) => renderLogEntryHtml(entry, {
       boardTokens: this.tokens,
-      roster: this.roster
+      roster: this.roster,
+      extraMentionEntities: this.npcMentionEntities || []
     })).join('');
     this.logEl.scrollTop = this.logEl.scrollHeight;
   }
@@ -1967,6 +1968,9 @@ export function renderLogEntryHtml(entry, context = {}) {
   }
 
   const rosterMap = buildRosterMap(context.roster || []);
+  (context.extraMentionEntities || []).forEach((entity) => {
+    if (entity?.id) rosterMap.set(entity.id, entity);
+  });
   const boardTokenMap = buildBoardTokenMap(context.boardTokens || []);
   const markupOpts = { rosterMap, boardTokenMap };
 

@@ -1161,6 +1161,72 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
   font-weight: 600;
 }
 
+.swrp-narrative-composer {
+  margin-bottom: 0.5rem;
+}
+
+.swrp-narrative-composer__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.4rem;
+}
+
+.swrp-narrative-composer__editor {
+  min-height: 5.5rem;
+  max-height: 14rem;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.45;
+}
+
+.swrp-narrative-composer__editor:empty::before {
+  content: attr(data-placeholder);
+  color: rgba(255, 255, 255, 0.42);
+  pointer-events: none;
+}
+
+.swrp-composer-chip {
+  display: inline-block;
+  vertical-align: middle;
+  margin: 0 0.12rem;
+  max-width: 100%;
+}
+
+.swrp-composer-chip__img,
+.swrp-narrative-composer__editor .swrp-post__img {
+  max-width: 100%;
+  max-height: 8rem;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  margin: 0.25rem 0;
+}
+
+.swrp-composer-image-preview {
+  min-height: 4rem;
+  border: 1px dashed var(--swrp-border);
+  padding: 0.5rem;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.swrp-composer-image-preview .swrp-post__img {
+  margin: 0 auto;
+}
+
+#posts-feed .swrp-post__body,
+#posts-feed .swrp-narrative-content {
+  overflow-wrap: anywhere;
+}
+
+#posts-feed .swrp-post__img {
+  max-width: 100%;
+  width: auto;
+  height: auto;
+}
+
 .swrp-char-tag--inline {
   display: inline-flex;
   vertical-align: middle;

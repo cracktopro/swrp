@@ -39,7 +39,7 @@ export async function isPartyMember(partyId, userId) {
 export { loadPartyMembers, getPartyMember, getJoinedCharacterRoster, isPartyGMUser };
 
 export function watchPosts(partyId, container, options = {}) {
-  const { onError, onOpenCharacter, roster = [] } = options;
+  const { onError, onOpenCharacter, roster = [], extraMentionEntities = [] } = options;
   const q = query(
     collection(db, 'parties', partyId, 'posts'),
     orderBy('createdAt', 'asc')
@@ -56,6 +56,9 @@ export function watchPosts(partyId, container, options = {}) {
 
       const posts = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       const rosterMap = buildRosterMap(roster, posts);
+      extraMentionEntities.forEach((entity) => {
+        if (entity?.id) rosterMap.set(entity.id, entity);
+      });
 
       posts.forEach((post) => {
         container.appendChild(renderPost(post, onOpenCharacter, rosterMap));

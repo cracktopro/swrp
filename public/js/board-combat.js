@@ -12,11 +12,9 @@ import {
 } from './board.js';
 import { inferBoardTokenKind } from './board-vision.js';
 import { getMemberPlaySource } from './party-members.js';
-import {
-  insertMention,
-  renderBoardMentionPickerItem,
-  renderMentionPickerItem
-} from './party-markup.js';
+import { buildBoardTokenMap } from './party-markup.js';
+import { loadAllNpcs, npcToCardData } from './npcs.js';
+import { mountNarrativeComposer, tokenToPickerEntity } from './narrative-composer.js';
 
 function escapeHtml(str) {
   return String(str)
@@ -587,7 +585,55 @@ export function initBoardCombatUi(ctx) {
   const gmExtraMoveBtn = document.getElementById('board-gm-extra-move');
   const gmExtraAttackBtn = document.getElementById('board-gm-extra-attack');
 
-  let mentionAtIndex = null;
+  let actionComposer = null;
+  let boardNpcs = [];
+
+  loadAllNpcs().then((list) => {
+    boardNpcs = list.map(npcToCardData);
+    board.npcMentionEntities = boardNpcs;
+  });
+
+  function resolveBoardMention(id) {
+    const tokenMap = buildBoardTokenMap(board.tokens);
+    if (tokenMap.has(id)) return tokenMap.get(id).snapshot;
+    const rosterHit = roster.find((c) => c.id === id);
+    if (rosterHit) return rosterHit;
+    return boardNpcs.find((n) => n.id === id) || null;
+  }
+
+  function getBoardPlayerEntities() {
+    const items = [...roster];
+    const seen = new Set(items.map((c) => c.id));
+    board.tokens.forEach((token) => {
+      if (token.kind === 'npc') return;
+      if (!seen.has(token.id)) {
+        items.push(tokenToPickerEntity(token));
+        seen.add(token.id);
+      }
+    });
+    return items;
+  }
+
+  function getBoardNpcEntities() {
+    const items = [...boardNpcs];
+    const seen = new Set(items.map((n) => n.id));
+    board.tokens.forEach((token) => {
+      if (token.kind !== 'npc') return;
+      if (!seen.has(token.id)) {
+        items.push(tokenToPickerEntity(token));
+        seen.add(token.id);
+      }
+    });
+    return items;
+  }
+
+  if (actionText && !actionComposer) {
+    actionComposer = mountNarrativeComposer(actionText, {
+      getPlayers: getBoardPlayerEntities,
+      getNpcs: getBoardNpcEntities,
+      resolveMention: resolveBoardMention
+    });
+  }
 
   function syncTurnActionUi() {
     const narrative = board.isNarrativePhase();
@@ -631,6 +677,12 @@ export function initBoardCombatUi(ctx) {
     });
     skillsList?.classList.toggle('board-attack-tools--disabled', !skillsReady);
   }
+
+  board.logEl?.addEventListener('click', (e) => {
+    const tag = e.target.closest('.swrp-char-tag[data-mention-id]');
+    if (!tag || !onOpenMention) return;
+    onOpenMention(tag.dataset.mentionId);
+  });
 
   function syncCombatControls() {
     const showEnd = isGM && board.combatStarted;
@@ -715,52 +767,6 @@ export function initBoardCombatUi(ctx) {
     syncPanelsVisibility();
     syncCombatControls();
   }
-
-  function openBoardMentionModal(atIndex) {
-    if (!mentionUi?.modal || !actionText) return;
-    mentionAtIndex = atIndex;
-    const list = document.getElementById('board-mention-list');
-    if (!list) return;
-    list.innerHTML = '';
-    const seen = new Set();
-
-    if (board.tokens.length) {
-      board.tokens.forEach((token) => {
-        seen.add(token.id);
-        list.appendChild(renderBoardMentionPickerItem(token, (selected) => {
-          insertMention(actionText, mentionAtIndex, selected.id);
-          mentionUi.modal.hide();
-        }));
-      });
-    }
-
-    roster.forEach((char) => {
-      if (!char?.id || seen.has(char.id)) return;
-      seen.add(char.id);
-      list.appendChild(renderMentionPickerItem(char, (selected) => {
-        insertMention(actionText, mentionAtIndex, selected.id);
-        mentionUi.modal.hide();
-      }));
-    });
-
-    if (!seen.size) {
-      list.innerHTML = '<p class="text-muted small mb-0">No hay chapas ni personajes disponibles.</p>';
-    }
-    mentionUi.modal.show();
-  }
-
-  actionText?.addEventListener('input', () => {
-    const pos = actionText.selectionStart;
-    if (pos > 0 && actionText.value[pos - 1] === '@') {
-      openBoardMentionModal(pos - 1);
-    }
-  });
-
-  board.logEl?.addEventListener('click', (e) => {
-    const tag = e.target.closest('.swrp-char-tag[data-mention-id]');
-    if (!tag || !onOpenMention) return;
-    onOpenMention(tag.dataset.mentionId);
-  });
 
   let turnOptions = buildTurnOptions(members, board.tokens);
 
@@ -1000,7 +1006,7 @@ export function initBoardCombatUi(ctx) {
       });
       return;
     }
-    const text = document.getElementById('board-action-text').value.trim();
+    const text = (actionComposer?.getValue() || actionText?.value || '').trim();
     if (!text) return;
     const resolved = resolveNarrativeActor(ctx, activeSelect);
     if (!resolved?.actor) {
@@ -1010,7 +1016,8 @@ export function initBoardCombatUi(ctx) {
     await board.appendLog(logEntryAction(resolved.actor, text, resolved.cell), {
       force: !board.combatStarted
     });
-    document.getElementById('board-action-text').value = '';
+    actionComposer?.clear();
+    if (actionText) actionText.value = '';
   });
 
   activeSelect?.addEventListener('change', () => {

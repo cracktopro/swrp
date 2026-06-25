@@ -17,7 +17,8 @@ import {
 } from './party-members.js';
 import { loadAllNpcs, npcToCardData } from './npcs.js';
 import { initNpcPicker, initCharacterPicker } from './npc-picker.js';
-import { insertMention, renderMentionPickerItem } from './party-markup.js';
+import { buildRosterMap } from './party-markup.js';
+import { mountNarrativeComposer } from './narrative-composer.js';
 import { renderCharacterCard } from './character-card.js';
 import { boardPageUrl } from './party-url.js';
 import { assignSpawnToMember, hasEscaramuzaSlotConfig } from './escaramuza-templates.js';
@@ -57,7 +58,19 @@ export async function initPartyPage({ user, profile, partyId, ui }) {
   let members = await loadPartyMembers(partyId);
   let partyRoster = getJoinedCharacterRoster(members);
   const userCharacters = await loadUserCharacters(user.uid);
+  const partyNpcs = (await loadAllNpcs()).map(npcToCardData);
   const isGM = isPartyGMUser(members, user.uid);
+
+  const mentionMap = buildRosterMap(partyRoster);
+  partyNpcs.forEach((npc) => {
+    if (npc?.id) mentionMap.set(npc.id, npc);
+  });
+
+  const narrativeComposer = mountNarrativeComposer(narrativeText, {
+    getPlayers: () => partyRoster,
+    getNpcs: () => partyNpcs,
+    resolveMention: (id) => mentionMap.get(id) || null
+  });
 
   const roleMode = document.getElementById('role-mode');
   const roleChar = document.getElementById('role-character');
@@ -166,35 +179,10 @@ export async function initPartyPage({ user, profile, partyId, ui }) {
 
   activeSelect.addEventListener('change', updatePreview);
 
-  let mentionAtIndex = null;
-
-  function openMentionModal(atIndex) {
-    mentionAtIndex = atIndex;
-    const list = document.getElementById('mention-list');
-    list.innerHTML = '';
-    if (!partyRoster.length) {
-      list.innerHTML = '<p class="text-muted small mb-0">No hay personajes unidos a la partida.</p>';
-    } else {
-      partyRoster.forEach((char) => {
-        list.appendChild(renderMentionPickerItem(char, (selected) => {
-          insertMention(narrativeText, mentionAtIndex, selected.id);
-          mentionModal.hide();
-        }));
-      });
-    }
-    mentionModal.show();
-  }
-
-  narrativeText.addEventListener('input', () => {
-    const pos = narrativeText.selectionStart;
-    if (pos > 0 && narrativeText.value[pos - 1] === '@') {
-      openMentionModal(pos - 1);
-    }
-  });
-
   watchPosts(partyId, document.getElementById('posts-feed'), {
     onOpenCharacter: ui.openCharacterModal,
-    roster: partyRoster
+    roster: partyRoster,
+    extraMentionEntities: partyNpcs
   });
 
   document.getElementById('dice-form').addEventListener('submit', async (e) => {
@@ -217,7 +205,7 @@ export async function initPartyPage({ user, profile, partyId, ui }) {
 
   document.getElementById('narrative-form').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const text = narrativeText.value.trim();
+    const text = narrativeComposer?.getValue().trim() || narrativeText.value.trim();
     if (!text) return;
     let char;
     if (isGM) {
@@ -235,6 +223,7 @@ export async function initPartyPage({ user, profile, partyId, ui }) {
     }
     try {
       await publishNarrative(partyId, user, char, text);
+      narrativeComposer?.clear();
       narrativeText.value = '';
     } catch (err) {
       alert('Error al publicar mensaje: ' + err.message);

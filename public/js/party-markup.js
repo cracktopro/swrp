@@ -5,10 +5,52 @@ function boardCellLabel(col, row) {
   return `${letter}${Number(row) + 1}`;
 }
 
-const MARKUP_RE = /(\[img\]([\s\S]*?)\[\/img\]|\[C(?:=([^[\]]*))?\]([\s\S]*?)\[\/C\]|@\{([^}]+)\})/gi;
 
 export function mentionToken(characterId) {
   return `@{${characterId}}`;
+}
+
+export function colorMarkup(text, color) {
+  const trimmed = String(text || '').trim();
+  if (!trimmed) return '';
+  const c = String(color || '').trim();
+  if (c && c !== 'var(--swrp-gold)') {
+    return `[C=${c}]${trimmed}[/C]`;
+  }
+  return `[C]${trimmed}[/C]`;
+}
+
+export function urlMarkup(url) {
+  const trimmed = String(url || '').trim();
+  if (!trimmed) return '';
+  return `[URL]${trimmed}[/URL]`;
+}
+
+export function tokenizeNarrativeMarkup(content) {
+  if (!content) return [];
+  const tokens = [];
+  const re = /\[URL\]([\s\S]*?)\[\/URL\]|\[img\]([\s\S]*?)\[\/img\]|\[C(?:=([^[\]]*))?\]([\s\S]*?)\[\/C\]|@\{([^}]+)\}/gi;
+  let lastIndex = 0;
+  let match;
+  while ((match = re.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      tokens.push({ type: 'text', text: content.slice(lastIndex, match.index) });
+    }
+    if (match[1] !== undefined) {
+      tokens.push({ type: 'url', url: match[1], raw: match[0] });
+    } else if (match[2] !== undefined) {
+      tokens.push({ type: 'img', url: match[2], raw: match[0] });
+    } else if (match[4] !== undefined) {
+      tokens.push({ type: 'color', color: match[3], text: match[4], raw: match[0] });
+    } else if (match[5] !== undefined) {
+      tokens.push({ type: 'mention', id: match[5].trim(), raw: match[0] });
+    }
+    lastIndex = re.lastIndex;
+  }
+  if (lastIndex < content.length) {
+    tokens.push({ type: 'text', text: content.slice(lastIndex) });
+  }
+  return tokens;
 }
 
 export function insertMention(textarea, atIndex, characterId) {
@@ -69,51 +111,38 @@ function renderCharacterTagHtml(snapshot, { cell = null, mentionId = null, inlin
 export function renderNarrativeMarkupHtml(content, { rosterMap = new Map(), boardTokenMap = new Map() } = {}) {
   if (!content) return '';
 
-  let html = '';
-  let lastIndex = 0;
-  MARKUP_RE.lastIndex = 0;
-  let match;
-
-  while ((match = MARKUP_RE.exec(content)) !== null) {
-    if (match.index > lastIndex) {
-      html += escapeHtml(content.slice(lastIndex, match.index)).replace(/\n/g, '<br>');
+  return tokenizeNarrativeMarkup(content).map((token) => {
+    if (token.type === 'text') {
+      return escapeHtml(token.text).replace(/\n/g, '<br>');
     }
-
-    if (match[2] !== undefined) {
-      const url = match[2].trim();
+    if (token.type === 'url' || token.type === 'img') {
+      const url = token.url.trim();
       if (isValidHttpUrl(url)) {
-        html += `<img src="${escapeHtml(url)}" alt="Imagen narrativa" class="swrp-post__img" loading="lazy">`;
-      } else {
-        html += escapeHtml(match[0]);
+        return `<img src="${escapeHtml(url)}" alt="Imagen narrativa" class="swrp-post__img" loading="lazy">`;
       }
-    } else if (match[4] !== undefined) {
-      const color = resolveColor(match[3]);
-      const inner = escapeHtml(match[4]).replace(/\n/g, '<br>');
-      html += `<span class="swrp-narrative-color" style="color:${escapeHtml(color)}">${inner}</span>`;
-    } else if (match[5] !== undefined) {
-      const mentionId = match[5].trim();
+      return escapeHtml(token.raw);
+    }
+    if (token.type === 'color') {
+      const color = resolveColor(token.color);
+      const inner = escapeHtml(token.text).replace(/\n/g, '<br>');
+      return `<span class="swrp-narrative-color" style="color:${escapeHtml(color)}">${inner}</span>`;
+    }
+    if (token.type === 'mention') {
+      const mentionId = token.id;
       const boardEntry = boardTokenMap.get(mentionId);
       if (boardEntry) {
-        html += renderCharacterTagHtml(boardEntry.snapshot, {
+        return renderCharacterTagHtml(boardEntry.snapshot, {
           cell: boardEntry.cell,
           mentionId
         });
-      } else {
-        const snapshot = rosterMap.get(mentionId);
-        html += snapshot
-          ? renderCharacterTagHtml(snapshot, { mentionId })
-          : escapeHtml(match[0]);
       }
+      const snapshot = rosterMap.get(mentionId);
+      return snapshot
+        ? renderCharacterTagHtml(snapshot, { mentionId })
+        : escapeHtml(token.raw);
     }
-
-    lastIndex = MARKUP_RE.lastIndex;
-  }
-
-  if (lastIndex < content.length) {
-    html += escapeHtml(content.slice(lastIndex)).replace(/\n/g, '<br>');
-  }
-
-  return html;
+    return '';
+  }).join('');
 }
 
 export function buildRosterMap(roster, posts = []) {
@@ -171,17 +200,13 @@ export function renderNarrativeContent(content, { rosterMap = new Map(), boardTo
 
   if (!content) return wrap;
 
-  let lastIndex = 0;
-  MARKUP_RE.lastIndex = 0;
-  let match;
-
-  while ((match = MARKUP_RE.exec(content)) !== null) {
-    if (match.index > lastIndex) {
-      appendTextWithBreaks(wrap, content.slice(lastIndex, match.index));
+  tokenizeNarrativeMarkup(content).forEach((token) => {
+    if (token.type === 'text') {
+      appendTextWithBreaks(wrap, token.text);
+      return;
     }
-
-    if (match[2] !== undefined) {
-      const url = match[2].trim();
+    if (token.type === 'url' || token.type === 'img') {
+      const url = token.url.trim();
       if (isValidHttpUrl(url)) {
         const img = document.createElement('img');
         img.src = url;
@@ -189,20 +214,24 @@ export function renderNarrativeContent(content, { rosterMap = new Map(), boardTo
         img.className = 'swrp-post__img';
         img.loading = 'lazy';
         img.onerror = () => {
-          img.replaceWith(document.createTextNode(`[img]${url}[/img]`));
+          img.replaceWith(document.createTextNode(token.raw));
         };
         wrap.appendChild(img);
       } else {
-        appendTextWithBreaks(wrap, match[0]);
+        appendTextWithBreaks(wrap, token.raw);
       }
-    } else if (match[4] !== undefined) {
+      return;
+    }
+    if (token.type === 'color') {
       const span = document.createElement('span');
       span.className = 'swrp-narrative-color';
-      span.style.color = resolveColor(match[3]);
-      appendTextWithBreaks(span, match[4]);
+      span.style.color = resolveColor(token.color);
+      appendTextWithBreaks(span, token.text);
       wrap.appendChild(span);
-    } else if (match[5] !== undefined) {
-      const charId = match[5].trim();
+      return;
+    }
+    if (token.type === 'mention') {
+      const charId = token.id;
       const boardEntry = boardTokenMap.get(charId);
       if (boardEntry) {
         const tag = renderCharacterTagWithCell(boardEntry.snapshot, boardEntry.cell, onOpenCharacter);
@@ -210,30 +239,24 @@ export function renderNarrativeContent(content, { rosterMap = new Map(), boardTo
           tag.classList.add('swrp-char-tag--inline');
           wrap.appendChild(tag);
         } else {
-          appendTextWithBreaks(wrap, match[0]);
+          appendTextWithBreaks(wrap, token.raw);
+        }
+        return;
+      }
+      const snapshot = rosterMap.get(charId);
+      if (snapshot) {
+        const tag = renderCharacterTag(snapshot, onOpenCharacter);
+        if (tag) {
+          tag.classList.add('swrp-char-tag--inline');
+          wrap.appendChild(tag);
+        } else {
+          appendTextWithBreaks(wrap, token.raw);
         }
       } else {
-        const snapshot = rosterMap.get(charId);
-        if (snapshot) {
-          const tag = renderCharacterTag(snapshot, onOpenCharacter);
-          if (tag) {
-            tag.classList.add('swrp-char-tag--inline');
-            wrap.appendChild(tag);
-          } else {
-            appendTextWithBreaks(wrap, match[0]);
-          }
-        } else {
-          appendTextWithBreaks(wrap, match[0]);
-        }
+        appendTextWithBreaks(wrap, token.raw);
       }
     }
-
-    lastIndex = MARKUP_RE.lastIndex;
-  }
-
-  if (lastIndex < content.length) {
-    appendTextWithBreaks(wrap, content.slice(lastIndex));
-  }
+  });
 
   return wrap;
 }
