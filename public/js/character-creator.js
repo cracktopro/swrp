@@ -70,6 +70,12 @@ function populateEraSelect() {
   sel.innerHTML = buildNpcEraFormOptions(DEFAULT_NPC_ERA);
 }
 
+function normalizeSelectedSkillIds(list) {
+  return (list || [])
+    .map((s) => (typeof s === 'string' ? s : s?.id))
+    .filter(Boolean);
+}
+
 function isKnownCustomSkillId(skillId) {
   return !!findCustomSkillById(skillId)
     || pendingCustomSkills.some((s) => s.id === skillId);
@@ -288,9 +294,7 @@ function applyEntityToForm(entity) {
   const eraEl = document.getElementById('char-era');
   if (eraEl) eraEl.value = entity.era || DEFAULT_NPC_ERA;
   document.getElementById('portrait-url').value = entity.portraitUrl || entity.image || '';
-  selectedSkills = (entity.skills || [])
-    .map((s) => (typeof s === 'string' ? s : s?.id))
-    .filter(Boolean);
+  selectedSkills = normalizeSelectedSkillIds(entity.skills);
   pendingCustomSkills = [];
   npcSkillSource = 'class';
   if (isNpcMode()) {
@@ -539,28 +543,32 @@ function renderNpcSkillList(listEl, classKey, level, maxClassSlots) {
 }
 
 function bindCustomSkillForm() {
-  const form = document.getElementById('npc-custom-skill-form');
-  if (!form || form.dataset.bound) return;
-  form.dataset.bound = '1';
-  form.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const name = document.getElementById('npc-custom-skill-name')?.value.trim();
-    const type = document.getElementById('npc-custom-skill-type')?.value || 'Activa';
-    const description = document.getElementById('npc-custom-skill-desc')?.value.trim() || '';
-    if (!name) {
-      showSaveAlert('Indica un nombre para la habilidad custom.');
-      return;
-    }
-    hideSaveAlert();
-    const skill = normalizeCustomSkill({ name, type, description });
-    pendingCustomSkills.push(skill);
-    if (!selectedSkills.includes(skill.id)) selectedSkills.push(skill.id);
-    form.reset();
-    document.getElementById('npc-custom-skill-type').value = 'Activa';
-    npcSkillSource = 'otros';
-    updateSkillPicker();
-    updatePreview();
+  const btn = document.getElementById('btn-add-custom-skill');
+  if (!btn || btn.dataset.bound) return;
+  btn.dataset.bound = '1';
+  btn.addEventListener('click', () => {
+    addPendingCustomSkillFromFields();
   });
+}
+
+function addPendingCustomSkillFromFields() {
+  const name = document.getElementById('npc-custom-skill-name')?.value.trim();
+  const type = document.getElementById('npc-custom-skill-type')?.value || 'Activa';
+  const description = document.getElementById('npc-custom-skill-desc')?.value.trim() || '';
+  if (!name) {
+    showSaveAlert('Indica un nombre para la habilidad custom.');
+    return;
+  }
+  hideSaveAlert();
+  const skill = normalizeCustomSkill({ name, type, description });
+  pendingCustomSkills.push(skill);
+  if (!selectedSkills.includes(skill.id)) selectedSkills.push(skill.id);
+  document.getElementById('npc-custom-skill-name').value = '';
+  document.getElementById('npc-custom-skill-desc').value = '';
+  document.getElementById('npc-custom-skill-type').value = 'Activa';
+  npcSkillSource = 'otros';
+  updateSkillPicker();
+  updatePreview();
 }
 
 function skillTypeClass(type) {
@@ -619,6 +627,7 @@ async function saveNpc(userId) {
   }
 
   const char = getFormCharacter();
+  const skillIds = normalizeSelectedSkillIds(selectedSkills);
   const payload = {
     name: char.name,
     species: char.species,
@@ -633,12 +642,13 @@ async function saveNpc(userId) {
     attack: char.attack ?? 0,
     damage: char.damage ?? 0,
     force: char.force,
-    skills: selectedSkills,
+    skills: skillIds,
     createdBy: userId
   };
 
   if (editingNpcId) {
-    await updateNpc(editingNpcId, payload);
+    const { createdBy, ...updatePayload } = payload;
+    await updateNpc(editingNpcId, updatePayload);
     window.location.href = appUrl('compendium#npcs');
   } else {
     await createNpc(payload);

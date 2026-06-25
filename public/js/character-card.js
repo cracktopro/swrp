@@ -36,9 +36,11 @@ export function normalizeCharacter(data, id = null) {
     attack: data.attack,
     damage: data.damage,
     force: data.force ?? null,
-    skills: (data.skills || []).map((s) =>
-      typeof s === 'string' ? s : s?.id
-    ).filter(Boolean),
+    skills: (data.skills || []).map((s) => {
+      if (typeof s === 'string') return s;
+      if (s?.id && s?.name) return { ...s };
+      return s?.id;
+    }).filter(Boolean),
     userId: data.userId
   };
 }

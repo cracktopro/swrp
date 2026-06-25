@@ -184,7 +184,9 @@ export function getCompendiumProgression() {
 }
 
 export function getCompendiumSkills() {
-  return skills || cloneSkills();
+  const data = skills || cloneSkills();
+  ensureCustomSkillsBucket(data);
+  return data;
 }
 
 export function getSpeciesList() {
