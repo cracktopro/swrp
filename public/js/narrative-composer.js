@@ -1,5 +1,8 @@
 import { normalizeCharacter, getClassMeta, renderCharacterTag } from './character-card.js';
-import { initNpcPicker, initCharacterPicker } from './npc-picker.js';
+import { getClassList } from './compendium-store.js';
+import { filterCharacters } from './npc-picker.js';
+import { renderMentionPickerItem, renderBoardMentionPickerItem } from './party-markup.js';
+import { inferBoardTokenKind } from './board-vision.js';
 import {
   mentionToken,
   colorMarkup,
@@ -19,8 +22,9 @@ let modalsReady = false;
 let mentionModal;
 let colorModal;
 let imageModal;
-let mentionPlayersPicker = null;
-let mentionNpcsPicker = null;
+let mentionModalMode = 'party';
+let mentionGetPartyRoster = () => [];
+let mentionGetBoardTokens = () => [];
 let mentionTab = 'players';
 let mentionPendingInsert = null;
 let colorPendingInsert = null;
@@ -193,6 +197,34 @@ function ensureModals() {
     imagePendingInsert(url);
     imageModal.hide();
   });
+
+  bindMentionFilterListeners();
+}
+
+function populateMentionClassSelect() {
+  const classSelect = document.getElementById('composer-mention-player-class');
+  if (!classSelect || classSelect.options.length) return;
+  classSelect.innerHTML = [
+    '<option value="">Todas las clases</option>',
+    ...getClassList().map((c) => `<option value="${c.key}">${c.label}</option>`)
+  ].join('');
+}
+
+function bindMentionFilterListeners() {
+  if (bindMentionFilterListeners.done) return;
+  bindMentionFilterListeners.done = true;
+  const rerender = () => renderMentionModalLists();
+  [
+    'composer-mention-player-name',
+    'composer-mention-player-class',
+    'composer-mention-npc-name',
+    'composer-mention-npc-class',
+    'composer-mention-npc-era'
+  ].forEach((id) => {
+    const el = document.getElementById(id);
+    el?.addEventListener('input', rerender);
+    el?.addEventListener('change', rerender);
+  });
 }
 
 function isValidHttpUrl(url) {
@@ -336,8 +368,97 @@ function appendTextWithBreaks(parent, text) {
   });
 }
 
-function openMentionModal({ getPlayers, getNpcs, onInsert }) {
+function selectMentionEntity(entity, btn) {
+  selectedMentionEntity = entity;
+  document.getElementById('composer-mention-confirm').disabled = !entity;
+  const listRoot = btn?.closest('#composer-mention-players-list, #composer-mention-npcs-list');
+  listRoot?.querySelectorAll('.swrp-mention-picker__item').forEach((el) => {
+    el.classList.toggle('is-selected', el === btn);
+  });
+}
+
+function filterBoardTokens(tokens, { nameQ = '', npcOnly = false } = {}) {
+  const needle = nameQ.trim().toLowerCase();
+  return (tokens || []).filter((token) => {
+    const isNpc = inferBoardTokenKind(token) === 'npc';
+    if (npcOnly && !isNpc) return false;
+    if (!npcOnly && isNpc) return false;
+    if (!needle) return true;
+    const name = token.name || token.characterSnapshot?.name || '';
+    return name.toLowerCase().includes(needle);
+  });
+}
+
+function renderPartyMentionList(roster) {
+  const listEl = document.getElementById('composer-mention-players-list');
+  if (!listEl) return;
+  listEl.innerHTML = '';
+  const filtered = filterCharacters(roster, {
+    nameQ: document.getElementById('composer-mention-player-name')?.value || '',
+    classQ: document.getElementById('composer-mention-player-class')?.value || ''
+  });
+  if (!filtered.length) {
+    listEl.innerHTML = '<p class="small text-muted mb-0">No hay personajes unidos a la partida.</p>';
+    return;
+  }
+  filtered.forEach((char) => {
+    const btn = renderMentionPickerItem(char, (selected) => {
+      selectMentionEntity(selected, btn);
+    });
+    listEl.appendChild(btn);
+  });
+}
+
+function renderBoardMentionList(tokens, { npcOnly = false } = {}) {
+  const listEl = document.getElementById(npcOnly ? 'composer-mention-npcs-list' : 'composer-mention-players-list');
+  if (!listEl) return;
+  listEl.innerHTML = '';
+  const nameInputId = npcOnly ? 'composer-mention-npc-name' : 'composer-mention-player-name';
+  const filtered = filterBoardTokens(tokens, {
+    nameQ: document.getElementById(nameInputId)?.value || '',
+    npcOnly
+  });
+  if (!filtered.length) {
+    listEl.innerHTML = npcOnly
+      ? '<p class="small text-muted mb-0">No hay NPCs en el tablero.</p>'
+      : '<p class="small text-muted mb-0">No hay personajes en el tablero.</p>';
+    return;
+  }
+  filtered.forEach((token) => {
+    const btn = renderBoardMentionPickerItem(token, (selected) => {
+      selectMentionEntity({ id: selected.id, token: selected }, btn);
+    });
+    listEl.appendChild(btn);
+  });
+}
+
+function renderMentionModalLists() {
+  if (mentionModalMode === 'board') {
+    const tokens = mentionGetBoardTokens() || [];
+    renderBoardMentionList(tokens, { npcOnly: false });
+    renderBoardMentionList(tokens, { npcOnly: true });
+    return;
+  }
+  renderPartyMentionList(mentionGetPartyRoster() || []);
+}
+
+function setMentionModalLayout(mode) {
+  const isBoard = mode === 'board';
+  document.getElementById('composer-mention-tabs')?.classList.toggle('d-none', !isBoard);
+  document.getElementById('composer-mention-player-class')?.closest('.col-md-6')?.classList.toggle('d-none', isBoard);
+  document.getElementById('composer-mention-npc-class')?.closest('.col-md-4')?.classList.toggle('d-none', isBoard);
+  document.getElementById('composer-mention-npc-era')?.closest('.col-md-4')?.classList.toggle('d-none', isBoard);
+  if (!isBoard) {
+    document.getElementById('composer-mention-npcs-panel')?.classList.add('d-none');
+    document.getElementById('composer-mention-players-panel')?.classList.remove('d-none');
+  }
+}
+
+function openMentionModal({ mode, getPartyRoster, getBoardTokens, onInsert }) {
   ensureModals();
+  mentionModalMode = mode || 'party';
+  mentionGetPartyRoster = getPartyRoster || (() => []);
+  mentionGetBoardTokens = getBoardTokens || (() => []);
   mentionPendingInsert = (id) => {
     onInsert(id);
     mentionPendingInsert = null;
@@ -345,48 +466,33 @@ function openMentionModal({ getPlayers, getNpcs, onInsert }) {
   selectedMentionEntity = null;
   document.getElementById('composer-mention-confirm').disabled = true;
 
-  const players = getPlayers() || [];
-  const npcs = getNpcs() || [];
+  document.getElementById('composer-mention-player-name').value = '';
+  document.getElementById('composer-mention-player-class').value = '';
+  document.getElementById('composer-mention-npc-name').value = '';
+  document.getElementById('composer-mention-npc-class').value = '';
+  document.getElementById('composer-mention-npc-era').value = '';
 
-  mentionPlayersPicker = initCharacterPicker({
-    listEl: document.getElementById('composer-mention-players-list'),
-    nameInput: document.getElementById('composer-mention-player-name'),
-    classSelect: document.getElementById('composer-mention-player-class'),
-    characters: players,
-    onSelect: (char) => {
-      selectedMentionEntity = char;
-      document.getElementById('composer-mention-confirm').disabled = !char;
-    }
-  });
+  populateMentionClassSelect();
 
-  mentionNpcsPicker = initNpcPicker({
-    listEl: document.getElementById('composer-mention-npcs-list'),
-    nameInput: document.getElementById('composer-mention-npc-name'),
-    classSelect: document.getElementById('composer-mention-npc-class'),
-    eraSelect: document.getElementById('composer-mention-npc-era'),
-    npcs,
-    onSelect: (npc) => {
-      selectedMentionEntity = npc;
-      document.getElementById('composer-mention-confirm').disabled = !npc;
-    }
-  });
-
-  if (!players.length) {
-    document.getElementById('composer-mention-players-list').innerHTML =
-      '<p class="small text-muted mb-0">No hay jugadores disponibles.</p>';
-  }
-  if (!npcs.length) {
-    document.getElementById('composer-mention-npcs-list').innerHTML =
-      '<p class="small text-muted mb-0">No hay NPCs disponibles.</p>';
+  if (mentionModalMode === 'board') {
+    const tokens = mentionGetBoardTokens() || [];
+    const playerTokens = filterBoardTokens(tokens, { npcOnly: false });
+    const npcTokens = filterBoardTokens(tokens, { npcOnly: true });
+    mentionTab = playerTokens.length ? 'players' : 'npcs';
+  } else {
+    mentionTab = 'players';
   }
 
-  mentionTab = players.length ? 'players' : 'npcs';
+  setMentionModalLayout(mentionModalMode);
   document.querySelectorAll('#composer-mention-tabs .nav-link').forEach((el) => {
     el.classList.toggle('active', el.dataset.composerMentionTab === mentionTab);
   });
-  document.getElementById('composer-mention-players-panel')?.classList.toggle('d-none', mentionTab !== 'players');
-  document.getElementById('composer-mention-npcs-panel')?.classList.toggle('d-none', mentionTab !== 'npcs');
+  if (mentionModalMode === 'board') {
+    document.getElementById('composer-mention-players-panel')?.classList.toggle('d-none', mentionTab !== 'players');
+    document.getElementById('composer-mention-npcs-panel')?.classList.toggle('d-none', mentionTab !== 'npcs');
+  }
 
+  renderMentionModalLists();
   mentionModal.show();
 }
 
@@ -419,11 +525,17 @@ function openImageModal(onInsert) {
 /**
  * @param {HTMLTextAreaElement} textarea
  * @param {object} opts
- * @param {() => Array} opts.getPlayers
- * @param {() => Array} opts.getNpcs
+ * @param {'party'|'board'} [opts.mentionMode]
+ * @param {() => Array} [opts.getPartyRoster]
+ * @param {() => Array} [opts.getBoardTokens]
  * @param {(id: string) => object|null} opts.resolveMention
  */
-export function mountNarrativeComposer(textarea, { getPlayers, getNpcs, resolveMention } = {}) {
+export function mountNarrativeComposer(textarea, {
+  mentionMode = 'party',
+  getPartyRoster,
+  getBoardTokens,
+  resolveMention
+} = {}) {
   if (!textarea) return null;
   ensureModals();
 
@@ -459,8 +571,9 @@ export function mountNarrativeComposer(textarea, { getPlayers, getNpcs, resolveM
     const action = btn.dataset.composerAction;
     if (action === 'mention') {
       openMentionModal({
-        getPlayers,
-        getNpcs,
+        mode: mentionMode,
+        getPartyRoster,
+        getBoardTokens,
         onInsert: (id) => {
           const snapshot = resolveMention?.(id);
           if (snapshot) insertNodeAtSelection(editor, createMentionChip(snapshot, id));

@@ -14,7 +14,7 @@ import { inferBoardTokenKind } from './board-vision.js';
 import { getMemberPlaySource } from './party-members.js';
 import { buildBoardTokenMap } from './party-markup.js';
 import { loadAllNpcs, npcToCardData } from './npcs.js';
-import { mountNarrativeComposer, tokenToPickerEntity } from './narrative-composer.js';
+import { mountNarrativeComposer } from './narrative-composer.js';
 
 function escapeHtml(str) {
   return String(str)
@@ -601,36 +601,10 @@ export function initBoardCombatUi(ctx) {
     return boardNpcs.find((n) => n.id === id) || null;
   }
 
-  function getBoardPlayerEntities() {
-    const items = [...roster];
-    const seen = new Set(items.map((c) => c.id));
-    board.tokens.forEach((token) => {
-      if (token.kind === 'npc') return;
-      if (!seen.has(token.id)) {
-        items.push(tokenToPickerEntity(token));
-        seen.add(token.id);
-      }
-    });
-    return items;
-  }
-
-  function getBoardNpcEntities() {
-    const items = [...boardNpcs];
-    const seen = new Set(items.map((n) => n.id));
-    board.tokens.forEach((token) => {
-      if (token.kind !== 'npc') return;
-      if (!seen.has(token.id)) {
-        items.push(tokenToPickerEntity(token));
-        seen.add(token.id);
-      }
-    });
-    return items;
-  }
-
   if (actionText && !actionComposer) {
     actionComposer = mountNarrativeComposer(actionText, {
-      getPlayers: getBoardPlayerEntities,
-      getNpcs: getBoardNpcEntities,
+      mentionMode: 'board',
+      getBoardTokens: () => board.tokens || [],
       resolveMention: resolveBoardMention
     });
   }

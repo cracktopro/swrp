@@ -67,8 +67,8 @@ export async function initPartyPage({ user, profile, partyId, ui }) {
   });
 
   const narrativeComposer = mountNarrativeComposer(narrativeText, {
-    getPlayers: () => partyRoster,
-    getNpcs: () => partyNpcs,
+    mentionMode: 'party',
+    getPartyRoster: () => partyRoster,
     resolveMention: (id) => mentionMap.get(id) || null
   });
 
