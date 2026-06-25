@@ -5,6 +5,11 @@ import {
   getUnlockableSkillLevels,
   getSpeciesList,
   loadCompendiumData,
+  getCustomSkills,
+  findCustomSkillById,
+  mergeCustomSkills,
+  normalizeCustomSkill,
+  CUSTOM_SKILLS_CLASS,
   GAME_DATA
 } from './compendium-store.js';
 import {
@@ -22,6 +27,8 @@ import { characterViewUrl } from './character-url.js';
 import { appUrl } from './app-path.js';
 
 let selectedSkills = [];
+let pendingCustomSkills = [];
+let npcSkillSource = 'class';
 let editingCharacterId = null;
 let editingNpcId = null;
 let mode = 'hero';
@@ -63,11 +70,29 @@ function populateEraSelect() {
   sel.innerHTML = buildNpcEraFormOptions(DEFAULT_NPC_ERA);
 }
 
+function isKnownCustomSkillId(skillId) {
+  return !!findCustomSkillById(skillId)
+    || pendingCustomSkills.some((s) => s.id === skillId);
+}
+
+function countSelectedClassSkills() {
+  return selectedSkills.filter((id) => !isKnownCustomSkillId(id)).length;
+}
+
+function resolveSelectedSkill(skillId, classKey, level) {
+  const fromClass = getSkillsForClass(classKey, level).find((s) => s.id === skillId);
+  if (fromClass) return fromClass;
+  return findCustomSkillById(skillId)
+    || pendingCustomSkills.find((s) => s.id === skillId)
+    || null;
+}
+
 function syncNpcOnlyFields() {
   const isNpc = isNpcMode();
   document.getElementById('char-era-wrap')?.classList.toggle('d-none', !isNpc);
   document.getElementById('stats-edit-wrap')?.classList.toggle('d-none', !isNpc);
   document.getElementById('char-level-wrap')?.classList.toggle('d-none', isNpc);
+  document.getElementById('npc-custom-skills-wrap')?.classList.toggle('d-none', !isNpc);
 }
 
 function populateSpeciesSelect() {
@@ -127,6 +152,7 @@ export async function initCharacterCreator(userId, { characterId = null, npcId =
   populateEraSelect();
   setupCreatorTabs(isAdmin);
   bindFormEvents(userId);
+  bindCustomSkillForm();
   syncNpcOnlyFields();
 
   if (npcId) {
@@ -145,6 +171,8 @@ export async function initCharacterCreator(userId, { characterId = null, npcId =
     applyEntityToForm(result.character);
   } else {
     statsOverride = null;
+    pendingCustomSkills = [];
+    npcSkillSource = 'class';
     syncStatsFieldsFromBase();
     updateSkillPicker();
     updatePreview();
@@ -170,6 +198,8 @@ function setupCreatorTabs(isAdmin) {
       editingCharacterId = null;
       editingNpcId = null;
       selectedSkills = [];
+      pendingCustomSkills = [];
+      npcSkillSource = 'class';
       statsOverride = null;
       document.querySelectorAll('#creator-tabs [data-creator-mode]').forEach((b) => {
         b.classList.toggle('active', b.dataset.creatorMode === mode);
@@ -238,6 +268,7 @@ function onFormChange(e) {
   if (e.target.id === 'portrait-url') hideSaveAlert();
   if (['char-class'].includes(e.target.id) && isNpcMode()) {
     if (!statsOverride) syncStatsFieldsFromBase();
+    selectedSkills = selectedSkills.filter((id) => isKnownCustomSkillId(id));
   } else if (['char-class', 'char-level'].includes(e.target.id)) {
     selectedSkills = [];
     if (!isNpcMode()) syncStatsFieldsFromBase();
@@ -260,6 +291,8 @@ function applyEntityToForm(entity) {
   selectedSkills = (entity.skills || [])
     .map((s) => (typeof s === 'string' ? s : s?.id))
     .filter(Boolean);
+  pendingCustomSkills = [];
+  npcSkillSource = 'class';
   if (isNpcMode()) {
     statsOverride = {
       hp: entity.hp ?? entity.maxHp ?? entity.currentHp ?? 0,
@@ -299,9 +332,9 @@ function getFormCharacter() {
     ? NPC_SKILL_LEVEL
     : (parseInt(document.getElementById('char-level').value, 10) || 1);
   const stats = isNpcMode() ? readStatsFromFields() : (getStats(classKey, level) || {});
-  const skillObjs = selectedSkills.map((id) =>
-    getSkillsForClass(classKey, level).find((s) => s.id === id)
-  ).filter(Boolean);
+  const skillObjs = selectedSkills
+    .map((id) => resolveSelectedSkill(id, classKey, level))
+    .filter(Boolean);
 
   const char = {
     name: document.getElementById('char-name').value.trim() || 'Sin nombre',
@@ -347,6 +380,12 @@ function updateSkillPicker() {
     ? NPC_SKILL_LEVEL
     : (parseInt(document.getElementById('char-level').value, 10) || 1);
   const container = document.getElementById('skills-picker');
+
+  if (isNpcMode()) {
+    renderNpcSkillPicker(container, classKey, level);
+    return;
+  }
+
   const available = getSkillsForClass(classKey, level)
     .filter((s) => s.unlockLevel !== 'always' && s.type !== 'Rol');
 
@@ -390,6 +429,137 @@ function updateSkillPicker() {
       section.appendChild(label);
     });
     container.appendChild(section);
+  });
+}
+
+function renderNpcSkillPicker(container, classKey, level) {
+  const unlockLevels = getUnlockableSkillLevels(level);
+  const maxClassSlots = Math.min(GAME_DATA.MAX_SKILLS, unlockLevels.length);
+  const classSlotsUsed = countSelectedClassSkills();
+  const customSelected = selectedSkills.filter((id) => isKnownCustomSkillId(id)).length;
+
+  container.innerHTML = `
+    <div class="row g-2 mb-3 align-items-end">
+      <div class="col-md-6">
+        <label class="form-label small mb-1">Origen de habilidades</label>
+        <select class="form-select form-select-sm" id="npc-skill-source">
+          <option value="class">Clase del NPC</option>
+          <option value="otros">${escapeHtml(CUSTOM_SKILLS_CLASS)}</option>
+        </select>
+      </div>
+      <div class="col-md-6">
+        <p class="small text-muted mb-0">Clase: ${classSlotsUsed}/${maxClassSlots} · ${escapeHtml(CUSTOM_SKILLS_CLASS)}: ${customSelected}</p>
+      </div>
+    </div>
+    <div id="npc-skill-list"></div>`;
+
+  const sourceSel = container.querySelector('#npc-skill-source');
+  sourceSel.value = npcSkillSource;
+  sourceSel.addEventListener('change', (e) => {
+    npcSkillSource = e.target.value;
+    renderNpcSkillList(container.querySelector('#npc-skill-list'), classKey, level, maxClassSlots);
+  });
+
+  renderNpcSkillList(container.querySelector('#npc-skill-list'), classKey, level, maxClassSlots);
+}
+
+function renderNpcSkillList(listEl, classKey, level, maxClassSlots) {
+  if (!listEl) return;
+  listEl.innerHTML = '';
+
+  if (npcSkillSource === 'otros') {
+    const customSkills = [
+      ...getCustomSkills(),
+      ...pendingCustomSkills.filter((p) => !getCustomSkills().some((s) => s.id === p.id))
+    ].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es'));
+
+    if (!customSkills.length) {
+      listEl.innerHTML = '<p class="small text-muted">Aún no hay habilidades en «Otros». Crea una abajo.</p>';
+      return;
+    }
+
+    customSkills.forEach((skill) => {
+      const checked = selectedSkills.includes(skill.id);
+      const label = document.createElement('label');
+      label.className = 'd-block small mb-1';
+      label.innerHTML = `
+        <input type="checkbox" value="${escapeAttr(skill.id)}" ${checked ? 'checked' : ''}>
+        <span class="swrp-skill-badge ${skillTypeClass(skill.type)}">${escapeHtml(skill.type)}</span>
+        <strong>${escapeHtml(skill.name)}</strong> — ${escapeHtml(skill.description)}`;
+      label.querySelector('input').addEventListener('change', (e) => {
+        if (e.target.checked) {
+          if (!selectedSkills.includes(skill.id)) selectedSkills.push(skill.id);
+        } else {
+          selectedSkills = selectedSkills.filter((sid) => sid !== skill.id);
+        }
+        updateSkillPicker();
+        updatePreview();
+      });
+      listEl.appendChild(label);
+    });
+    return;
+  }
+
+  const available = getSkillsForClass(classKey, level)
+    .filter((s) => s.unlockLevel !== 'always' && s.type !== 'Rol');
+  const classSlotsUsed = countSelectedClassSkills();
+  const grouped = {};
+  available.forEach((s) => {
+    const lv = s.unlockLevel;
+    if (!grouped[lv]) grouped[lv] = [];
+    grouped[lv].push(s);
+  });
+
+  Object.entries(grouped).forEach(([lv, skillList]) => {
+    const section = document.createElement('div');
+    section.className = 'mb-2';
+    section.innerHTML = `<div class="text-gold small mb-1">Nivel ${lv}</div>`;
+    skillList.forEach((skill) => {
+      const checked = selectedSkills.includes(skill.id);
+      const label = document.createElement('label');
+      label.className = 'd-block small mb-1';
+      label.innerHTML = `
+        <input type="checkbox" value="${escapeAttr(skill.id)}" ${checked ? 'checked' : ''}
+          ${!checked && classSlotsUsed >= maxClassSlots ? 'disabled' : ''}>
+        <span class="swrp-skill-badge ${skillTypeClass(skill.type)}">${escapeHtml(skill.type)}</span>
+        <strong>${escapeHtml(skill.name)}</strong> — ${escapeHtml(skill.description)}`;
+      label.querySelector('input').addEventListener('change', (e) => {
+        if (e.target.checked) {
+          if (countSelectedClassSkills() < maxClassSlots) selectedSkills.push(skill.id);
+        } else {
+          selectedSkills = selectedSkills.filter((sid) => sid !== skill.id);
+        }
+        updateSkillPicker();
+        updatePreview();
+      });
+      section.appendChild(label);
+    });
+    listEl.appendChild(section);
+  });
+}
+
+function bindCustomSkillForm() {
+  const form = document.getElementById('npc-custom-skill-form');
+  if (!form || form.dataset.bound) return;
+  form.dataset.bound = '1';
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = document.getElementById('npc-custom-skill-name')?.value.trim();
+    const type = document.getElementById('npc-custom-skill-type')?.value || 'Activa';
+    const description = document.getElementById('npc-custom-skill-desc')?.value.trim() || '';
+    if (!name) {
+      showSaveAlert('Indica un nombre para la habilidad custom.');
+      return;
+    }
+    hideSaveAlert();
+    const skill = normalizeCustomSkill({ name, type, description });
+    pendingCustomSkills.push(skill);
+    if (!selectedSkills.includes(skill.id)) selectedSkills.push(skill.id);
+    form.reset();
+    document.getElementById('npc-custom-skill-type').value = 'Activa';
+    npcSkillSource = 'otros';
+    updateSkillPicker();
+    updatePreview();
   });
 }
 
@@ -441,6 +611,11 @@ async function saveNpc(userId) {
   const portraitUrl = getPortraitUrlInput();
   if (!isValidPortraitUrl(portraitUrl)) {
     throw new Error('La URL del retrato debe empezar por http:// o https://');
+  }
+
+  if (pendingCustomSkills.length) {
+    await mergeCustomSkills(pendingCustomSkills);
+    pendingCustomSkills = [];
   }
 
   const char = getFormCharacter();

@@ -1,4 +1,4 @@
-import { getStats, formatAttack, findSkillById, GAME_DATA } from './compendium-store.js';
+import { getStats, formatAttack, findSkillById, findCustomSkillById, GAME_DATA } from './compendium-store.js';
 import { CARD_LOGO_SRC } from './assets.js';
 
 export function getClassMeta(classKey) {
@@ -86,9 +86,9 @@ export function renderCharacterCard(character, options = {}) {
         defense: boardContext.defense ?? stats.defense
       }
     : stats;
-  const skills = (char.skills || []).map((s) =>
-    typeof s === 'string' ? findSkillById(char.class, s) : s
-  ).filter(Boolean);
+  const skills = (char.skills || [])
+    .map((s) => resolveSkillRef(s, char.class))
+    .filter(Boolean);
 
   const rolSkills = (GAME_DATA.skills[char.class] || [])
     .filter((s) => s.unlockLevel === 'always');
@@ -261,6 +261,13 @@ function statRow(label, value, hexClass = '') {
       <div class="swrp-card__stat-bar"></div>
       <div class="swrp-card__hex ${hexMods}">${escapeHtml(String(value))}</div>
     </div>`;
+}
+
+function resolveSkillRef(skillRef, classKey) {
+  if (skillRef && typeof skillRef === 'object' && skillRef.name) return skillRef;
+  const id = typeof skillRef === 'string' ? skillRef : skillRef?.id;
+  if (!id) return null;
+  return findSkillById(classKey, id) || findCustomSkillById(id);
 }
 
 function renderSkillItem(skill) {

@@ -11,6 +11,9 @@ const COMPENDIUM_DOC = doc(db, 'compendium', 'data');
 
 const DERIVED_SEED_CLASSES = ['Guerrero Sith', 'Inquisidor Sith', 'Cazarrecompensas'];
 
+/** Habilidades personalizadas de NPC (no ligadas a una clase de juego). */
+export const CUSTOM_SKILLS_CLASS = 'Otros';
+
 let progression = null;
 let skills = null;
 let speciesList = null;
@@ -34,6 +37,56 @@ function cloneBoards() {
   return [];
 }
 
+function ensureCustomSkillsBucket(current) {
+  if (!current[CUSTOM_SKILLS_CLASS]) current[CUSTOM_SKILLS_CLASS] = [];
+  return current;
+}
+
+export function getCustomSkills() {
+  return [...(getCompendiumSkills()[CUSTOM_SKILLS_CLASS] || [])];
+}
+
+export function getSkillsClassList() {
+  return [
+    ...getClassList(),
+    { key: CUSTOM_SKILLS_CLASS, label: CUSTOM_SKILLS_CLASS, theme: 'default', color: '#9e9e9e' }
+  ];
+}
+
+export function generateCustomSkillId(name) {
+  const slug = String(name || 'habilidad')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 40) || 'habilidad';
+  return `otros-${slug}-${Date.now().toString(36)}`;
+}
+
+export function normalizeCustomSkill(raw) {
+  const type = raw?.type === 'Pasiva' ? 'Pasiva' : 'Activa';
+  const name = String(raw?.name || '').trim();
+  return {
+    id: String(raw?.id || generateCustomSkillId(name)).trim(),
+    name,
+    type,
+    description: String(raw?.description || '').trim(),
+    class: CUSTOM_SKILLS_CLASS,
+    unlockLevel: 1,
+    forceCost: 0,
+    custom: true
+  };
+}
+
+export function findCustomSkillById(skillId) {
+  return (getCompendiumSkills()[CUSTOM_SKILLS_CLASS] || []).find((s) => s.id === skillId) || null;
+}
+
+export function isCustomSkillId(skillId) {
+  return !!findCustomSkillById(skillId);
+}
+
 function getTargetSeedVersion() {
   return GAME_DATA.COMPENDIUM_SEED_VERSION || 1;
 }
@@ -45,6 +98,7 @@ export function isCompendiumSeedStale() {
 function applyDerivedSeedMerge() {
   const seedSkills = cloneSkills();
   const seedProgression = cloneProgression();
+  const otros = getCompendiumSkills()[CUSTOM_SKILLS_CLASS] || [];
   skills = { ...getCompendiumSkills() };
   progression = { ...getCompendiumProgression() };
 
@@ -52,6 +106,8 @@ function applyDerivedSeedMerge() {
     if (seedSkills[cls]) skills[cls] = seedSkills[cls];
     if (seedProgression[cls]) progression[cls] = seedProgression[cls];
   }
+  skills[CUSTOM_SKILLS_CLASS] = otros;
+  ensureCustomSkillsBucket(skills);
 }
 
 async function persistCompendium(partial = {}) {
@@ -99,6 +155,7 @@ export async function loadCompendiumData() {
     applyDerivedSeedMerge();
   }
 
+  ensureCustomSkillsBucket(skills);
   loaded = true;
   return {
     progression,
@@ -186,7 +243,9 @@ export function getSkillsForClass(classKey, characterLevel) {
 }
 
 export function findSkillById(classKey, skillId) {
-  return (getCompendiumSkills()[classKey] || []).find((s) => s.id === skillId);
+  const fromClass = (getCompendiumSkills()[classKey] || []).find((s) => s.id === skillId);
+  if (fromClass) return fromClass;
+  return findCustomSkillById(skillId);
 }
 
 export async function saveClassProgression(classKey, levelStats) {
@@ -203,6 +262,19 @@ export async function saveClassSkills(classKey, skillList) {
   await persistCompendium({ skills: current });
 }
 
+export async function mergeCustomSkills(newSkills) {
+  const merged = [...getCustomSkills()];
+  for (const raw of newSkills || []) {
+    const skill = normalizeCustomSkill(raw);
+    if (!skill.name) continue;
+    const idx = merged.findIndex((s) => s.id === skill.id);
+    if (idx >= 0) merged[idx] = skill;
+    else merged.push(skill);
+  }
+  await saveClassSkills(CUSTOM_SKILLS_CLASS, merged);
+  return merged;
+}
+
 export async function saveSpeciesList(list) {
   const trimmed = list.map((s) => String(s).trim()).filter(Boolean);
   if (!trimmed.length) throw new Error('Debe haber al menos una especie.');
@@ -211,8 +283,10 @@ export async function saveSpeciesList(list) {
 }
 
 export async function resetCompendiumToDefaults() {
+  const otros = getCustomSkills();
   progression = cloneProgression();
   skills = cloneSkills();
+  skills[CUSTOM_SKILLS_CLASS] = otros;
   speciesList = cloneSpecies();
   boardsList = cloneBoards();
   firestoreSeedVersion = getTargetSeedVersion();

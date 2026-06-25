@@ -242,8 +242,17 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 
 - Progresión 1–20, habilidades por clase, especies.
 - Pestañas: Progresión, Habilidades, Especies, NPCs, **Tableros** (mapas VTT reutilizables, solo admin edita).
+- **Habilidades → Otros:** catálogo de habilidades personalizadas creadas para NPCs (Activa/Pasiva; nombre y descripción). No forman parte de las clases de juego.
 - Galería NPC con filtros.
 - Admin: CRUD completo; no admin: solo lectura.
+
+### 8.5.1 Habilidades custom en NPCs (`character-creator.js`)
+
+- Al crear/editar NPC (admin), además de las habilidades de su clase (máx. 4 + Rol):
+  - **Origen «Otros»** en el selector de habilidades: reutilizar personalizadas ya guardadas en el compendio.
+  - **Formulario «Nueva habilidad custom»:** tipo Activa o Pasiva, nombre y descripción; se selecciona al añadir y se persiste en `compendium/data.skills.Otros` al guardar el NPC.
+- En la carta (`character-card.js`) se renderizan con el mismo estilo que las habilidades de clase.
+- Los NPCs siguen guardando `skills: [skillId, ...]` (IDs de clase u `otros-…` del compendio).
 
 ### 8.7 Administración (`admin.html` + `admin.js`)
 
@@ -289,8 +298,11 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 ### `compendium/data`
 ```js
 {
-  progression: { [classKey]: { levels: { [n]: { hp, defense, ... } } } },
-  skills: { [skillId]: { name, class, type, ... } },
+  progression: { [classKey]: { [n]: { hp, defense, attack, damage, force } } },
+  skills: {
+    [classKey]: [{ id, name, type, unlockLevel, description, class, forceCost }, ...],
+    Otros: [{ id, name, type: 'Activa'|'Pasiva', description, class: 'Otros', unlockLevel: 1, custom: true }, ...]
+  },
   species: ['Humanos', ...],
   boards: [{ id, name, mapUrl, cols, rows, cellWidth, cellHeight }],
   seedVersion: number,
@@ -445,6 +457,7 @@ Funciones auxiliares en reglas: `isAdmin`, `isPartyMember`, `isPartyGM`, `isEsca
 ### Pipeline xlsx
 - `estadisticas.xlsx` → progresión por clase y nivel
 - `habilidades.xlsx` → habilidades (desbloqueo niveles 1/5/10/15; máx. 4 + Rol)
+- Habilidades **Otros** (NPC): solo en Firestore / UI admin; no vienen del xlsx.
 - `npm run build` → `public/js/game-data.js`
 
 ### Clases y temas CSS (`theme-*`)

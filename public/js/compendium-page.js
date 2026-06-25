@@ -5,6 +5,9 @@ import {
   getClassList,
   getCompendiumProgression,
   getCompendiumSkills,
+  getSkillsClassList,
+  CUSTOM_SKILLS_CLASS,
+  normalizeCustomSkill,
   getSpeciesList,
   saveClassProgression,
   saveClassSkills,
@@ -73,7 +76,8 @@ export async function initCompendiumPage({ isAdmin }) {
   const classSelects = ['stats-class', 'skills-class'];
   classSelects.forEach((id) => {
     const sel = document.getElementById(id);
-    sel.innerHTML = getClassList()
+    const list = id === 'skills-class' ? getSkillsClassList() : getClassList();
+    sel.innerHTML = list
       .map((c) => `<option value="${c.key}">${c.label}</option>`)
       .join('');
   });
@@ -106,7 +110,7 @@ export async function initCompendiumPage({ isAdmin }) {
 
   const firstClass = getClassList()[0]?.key;
   renderStatsTable(firstClass, isAdmin);
-  renderSkillsList(firstClass, isAdmin);
+  renderSkillsList(getSkillsClassList()[0]?.key || firstClass, isAdmin);
   renderSpeciesList(isAdmin);
   renderBoardsList(isAdmin);
   await renderNpcs(isAdmin);
@@ -215,6 +219,7 @@ async function saveStatsFromTable() {
 function renderSkillsList(classKey, isAdmin) {
   const container = document.getElementById('skills-list');
   container.dataset.classKey = classKey;
+  const isOtros = classKey === CUSTOM_SKILLS_CLASS;
   const skills = getCompendiumSkills()[classKey] || [];
   container.innerHTML = skills.map((s, idx) => `
     <div class="swrp-comp-skill-row mb-3 pb-2 border-bottom border-secondary" data-skill-idx="${idx}">
@@ -222,7 +227,7 @@ function renderSkillsList(classKey, isAdmin) {
         <div>
           <strong class="text-gold">${escapeHtml(s.name)}</strong>
           <span class="swrp-skill-badge ${skillTypeBadgeClass(s.type)} ms-2">${escapeHtml(s.type)}</span>
-          <span class="text-muted small ms-2">Nv. ${s.unlockLevel}</span>
+          <span class="text-muted small ms-2">${isOtros ? 'Personalizada (NPC)' : `Nv. ${s.unlockLevel}`}</span>
         </div>
         ${isAdmin ? `<div class="d-flex gap-1">
           <button type="button" class="btn btn-sm btn-swrp btn-swrp-ghost btn-edit-skill" data-idx="${idx}">Editar</button>
@@ -230,7 +235,7 @@ function renderSkillsList(classKey, isAdmin) {
         </div>` : ''}
       </div>
       <p class="mb-0 small mt-1">${escapeHtml(s.description)}</p>
-    </div>`).join('') || '<p class="text-muted">Sin habilidades para esta clase.</p>';
+    </div>`).join('') || `<p class="text-muted">${isOtros ? 'Sin habilidades personalizadas. Se añaden al crear o editar NPCs.' : 'Sin habilidades para esta clase.'}</p>`;
 
   if (isAdmin) {
     container.querySelectorAll('.btn-edit-skill').forEach((btn) => {
@@ -244,15 +249,17 @@ function renderSkillsList(classKey, isAdmin) {
 
 function openSkillModal(skillIdx) {
   const classKey = document.getElementById('skills-list').dataset.classKey;
+  const isOtros = classKey === CUSTOM_SKILLS_CLASS;
   const skills = getCompendiumSkills()[classKey] || [];
   const skill = skillIdx != null ? skills[skillIdx] : {
-    id: `${classKey}-nueva-habilidad`.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+    id: isOtros ? `otros-nueva-habilidad-${Date.now().toString(36)}` : `${classKey}-nueva-habilidad`.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
     name: '',
-    unlockLevel: 1,
+    unlockLevel: isOtros ? 1 : 1,
     type: 'Activa',
     description: '',
     class: classKey,
-    forceCost: 0
+    forceCost: 0,
+    custom: isOtros
   };
 
   document.getElementById('skill-edit-idx').value = skillIdx ?? '';
@@ -263,23 +270,37 @@ function openSkillModal(skillIdx) {
   document.getElementById('skill-edit-type').value = skill.type;
   document.getElementById('skill-edit-desc').value = skill.description;
 
+  document.getElementById('skill-edit-unlock-wrap')?.classList.toggle('d-none', isOtros);
+  document.getElementById('skill-edit-id-wrap')?.classList.toggle('d-none', isOtros);
+  const typeSel = document.getElementById('skill-edit-type');
+  typeSel.querySelector('option[value="Rol"]')?.toggleAttribute('hidden', isOtros);
+  if (isOtros && skill.type === 'Rol') typeSel.value = 'Activa';
+
   bootstrap.Modal.getOrCreateInstance(document.getElementById('skillModal')).show();
 }
 
 async function saveSkillFromModal() {
   const classKey = document.getElementById('skill-edit-class').value;
+  const isOtros = classKey === CUSTOM_SKILLS_CLASS;
   const idxRaw = document.getElementById('skill-edit-idx').value;
-  const skill = {
-    id: document.getElementById('skill-edit-id').value.trim(),
-    name: document.getElementById('skill-edit-name').value.trim(),
-    unlockLevel: document.getElementById('skill-edit-unlock').value === 'always'
-      ? 'always'
-      : parseInt(document.getElementById('skill-edit-unlock').value, 10),
-    type: document.getElementById('skill-edit-type').value,
-    description: document.getElementById('skill-edit-desc').value.trim(),
-    class: classKey,
-    forceCost: 0
-  };
+  const skill = isOtros
+    ? normalizeCustomSkill({
+      id: document.getElementById('skill-edit-id').value.trim(),
+      name: document.getElementById('skill-edit-name').value.trim(),
+      type: document.getElementById('skill-edit-type').value,
+      description: document.getElementById('skill-edit-desc').value.trim()
+    })
+    : {
+      id: document.getElementById('skill-edit-id').value.trim(),
+      name: document.getElementById('skill-edit-name').value.trim(),
+      unlockLevel: document.getElementById('skill-edit-unlock').value === 'always'
+        ? 'always'
+        : parseInt(document.getElementById('skill-edit-unlock').value, 10),
+      type: document.getElementById('skill-edit-type').value,
+      description: document.getElementById('skill-edit-desc').value.trim(),
+      class: classKey,
+      forceCost: 0
+    };
 
   if (!skill.name) {
     alert('Indica un nombre.');

@@ -77,6 +77,30 @@
               <label class="form-label">Habilidades de combate</label>
               <div id="skills-picker"></div>
             </div>
+            <div class="mb-3 d-none" id="npc-custom-skills-wrap">
+              <label class="form-label">Nueva habilidad custom</label>
+              <form id="npc-custom-skill-form" class="swrp-panel p-3">
+                <div class="row g-2 mb-2">
+                  <div class="col-md-4">
+                    <label class="form-label small" for="npc-custom-skill-type">Tipo</label>
+                    <select class="form-select form-select-sm" id="npc-custom-skill-type">
+                      <option value="Activa">Activa</option>
+                      <option value="Pasiva">Pasiva</option>
+                    </select>
+                  </div>
+                  <div class="col-md-8">
+                    <label class="form-label small" for="npc-custom-skill-name">Nombre</label>
+                    <input type="text" class="form-control form-control-sm" id="npc-custom-skill-name" maxlength="60" required>
+                  </div>
+                </div>
+                <div class="mb-2">
+                  <label class="form-label small" for="npc-custom-skill-desc">Descripción</label>
+                  <textarea class="form-control form-control-sm" id="npc-custom-skill-desc" rows="2" maxlength="500"></textarea>
+                </div>
+                <button type="submit" class="btn btn-sm btn-swrp btn-swrp-primary">Añadir y seleccionar</button>
+                <p class="form-text small text-muted mb-0 mt-2">Se guarda en el compendio (clase «Otros») al guardar el NPC y podrá reutilizarse en otros NPCs.</p>
+              </form>
+            </div>
             <button type="submit" id="save-btn" class="btn btn-swrp btn-swrp-primary">Guardar Personaje</button>
           </form>
         </section>
