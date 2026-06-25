@@ -427,6 +427,8 @@
     import { loadAllNpcs, npcToCardData } from './js/npcs.js';
     import { loadCompendiumData } from './js/compendium-store.js';
     import { renderCharacterCard, normalizeCharacter } from './js/character-card.js';
+    import { loadCharacterById } from './js/characters.js';
+    import { openInventoryModal } from './js/inventory-modal.js';
     import { initBoardPage } from './js/board-page.js';
     import { initBoardCombatUi } from './js/board-combat.js';
     import { initBoardProgressUi } from './js/board-progress.js';
@@ -440,6 +442,7 @@
     let roster = [];
     let npcs = [];
     let escaramuzaSpawnsEditor = null;
+    let invCtx = null;
 
     function escapeHtml(str) {
       return String(str)
@@ -508,9 +511,31 @@
       }
       if (!snap) return;
       const character = normalizeCharacter(snap, snap.id || token.sourceId);
+      if (canManageTokenInventory(token)) {
+        cardOpts.inventory = { onOpen: () => openBoardInventory(token) };
+      }
       appendCardToModal(renderCharacterCard(character, cardOpts));
       document.getElementById('charModalLabel').textContent = character.name;
       charModal.show();
+    }
+
+    function canManageTokenInventory(token) {
+      return !!invCtx
+        && invCtx.partyType === 'Campaña'
+        && token.kind !== 'npc'
+        && token.sourceId === invCtx.userSourceId;
+    }
+
+    async function openBoardInventory(token) {
+      const res = await loadCharacterById(token.sourceId, invCtx.userId);
+      const character = res?.character;
+      if (!character) return;
+      charModal.hide();
+      openInventoryModal(character, {
+        partyId: invCtx.partyId,
+        canEdit: true,
+        logUse: (item) => invCtx.board.logItemUse(character, item)
+      });
     }
 
     function openMentionTarget(mentionId) {
@@ -669,6 +694,14 @@
             }
           }
         );
+
+        invCtx = {
+          partyId,
+          partyType: party?.type,
+          board,
+          userId: user.uid,
+          userSourceId: userCharacterSourceId
+        };
 
         await board.loadState();
         board.watchState();

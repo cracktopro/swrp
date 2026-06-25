@@ -241,10 +241,26 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 ### 8.6 Compendio (`compendium.html` + `compendium-page.js`, `compendium-store.js`)
 
 - Progresión 1–20, habilidades por clase, especies.
-- Pestañas: Progresión, Habilidades, Especies, NPCs, **Tableros** (mapas VTT reutilizables, solo admin edita).
+- Pestañas: Progresión, Habilidades, Especies, NPCs, **Tableros** (mapas VTT reutilizables, solo admin edita), **Objetos**.
 - **Habilidades → Otros:** catálogo de habilidades personalizadas creadas para NPCs (Activa/Pasiva; nombre y descripción). No forman parte de las clases de juego.
+- **Objetos** (`compendium/data.items`, solo admin edita): catálogo de objetos para inventarios. Campos: nombre, descripción, imagen (URL del icono), tipo, **peso (KG)** y precio de venta. Por tipo:
+  - **Equipo:** ocupa la ranura especial del inventario (solo uno equipado). Sube una estadística (HP/Defensa/Ataque/Daño/Fuerza) en `statBonus` mientras esté equipado.
+  - **Consumible:** se usa en partida, desaparece y aplica un efecto (estadística + aumento). `temporary: true` → el efecto se revierte al **Finalizar combate**; `false` → permanente. Una cura (HP) nunca supera el máximo del personaje. **Estadística «Ninguna» (`stat: 'none'`):** consumible sin efecto mecánico (llaves, piezas, etc.); solo se gasta y se registra (uso narrativo/rol).
+  - **Sin utilidad:** solo se puede vender.
 - Galería NPC con filtros.
 - Admin: CRUD completo; no admin: solo lectura.
+
+### 8.6.1 Sistema de inventario (`inventory.js`, `inventory-modal.js`)
+
+- Ligado a **personajes de usuario**; el botón de inventario aparece sobre el retrato en la carta y se activa solo en **partidas de tipo Campaña** (`party-page.js`).
+- Modal: rejilla **4×8 (32 casillas)**, ranura de **Equipo** aparte, créditos (icono `icons/creditos.svg`, por defecto 0) y barra de **peso** con aviso de sobrecarga.
+- **Peso máximo por clase (KG):** Guardián Jedi / Guerrero Sith 10 · Cónsul Jedi / Inquisidor Sith 8 · Soldado / Contrabandista 15 · Especialista Técnico / Cazarrecompensas 20 · Noble 12 (`CLASS_MAX_WEIGHT`).
+- **Agrupación:** objetos del mismo tipo comparten casilla (con contador), pero el peso suma por unidad.
+- **Penalización de movimiento (tablero):** normal 6 casillas; si supera el peso máximo → 3; si además la rejilla está llena (32) → 1. El token guarda `moveRange` (recalculado al colocarlo y al cambiar el inventario en partida).
+- **Equipo:** suma su `statBonus` a la estadística (en la carta vía `resolveCharacterStats` y en las stats de combate del token).
+- **Consumibles:** «Usar» elimina 1 unidad. Cura (HP) sube `currentHp`/HP del token hasta el máximo. No-HP permanente → `statBonuses` del personaje; no-HP temporal → se aplica al token y se registra en `token.tempEffects`, revertido en `endCombat` (board.js). Los consumibles **sin efecto** («Ninguna») se usan en foro o tablero.
+- **Acceso desde el tablero:** la carta del personaje propio (Campaña) muestra el botón de inventario; al **usar** un objeto allí se registra en el log de combate `«Personaje» ha utilizado el objeto «X»` (`logEntryItemUse` / `board.logItemUse`, tipo de log `item`).
+- **Vender:** elige cantidad si hay varias; suma `precio × cantidad` a los créditos y descuenta del inventario.
 
 ### 8.5.1 Habilidades custom en NPCs (`character-creator.js`)
 
@@ -280,6 +296,12 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
   skills: [skillId, ...],
   portraitUrl, era?,
   activePartyId?,  // enlace a partida activa
+  // Inventario (solo personajes de usuario):
+  credits: number,                          // por defecto 0
+  inventory: [{ itemId, qty }, ...],        // agrupado por objeto; máx. 32 casillas
+  equippedItemId?: string | null,           // ranura de Equipo (uno)
+  statBonuses?: { [stat]: number },         // bonos permanentes de consumibles
+  currentHp?,
   createdAt, updatedAt
 }
 ```
@@ -305,6 +327,14 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
   },
   species: ['Humanos', ...],
   boards: [{ id, name, mapUrl, cols, rows, cellWidth, cellHeight }],
+  items: [{
+    id, name, description, imageUrl,
+    type: 'Equipo' | 'Consumible' | 'Sin utilidad',
+    weight,           // KG
+    price,            // créditos de venta
+    stat?, statBonus?,        // Equipo y Consumible
+    temporary?                // solo Consumible
+  }, ...],
   seedVersion: number,
   updatedAt
 }
@@ -376,6 +406,8 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
     side: 'ally' | 'enemy',
     col, row, facing?, portraitUrl,
     hp, maxHp, defense, ...
+    moveRange?,          // casillas/acción según peso del inventario (personajes)
+    tempEffects?,        // [{ stat, amount }] efectos temporales de consumibles
     alerted?, spawnCol?, spawnRow?
   }],
   combatStarted: boolean,
@@ -440,8 +472,10 @@ Funciones auxiliares en reglas: `isAdmin`, `isPartyMember`, `isPartyGM`, `isEsca
 | `board-combat.js` | Turnos, iniciativa, dados en tablero |
 | `board-progress.js` | Guardados de progreso del tablero |
 | `board-vision.js` | Conos visión, normalización tokens |
-| `compendium-store.js` | Carga/merge compendio, stats, clases |
-| `compendium-page.js` | UI compendio |
+| `compendium-store.js` | Carga/merge compendio, stats, clases, objetos |
+| `compendium-page.js` | UI compendio (incl. pestaña Objetos) |
+| `inventory.js` | Lógica inventario: peso/clase, slots, moveRange, equipo, consumibles, persistencia |
+| `inventory-modal.js` | Modal inventario (rejilla 4×8, créditos, equipar, vender, usar) |
 | `dice.js` | Utilidades tiradas |
 | `token-stats-editor.js` | Editor stats inline en modal chapa |
 | `admin.js` | Panel admin usuarios |
@@ -458,6 +492,7 @@ Funciones auxiliares en reglas: `isAdmin`, `isPartyMember`, `isPartyGM`, `isEsca
 - `estadisticas.xlsx` → progresión por clase y nivel
 - `habilidades.xlsx` → habilidades (desbloqueo niveles 1/5/10/15; máx. 4 + Rol)
 - Habilidades **Otros** (NPC): solo en Firestore / UI admin; no vienen del xlsx.
+- **Objetos** (`items`): solo en Firestore / UI admin; no vienen del xlsx.
 - `npm run build` → `public/js/game-data.js`
 
 ### Clases y temas CSS (`theme-*`)

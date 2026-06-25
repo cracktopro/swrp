@@ -1,4 +1,5 @@
 import { getStats, formatAttack, findSkillById, findCustomSkillById, GAME_DATA } from './compendium-store.js';
+import { applyPermanentModifiers } from './inventory.js';
 import { CARD_LOGO_SRC } from './assets.js';
 
 export function getClassMeta(classKey) {
@@ -36,6 +37,10 @@ export function normalizeCharacter(data, id = null) {
     attack: data.attack,
     damage: data.damage,
     force: data.force ?? null,
+    credits: Math.max(0, Math.round(Number(data.credits) || 0)),
+    inventory: Array.isArray(data.inventory) ? data.inventory : [],
+    equippedItemId: data.equippedItemId || null,
+    statBonuses: data.statBonuses || {},
     skills: (data.skills || []).map((s) => {
       if (typeof s === 'string') return s;
       if (s?.id && s?.name) return { ...s };
@@ -54,8 +59,9 @@ export function resolveCharacterStats(character) {
   const char = normalizeCharacter(character, character?.id);
   const base = getStats(char.class, char.level) || {};
 
+  let stats;
   if (isHeroCharacter(char)) {
-    return {
+    stats = {
       hp: char.currentHp ?? char.hp ?? base.hp ?? 0,
       maxHp: char.maxHp ?? base.hp ?? 0,
       defense: base.defense ?? 0,
@@ -63,20 +69,30 @@ export function resolveCharacterStats(character) {
       damage: base.damage ?? 0,
       force: base.force ?? null
     };
+  } else {
+    stats = {
+      hp: char.currentHp ?? char.hp ?? base.hp ?? 0,
+      maxHp: char.maxHp ?? base.hp ?? 0,
+      defense: char.defense ?? base.defense ?? 0,
+      attack: char.attack ?? base.attack ?? 0,
+      damage: char.damage ?? base.damage ?? 0,
+      force: char.force ?? base.force ?? null
+    };
   }
 
-  return {
-    hp: char.currentHp ?? char.hp ?? base.hp ?? 0,
-    maxHp: char.maxHp ?? base.hp ?? 0,
-    defense: char.defense ?? base.defense ?? 0,
-    attack: char.attack ?? base.attack ?? 0,
-    damage: char.damage ?? base.damage ?? 0,
-    force: char.force ?? base.force ?? null
-  };
+  if (isHeroCharacter(char)) {
+    const withEquip = applyPermanentModifiers(stats, char);
+    // La cura (hp) nunca supera el máximo (que sí puede subir el equipo).
+    if (withEquip.maxHp != null && withEquip.hp > withEquip.maxHp) {
+      withEquip.hp = withEquip.maxHp;
+    }
+    return withEquip;
+  }
+  return stats;
 }
 
 export function renderCharacterCard(character, options = {}) {
-  const { mini = false, showSkills = true, isNpc = false, copyMentionId = null, boardContext = null } = options;
+  const { mini = false, showSkills = true, isNpc = false, copyMentionId = null, boardContext = null, inventory = null } = options;
   const char = normalizeCharacter(character, character?.id);
   const meta = getClassMeta(char.class);
   const stats = resolveCharacterStats(char);
@@ -147,8 +163,12 @@ export function renderCharacterCard(character, options = {}) {
         </div>
         ${char.portraitUrl ? `
           <div class="swrp-card__portrait">
+            ${inventory ? '<button type="button" class="swrp-card__inventory-btn" title="Inventario" aria-label="Abrir inventario"><span class="swrp-card__inventory-icon">🎒</span></button>' : ''}
             <img src="${escapeHtml(char.portraitUrl)}" alt="${escapeHtml(char.name)}" loading="lazy">
-          </div>` : ''}
+          </div>` : (inventory ? `
+          <div class="swrp-card__portrait swrp-card__portrait--noimg">
+            <button type="button" class="swrp-card__inventory-btn" title="Inventario" aria-label="Abrir inventario"><span class="swrp-card__inventory-icon">🎒</span></button>
+          </div>` : '')}
       </div>
       <div class="swrp-card__skills-panel">
         <h3 class="swrp-card__skills-title">HABILIDADES</h3>
@@ -177,6 +197,13 @@ export function renderCharacterCard(character, options = {}) {
   });
 
   scheduleCardNameFit(card);
+
+  if (inventory && typeof inventory.onOpen === 'function') {
+    card.querySelector('.swrp-card__inventory-btn')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      inventory.onOpen(character);
+    });
+  }
 
   return card;
 }

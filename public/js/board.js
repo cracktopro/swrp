@@ -23,6 +23,7 @@ import {
   resetEnemyVisionToSpawn
 } from './board-vision.js';
 import { swrpConfirm } from './swrp-dialog.js';
+import { revertTemporaryEffectsOnTokens } from './inventory.js';
 import { renderDiceResultHtml } from './dice.js';
 import {
   buildBoardTokenMap,
@@ -82,6 +83,11 @@ const ORTHO_DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
 function defaultTurnActions() {
   return { movesUsed: 0, attacksUsed: 0, activeMode: null, bonusMoves: 0, bonusAttacks: 0 };
+}
+
+function getTokenMoveRange(token) {
+  const r = Number(token?.moveRange);
+  return Number.isFinite(r) && r > 0 ? r : MOVE_RANGE;
 }
 
 function computeOrthogonalReachable(fromCol, fromRow, token, tokens, cols, rows, maxRange) {
@@ -719,6 +725,7 @@ export class TacticalBoard {
     this.turnOrderIndex = 0;
     this.initiativeLog = [];
     this.resetTurnActions();
+    revertTemporaryEffectsOnTokens(this.tokens);
     await this.saveState({
       combatStarted: false,
       initiativeOpen: false,
@@ -1016,7 +1023,7 @@ export class TacticalBoard {
       this.tokens,
       this.cols,
       this.rows,
-      MOVE_RANGE
+      getTokenMoveRange(token)
     );
     return reachable.has(`${col},${row}`);
   }
@@ -1350,7 +1357,7 @@ export class TacticalBoard {
         const { swrpAlert } = await import('./swrp-dialog.js');
         await swrpAlert({
           title: 'Movimiento inválido',
-          message: `Solo puedes moverte hasta ${MOVE_RANGE} casillas en línea recta (sin diagonales) por acción.`
+          message: `Solo puedes moverte hasta ${getTokenMoveRange(token)} casillas en línea recta (sin diagonales) por acción.`
         });
         return;
       }
@@ -1456,6 +1463,16 @@ export class TacticalBoard {
           return `<li><span style="color:${escapeHtml(color)}">${escapeHtml(item.label)}</span> <span class="text-muted">(${item.initiativeTotal})</span></li>`;
         }).join('')}
       </ol>`;
+  }
+
+  async logItemUse(character, item) {
+    if (!character) return;
+    const meta = getClassMeta(character.class || character.classKey);
+    await this.appendLog(logEntryItemUse({
+      name: character.name || 'Personaje',
+      class: character.class || character.classKey,
+      color: meta.color
+    }, item?.name || 'objeto'), { force: true });
   }
 
   async appendLog(entry, { force = false } = {}) {
@@ -1761,6 +1778,21 @@ export function logEntryTokenMove(actor, { fromCell, toCell }) {
   };
 }
 
+export function logEntryItemUse(actor, itemName) {
+  const meta = getClassMeta(actor.class);
+  return {
+    time: timeLabel(),
+    type: 'item',
+    itemName,
+    actor: {
+      isGM: false,
+      name: actor.name,
+      class: actor.class,
+      color: actor.color || meta.color
+    }
+  };
+}
+
 export function logEntryToken(token, action, { cell, fromCell, toCell } = {}) {
   return {
     time: timeLabel(),
@@ -2054,6 +2086,10 @@ export function renderLogEntryHtml(entry, context = {}) {
     const detail = entry.message ? `: ${escapeHtml(entry.message)}` : '';
     const cellBadge = entry.cell ? ` ${cell(entry.cell)}` : '';
     return `<div class="combat-log__entry">${time} ${name}${cellBadge} usa <span class="combat-log__skill">${skill}</span>${detail}</div>`;
+  }
+  if (entry.type === 'item') {
+    const item = escapeHtml(entry.itemName || 'objeto');
+    return `<div class="combat-log__entry">${time} ${name} ha utilizado el objeto <span class="combat-log__item">${item}</span>.</div>`;
   }
   if (entry.type === 'action') {
     const cellBadge = entry.cell ? ` ${cell(entry.cell)}` : '';

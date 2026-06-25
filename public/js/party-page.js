@@ -1,4 +1,5 @@
 import { loadUserCharacters } from './characters.js';
+import { loadCompendiumData } from './compendium-store.js';
 import {
   loadParty,
   loadPartyMembers,
@@ -20,6 +21,7 @@ import { initNpcPicker, initCharacterPicker } from './npc-picker.js';
 import { buildRosterMap } from './party-markup.js';
 import { mountNarrativeComposer } from './narrative-composer.js';
 import { renderCharacterCard } from './character-card.js';
+import { openInventoryModal } from './inventory-modal.js';
 import { boardPageUrl } from './party-url.js';
 import { assignSpawnToMember, hasEscaramuzaSlotConfig } from './escaramuza-templates.js';
 
@@ -33,6 +35,8 @@ export async function initPartyPage({ user, profile, partyId, ui }) {
     mentionModal,
     narrativeText
   } = ui;
+
+  await loadCompendiumData();
 
   let party = await loadParty(partyId);
   if (!party) {
@@ -147,7 +151,33 @@ export async function initPartyPage({ user, profile, partyId, ui }) {
   function updatePreview() {
     preview.innerHTML = '';
     const char = getActiveCharacter();
-    if (char) preview.appendChild(renderCharacterCard(char, { mini: true }));
+    if (!char) return;
+    const own = userCharacters.find((c) => c.id === char.id) || null;
+    if (own) {
+      preview.appendChild(renderCharacterCard(own, {
+        mini: true,
+        inventory: { onOpen: () => openOwnInventory(own.id) }
+      }));
+    } else {
+      preview.appendChild(renderCharacterCard(char, { mini: true }));
+    }
+  }
+
+  function openOwnInventory(charId) {
+    const fresh = userCharacters.find((c) => c.id === charId);
+    if (!fresh) return;
+    openInventoryModal(fresh, {
+      partyId,
+      canEdit: true,
+      onChange: (patch) => {
+        fresh.credits = patch.credits;
+        fresh.inventory = patch.inventory;
+        fresh.equippedItemId = patch.equippedItemId;
+        fresh.statBonuses = patch.statBonuses;
+        if (patch.currentHp != null) fresh.currentHp = patch.currentHp;
+        updatePreview();
+      }
+    });
   }
 
   syncRoleForm();

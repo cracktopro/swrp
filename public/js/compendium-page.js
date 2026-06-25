@@ -18,7 +18,12 @@ import {
   skillTypeBadgeClass,
   getCompendiumBoards,
   saveCompendiumBoards,
-  normalizeCompendiumBoard
+  normalizeCompendiumBoard,
+  getCompendiumItems,
+  saveCompendiumItems,
+  normalizeCompendiumItem,
+  ITEM_TYPES,
+  ITEM_STAT_DEFS
 } from './compendium-store.js';
 import { renderCharacterCard } from './character-card.js';
 import { loadAllNpcs, deleteNpc, npcToCardData, filterNpcs, buildNpcEraSelectOptions } from './npcs.js';
@@ -106,6 +111,12 @@ export async function initCompendiumPage({ isAdmin }) {
     document.getElementById('admin-boards-actions')?.classList.remove('d-none');
     document.getElementById('btn-add-board')?.addEventListener('click', () => openBoardModal(null));
     document.getElementById('btn-save-board')?.addEventListener('click', saveBoardFromModal);
+    document.getElementById('admin-items-actions')?.classList.remove('d-none');
+    document.getElementById('btn-add-item')?.addEventListener('click', () => openItemModal(null));
+    document.getElementById('btn-save-item')?.addEventListener('click', saveItemFromModal);
+    document.getElementById('item-edit-type')?.addEventListener('change', syncItemModalFields);
+    document.getElementById('item-edit-stat')?.addEventListener('change', syncItemModalFields);
+    document.getElementById('item-edit-image')?.addEventListener('input', updateItemImagePreview);
   }
 
   const firstClass = getClassList()[0]?.key;
@@ -113,6 +124,7 @@ export async function initCompendiumPage({ isAdmin }) {
   renderSkillsList(getSkillsClassList()[0]?.key || firstClass, isAdmin);
   renderSpeciesList(isAdmin);
   renderBoardsList(isAdmin);
+  renderItemsList(isAdmin);
   await renderNpcs(isAdmin);
 }
 
@@ -560,3 +572,162 @@ async function saveBoardFromModal() {
 }
 
 document.getElementById('board-edit-url')?.addEventListener('input', updateBoardModalPreview);
+
+// ── Objetos ──────────────────────────────────────────────────────────
+
+function itemTypeBadgeClass(type) {
+  if (type === 'Equipo') return 'swrp-item-badge--equipo';
+  if (type === 'Consumible') return 'swrp-item-badge--consumible';
+  return 'swrp-item-badge--inutil';
+}
+
+function renderItemsList(isAdmin) {
+  const container = document.getElementById('items-list');
+  if (!container) return;
+  const items = getCompendiumItems();
+  if (!items.length) {
+    container.innerHTML = '<p class="text-muted mb-0">No hay objetos definidos en el compendio.</p>';
+    return;
+  }
+  const statLabelOf = (key) => ITEM_STAT_DEFS.find((s) => s.key === key)?.label || key;
+  container.innerHTML = items
+    .slice()
+    .sort((a, b) => a.name.localeCompare(b.name, 'es'))
+    .map((item) => {
+      let effect = '';
+      if (item.type === 'Consumible' && item.stat === 'none') {
+        effect = '<p class="small mb-1 text-muted">Sin efecto mecánico (uso narrativo)</p>';
+      } else if ((item.type === 'Equipo' || item.type === 'Consumible') && item.statBonus) {
+        effect = `<p class="small mb-1 text-info">${statLabelOf(item.stat)} ${item.statBonus >= 0 ? '+' : ''}${item.statBonus}${item.type === 'Consumible' && item.temporary ? ' · temporal' : ''}</p>`;
+      }
+      return `
+      <div class="swrp-item-card" data-item-id="${escapeHtml(item.id)}">
+        <div class="swrp-item-card__head">
+          ${item.imageUrl ? `<img src="${escapeHtml(item.imageUrl)}" alt="" class="swrp-item-card__img" loading="lazy">` : '<div class="swrp-item-card__img swrp-item-card__img--empty"></div>'}
+          <div class="swrp-item-card__title">
+            <strong class="text-gold">${escapeHtml(item.name)}</strong>
+            <span class="swrp-item-badge ${itemTypeBadgeClass(item.type)}">${escapeHtml(item.type)}</span>
+          </div>
+        </div>
+        <p class="small mb-1">${escapeHtml(item.description)}</p>
+        ${effect}
+        <p class="small text-muted mb-0">${item.weight} KG · ${item.price} créditos</p>
+        ${isAdmin ? `<div class="d-flex gap-1 mt-2">
+          <button type="button" class="btn btn-sm btn-swrp btn-swrp-ghost btn-edit-item">Editar</button>
+          <button type="button" class="btn btn-sm btn-swrp btn-swrp-danger btn-del-item">Eliminar</button>
+        </div>` : ''}
+      </div>`;
+    })
+    .join('');
+
+  if (!isAdmin) return;
+  container.querySelectorAll('.btn-edit-item').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = btn.closest('[data-item-id]')?.dataset.itemId;
+      const item = getCompendiumItems().find((i) => i.id === id);
+      if (item) openItemModal(item);
+    });
+  });
+  container.querySelectorAll('.btn-del-item').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const id = btn.closest('[data-item-id]')?.dataset.itemId;
+      const item = getCompendiumItems().find((i) => i.id === id);
+      if (!item || !confirm(`¿Eliminar objeto «${item.name}»?`)) return;
+      try {
+        await saveCompendiumItems(getCompendiumItems().filter((i) => i.id !== id));
+        renderItemsList(true);
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+  });
+}
+
+function populateItemStatSelect(type) {
+  const sel = document.getElementById('item-edit-stat');
+  if (!sel) return;
+  const prev = sel.value;
+  const opts = type === 'Consumible'
+    ? [{ key: 'none', label: 'Ninguna' }, ...ITEM_STAT_DEFS]
+    : ITEM_STAT_DEFS;
+  sel.innerHTML = opts.map((s) => `<option value="${s.key}">${escapeHtml(s.label)}</option>`).join('');
+  if (opts.some((o) => o.key === prev)) sel.value = prev;
+}
+
+function syncItemModalFields() {
+  const type = document.getElementById('item-edit-type').value;
+  const effectWrap = document.getElementById('item-edit-effect');
+  const tempWrap = document.getElementById('item-edit-temp-wrap');
+  const bonusWrap = document.getElementById('item-edit-bonus')?.closest('.col-6');
+  const title = document.getElementById('item-edit-effect-title');
+  const hasEffect = type === 'Equipo' || type === 'Consumible';
+  populateItemStatSelect(type);
+  effectWrap.classList.toggle('d-none', !hasEffect);
+  const stat = document.getElementById('item-edit-stat').value;
+  const noEffect = type === 'Consumible' && stat === 'none';
+  bonusWrap?.classList.toggle('d-none', noEffect);
+  tempWrap.classList.toggle('d-none', type !== 'Consumible' || noEffect);
+  if (title) title.textContent = type === 'Equipo' ? 'Bonificación al equipar' : 'Efecto del consumible';
+}
+
+function updateItemImagePreview() {
+  const url = document.getElementById('item-edit-image')?.value.trim();
+  const wrap = document.getElementById('item-edit-image-preview');
+  if (!wrap) return;
+  const img = wrap.querySelector('img');
+  if (url) {
+    img.src = url;
+    wrap.classList.remove('d-none');
+  } else {
+    wrap.classList.add('d-none');
+  }
+}
+
+function openItemModal(item) {
+  document.getElementById('item-edit-id').value = item?.id || '';
+  document.getElementById('item-edit-name').value = item?.name || '';
+  document.getElementById('item-edit-desc').value = item?.description || '';
+  document.getElementById('item-edit-image').value = item?.imageUrl || '';
+  const type = ITEM_TYPES.includes(item?.type) ? item.type : 'Equipo';
+  document.getElementById('item-edit-type').value = type;
+  document.getElementById('item-edit-weight').value = String(item?.weight ?? 0);
+  document.getElementById('item-edit-price').value = String(item?.price ?? 0);
+  populateItemStatSelect(type);
+  document.getElementById('item-edit-stat').value = item?.stat || 'hp';
+  document.getElementById('item-edit-bonus').value = String(item?.statBonus ?? 0);
+  document.getElementById('item-edit-temp').checked = !!item?.temporary;
+  syncItemModalFields();
+  updateItemImagePreview();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('itemModal')).show();
+}
+
+async function saveItemFromModal() {
+  const id = document.getElementById('item-edit-id').value.trim();
+  const normalized = normalizeCompendiumItem({
+    id: id || undefined,
+    name: document.getElementById('item-edit-name').value,
+    description: document.getElementById('item-edit-desc').value,
+    imageUrl: document.getElementById('item-edit-image').value,
+    type: document.getElementById('item-edit-type').value,
+    weight: document.getElementById('item-edit-weight').value,
+    price: document.getElementById('item-edit-price').value,
+    stat: document.getElementById('item-edit-stat').value,
+    statBonus: document.getElementById('item-edit-bonus').value,
+    temporary: document.getElementById('item-edit-temp').checked
+  });
+  if (!normalized) {
+    alert('El nombre del objeto es obligatorio.');
+    return;
+  }
+  const items = getCompendiumItems();
+  const idx = items.findIndex((i) => i.id === normalized.id);
+  if (idx >= 0) items[idx] = normalized;
+  else items.push(normalized);
+  try {
+    await saveCompendiumItems(items);
+    bootstrap.Modal.getInstance(document.getElementById('itemModal')).hide();
+    renderItemsList(true);
+  } catch (err) {
+    alert(err.message);
+  }
+}

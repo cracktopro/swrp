@@ -18,6 +18,7 @@ let progression = null;
 let skills = null;
 let speciesList = null;
 let boardsList = null;
+let itemsList = null;
 let firestoreSeedVersion = 0;
 let loaded = false;
 
@@ -34,6 +35,10 @@ function cloneSpecies() {
 }
 
 function cloneBoards() {
+  return [];
+}
+
+function cloneItems() {
   return [];
 }
 
@@ -116,6 +121,7 @@ async function persistCompendium(partial = {}) {
     skills: partial.skills ?? getCompendiumSkills(),
     species: partial.species ?? getSpeciesList(),
     boards: partial.boards ?? getCompendiumBoards(),
+    items: partial.items ?? getCompendiumItems(),
     seedVersion: partial.seedVersion ?? firestoreSeedVersion,
     updatedAt: serverTimestamp()
   }, { merge: true });
@@ -135,6 +141,7 @@ export async function loadCompendiumData() {
   skills = cloneSkills();
   speciesList = cloneSpecies();
   boardsList = cloneBoards();
+  itemsList = cloneItems();
   firestoreSeedVersion = 0;
 
   try {
@@ -145,6 +152,7 @@ export async function loadCompendiumData() {
       if (data.skills) skills = data.skills;
       if (Array.isArray(data.species) && data.species.length) speciesList = data.species;
       if (Array.isArray(data.boards)) boardsList = data.boards;
+      if (Array.isArray(data.items)) itemsList = data.items;
       firestoreSeedVersion = data.seedVersion || 0;
     }
   } catch (err) {
@@ -195,6 +203,60 @@ export function getSpeciesList() {
 
 export function getCompendiumBoards() {
   return boardsList ? boardsList.map((b) => ({ ...b })) : [];
+}
+
+export const ITEM_TYPES = ['Equipo', 'Consumible', 'Sin utilidad'];
+
+/** Estadísticas que un objeto puede afectar (clave interna → etiqueta). */
+export const ITEM_STAT_DEFS = [
+  { key: 'hp', label: 'Puntos de Golpe' },
+  { key: 'defense', label: 'Defensa' },
+  { key: 'attack', label: 'Ataque' },
+  { key: 'damage', label: 'Daño' },
+  { key: 'force', label: 'Fuerza' }
+];
+
+export function getCompendiumItems() {
+  return itemsList ? itemsList.map((it) => ({ ...it })) : [];
+}
+
+export function getItemById(itemId) {
+  if (!itemId) return null;
+  return (itemsList || []).find((it) => it.id === itemId) || null;
+}
+
+export function normalizeCompendiumItem(raw) {
+  const name = String(raw?.name || '').trim();
+  if (!name) return null;
+  const type = ITEM_TYPES.includes(raw?.type) ? raw.type : 'Sin utilidad';
+  const item = {
+    id: raw.id || `item_${Date.now().toString(36)}${Math.floor(Math.random() * 1000)}`,
+    name,
+    description: String(raw?.description || '').trim(),
+    imageUrl: String(raw?.imageUrl || '').trim(),
+    type,
+    weight: Math.max(0, Number(raw?.weight) || 0),
+    price: Math.max(0, Math.round(Number(raw?.price) || 0))
+  };
+  if (type === 'Equipo' || type === 'Consumible') {
+    // «Ninguna» (stat sin efecto) solo es válida para consumibles narrativos.
+    const isNone = type === 'Consumible' && (raw?.stat === 'none' || raw?.stat === 'Ninguna');
+    const statKey = isNone
+      ? 'none'
+      : (ITEM_STAT_DEFS.some((s) => s.key === raw?.stat) ? raw.stat : 'hp');
+    item.stat = statKey;
+    item.statBonus = statKey === 'none' ? 0 : Math.round(Number(raw?.statBonus) || 0);
+  }
+  if (type === 'Consumible') {
+    item.temporary = item.stat !== 'none' && (raw?.temporary === true || raw?.temporary === 'true');
+  }
+  return item;
+}
+
+export async function saveCompendiumItems(list) {
+  itemsList = (list || []).map((it) => normalizeCompendiumItem(it)).filter(Boolean);
+  await persistCompendium({ items: itemsList });
+  return itemsList;
 }
 
 export async function saveCompendiumBoards(list) {
@@ -286,17 +348,20 @@ export async function saveSpeciesList(list) {
 
 export async function resetCompendiumToDefaults() {
   const otros = getCustomSkills();
+  const items = getCompendiumItems();
   progression = cloneProgression();
   skills = cloneSkills();
   skills[CUSTOM_SKILLS_CLASS] = otros;
   speciesList = cloneSpecies();
   boardsList = cloneBoards();
+  itemsList = items;
   firestoreSeedVersion = getTargetSeedVersion();
   await persistCompendium({
     progression,
     skills,
     species: speciesList,
     boards: boardsList,
+    items: itemsList,
     seedVersion: firestoreSeedVersion
   });
 }

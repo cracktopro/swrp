@@ -15,6 +15,7 @@ import { getStats } from './compendium-store.js';
 import { npcToMembershipCharacter } from './npcs.js';
 import { loadParty } from './party.js';
 import { hasEscaramuzaSlotConfig } from './escaramuza-templates.js';
+import { applyPermanentModifiers, computeMoveRange, normalizeInventory } from './inventory.js';
 
 export async function getPartyMember(partyId, userId) {
   if (!partyId || !userId) return null;
@@ -51,6 +52,7 @@ function omitUndefinedFields(obj) {
 
 export function buildCharacterSnapshot(character) {
   const c = normalizeCharacter(character, character.id);
+  const inv = normalizeInventory(c);
   return omitUndefinedFields({
     id: c.id,
     name: c.name,
@@ -66,7 +68,11 @@ export function buildCharacterSnapshot(character) {
     damage: c.damage,
     hp: c.currentHp ?? c.hp,
     maxHp: c.maxHp,
-    force: c.force
+    force: c.force,
+    ...(c.type !== 'NPC' ? {
+      equippedItemId: inv.equippedItemId || null,
+      statBonuses: inv.statBonuses
+    } : {})
   });
 }
 
@@ -216,6 +222,20 @@ function resolveMembershipCharacter(playMode, character) {
 
 export function tokenFromCharacter(char, kind = 'character') {
   const meta = getClassMeta(char.class);
+  const snapshot = buildCharacterSnapshot(char);
+  // Aplica equipo + bonificaciones permanentes a las stats de combate del token.
+  if (char.type !== 'NPC') {
+    const eff = applyPermanentModifiers({
+      hp: snapshot.hp,
+      maxHp: snapshot.maxHp,
+      defense: snapshot.defense,
+      attack: snapshot.attack,
+      damage: snapshot.damage,
+      force: snapshot.force
+    }, char);
+    if (eff.maxHp != null && eff.hp > eff.maxHp) eff.hp = eff.maxHp;
+    Object.assign(snapshot, omitUndefinedFields(eff));
+  }
   return {
     id: `char_${char.id}`,
     sourceId: char.id,
@@ -228,7 +248,8 @@ export function tokenFromCharacter(char, kind = 'character') {
     color: meta.color,
     portraitUrl: char.portraitUrl || '',
     side: 'ally',
-    characterSnapshot: buildCharacterSnapshot(char)
+    ...(char.type !== 'NPC' ? { moveRange: computeMoveRange(char) } : {}),
+    characterSnapshot: snapshot
   };
 }
 
