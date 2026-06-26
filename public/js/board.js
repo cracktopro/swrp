@@ -24,6 +24,11 @@ import {
 } from './board-vision.js';
 import { swrpConfirm } from './swrp-dialog.js';
 import { revertTemporaryEffectsOnTokens, grantCreditsToCharacter } from './inventory.js';
+import {
+  isFirestoreQuotaBlocked,
+  isQuotaExceededError,
+  markFirestoreQuotaExceeded
+} from './firestore-quota.js';
 import { normalizeLoot, splitCredits, getChestVisualState, CHEST_ICONS } from './loot.js';
 import { renderDiceResultHtml } from './dice.js';
 import {
@@ -177,9 +182,9 @@ export class TacticalBoard {
     this.pendingCredits = {};
     this._applyingPending = false;
     this._lastRemotePendingForMe = 0;
-    this._pendingClaimedAt = 0;
     this._pendingRetryTimer = null;
-    this._pendingRetryBackoffMs = 30000;
+    this._pendingRetryBackoffMs = 60000;
+    this._pendingClaimScheduled = false;
     this.mapImage = null;
     this._mapUrl = null;
     this.pointer = null;
@@ -259,9 +264,11 @@ export class TacticalBoard {
   async applyBoardData(data) {
     if (!data) return;
     this.tokens = (data.tokens || []).map((t) => normalizeBoardToken({ ...t }));
-      this.chests = normalizeChestList(data.chests);
-      this.pendingCredits = this.mergeIncomingPendingCredits(data.pendingCredits);
-      this.shopEnabled = data.shopEnabled !== false;
+    this.chests = normalizeChestList(data.chests);
+    this.pendingCredits = (data.pendingCredits && typeof data.pendingCredits === 'object')
+      ? { ...data.pendingCredits }
+      : {};
+    this.shopEnabled = data.shopEnabled !== false;
     this.combatStarted = !!data.combatStarted;
     this.activeTurn = data.activeTurn ?? null;
     this.initiativeOpen = this.combatStarted
@@ -341,11 +348,8 @@ export class TacticalBoard {
     const snap = await getDoc(doc(db, 'parties', this.partyId, 'state', 'board'));
     if (snap.exists()) {
       await this.applyBoardData(snap.data());
-      const myPending = this.myPendingCreditAmount();
-      this._lastRemotePendingForMe = myPending;
-      if (myPending > 0) {
-        void this.applyMyPendingCredits();
-      }
+      this._lastRemotePendingForMe = this.myPendingCreditAmount();
+      this.scheduleOneTimePendingCreditsClaim();
     } else {
       this.tokens = [];
       this.chests = [];
@@ -475,7 +479,9 @@ export class TacticalBoard {
       const data = snap.data();
       this.tokens = (data.tokens || []).map((t) => normalizeBoardToken({ ...t }));
       this.chests = normalizeChestList(data.chests);
-      this.pendingCredits = this.mergeIncomingPendingCredits(data.pendingCredits);
+      this.pendingCredits = (data.pendingCredits && typeof data.pendingCredits === 'object')
+        ? { ...data.pendingCredits }
+        : {};
       this.shopEnabled = data.shopEnabled !== false;
       this.combatStarted = !!data.combatStarted;
       this.activeTurn = data.activeTurn ?? null;
@@ -522,11 +528,7 @@ export class TacticalBoard {
       this.onTurnActionsChange?.(this.turnActions);
       this.onActiveTurnChange(this.activeTurn);
       this.onTokensChange(this.tokens);
-      const currentMy = this.myPendingCreditAmount();
-      if (currentMy > (this._lastRemotePendingForMe ?? 0)) {
-        void this.applyMyPendingCredits();
-      }
-      this._lastRemotePendingForMe = currentMy;
+      this._lastRemotePendingForMe = this.myPendingCreditAmount();
       this.onBoardMetaChange();
     });
   }
@@ -546,34 +548,47 @@ export class TacticalBoard {
       return;
     }
     if (!this.partyId) return;
-    await setDoc(
-      doc(db, 'parties', this.partyId, 'state', 'board'),
-      { pendingCredits: cleaned, updatedAt: serverTimestamp() },
-      { merge: true }
-    );
+    try {
+      await setDoc(
+        doc(db, 'parties', this.partyId, 'state', 'board'),
+        { pendingCredits: cleaned, updatedAt: serverTimestamp() },
+        { merge: true }
+      );
+    } catch (err) {
+      if (markFirestoreQuotaExceeded(err)) throw err;
+      throw err;
+    }
   }
 
-  /** Ignora entradas obsoletas de pendingCredits tras un claim reciente. */
-  mergeIncomingPendingCredits(incoming) {
-    const base = (incoming && typeof incoming === 'object') ? { ...incoming } : {};
-    if (
-      this.userPlayTokenKind === 'character'
-      && this.userCharacterSourceId
-      && this._pendingClaimedAt
-      && Date.now() - this._pendingClaimedAt < 120000
-    ) {
-      delete base[this.userCharacterSourceId];
+  /** Un solo intento diferido al cargar (evita competir con el snapshot inicial). */
+  scheduleOneTimePendingCreditsClaim() {
+    if (this.localPersist || this._pendingClaimScheduled) return;
+    if (this.myPendingCreditAmount() <= 0) return;
+    this._pendingClaimScheduled = true;
+    setTimeout(() => {
+      if (isFirestoreQuotaBlocked()) return;
+      if (this.myPendingCreditAmount() > 0) {
+        void this.applyMyPendingCredits();
+      }
+    }, 4000);
+  }
+
+  tryApplyMyPendingCreditsIfNeeded() {
+    if (isFirestoreQuotaBlocked()) return;
+    if (this.myPendingCreditAmount() > 0) {
+      void this.applyMyPendingCredits();
     }
-    return base;
   }
 
   schedulePendingCreditsRetry() {
-    if (this._pendingRetryTimer) return;
+    if (this._pendingRetryTimer || isFirestoreQuotaBlocked()) return;
     const delay = this._pendingRetryBackoffMs;
-    this._pendingRetryBackoffMs = Math.min(this._pendingRetryBackoffMs * 2, 300000);
+    this._pendingRetryBackoffMs = Math.min(this._pendingRetryBackoffMs * 2, 600000);
     this._pendingRetryTimer = setTimeout(() => {
       this._pendingRetryTimer = null;
-      void this.applyMyPendingCredits();
+      if (!isFirestoreQuotaBlocked()) {
+        void this.applyMyPendingCredits();
+      }
     }, delay);
   }
 
@@ -582,40 +597,34 @@ export class TacticalBoard {
       clearTimeout(this._pendingRetryTimer);
       this._pendingRetryTimer = null;
     }
-    this._pendingRetryBackoffMs = 30000;
+    this._pendingRetryBackoffMs = 60000;
   }
 
   /**
    * Abona créditos de loot pendientes al personaje propio.
-   * Primero limpia la cola en Firestore (claim-first) para evitar dobles abonos.
+   * Abona primero y luego limpia la cola (si falla el abono, la cola sigue intacta).
    */
   async applyMyPendingCredits() {
-    if (this._applyingPending) return;
+    if (this._applyingPending || isFirestoreQuotaBlocked()) return;
     if (this.userPlayTokenKind !== 'character' || !this.userCharacterSourceId) return;
     const id = this.userCharacterSourceId;
     const amount = this.myPendingCreditAmount();
     if (amount <= 0) return;
 
     this._applyingPending = true;
-    const queueBefore = { ...(this.pendingCredits || {}) };
-    delete queueBefore[id];
     try {
-      await this.persistPendingCredits(queueBefore);
-      this._pendingClaimedAt = Date.now();
-      this._lastRemotePendingForMe = 0;
       await grantCreditsToCharacter(id, amount);
+      const queue = { ...(this.pendingCredits || {}) };
+      delete queue[id];
+      await this.persistPendingCredits(queue);
+      this._lastRemotePendingForMe = this.myPendingCreditAmount();
       this.clearPendingCreditsRetry();
     } catch (err) {
+      if (markFirestoreQuotaExceeded(err)) return;
       console.warn('No se pudieron abonar créditos pendientes de loot:', err);
-      this._pendingClaimedAt = 0;
-      try {
-        const restore = { ...(this.pendingCredits || {}), [id]: amount };
-        await this.persistPendingCredits(restore);
-        this._lastRemotePendingForMe = amount;
-      } catch (restoreErr) {
-        console.warn('No se pudo restaurar la cola de créditos pendientes:', restoreErr);
+      if (!isQuotaExceededError(err)) {
+        this.schedulePendingCreditsRetry();
       }
-      this.schedulePendingCreditsRetry();
     } finally {
       this._applyingPending = false;
     }
@@ -2008,6 +2017,7 @@ export class TacticalBoard {
         if (share > 0) queue[recipients[i].id] = (Number(queue[recipients[i].id]) || 0) + share;
       }
       await this.persistPendingCredits(queue);
+      this.tryApplyMyPendingCreditsIfNeeded();
     }
     return split;
   }
