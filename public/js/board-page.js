@@ -21,6 +21,8 @@ import {
   loadTokenStatsEditor,
   readTokenStatsEditor
 } from './token-stats-editor.js';
+import { getCompendiumItems, getItemById } from './compendium-store.js';
+import { normalizeLoot, lootProbPercent, LOOT_PROB_LEVELS } from './loot.js';
 
 function escapeHtml(str) {
   return String(str)
@@ -126,6 +128,7 @@ class MiniBoardPicker {
     const { col, row } = this.cellFromEvent(e);
     if (col < 0 || col >= this.board.cols || row < 0 || row >= this.board.rows) return;
     if (this.board.tokenAt(col, row)) return;
+    if (this.board.chestAt?.(col, row)) return;
     if (this.markerSpawns.some((s) => s.col === col && s.row === row)) return;
     this.spawnCol = col;
     this.spawnRow = row;
@@ -204,6 +207,18 @@ class MiniBoardPicker {
       ctx.strokeRect(x + 0.5, y + 0.5, sizeW - 1, sizeH - 1);
     });
 
+    (this.board.chests || []).forEach((chest) => {
+      const x = chest.col * cw + 4;
+      const y = chest.row * ch + 4;
+      const sizeW = cw - 8;
+      const sizeH = ch - 8;
+      ctx.fillStyle = 'rgba(255, 199, 0, 0.35)';
+      ctx.fillRect(x, y, sizeW, sizeH);
+      ctx.strokeStyle = 'rgba(255, 199, 0, 0.7)';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(x + 0.5, y + 0.5, sizeW - 1, sizeH - 1);
+    });
+
     this.markerSpawns.forEach(({ col, row }) => {
       this.drawSpawnMarkerCell(ctx, col, row);
     });
@@ -267,13 +282,156 @@ export function initBoardPage(ctx) {
   let statsEditorReady = false;
   let ctrlActiveTab = 'play';
 
+  // ── Loot (botín de enemigos y cajas) ──
+  let lootDraft = null;       // loot normalizado en edición
+  let lootContext = null;     // { kind:'token'|'chest', listId, creditsId }
+  let lootSelection = null;   // objeto seleccionado en el modal de elección
+  let lootItemReady = false;
+  let chestPlaceMini = null;
+  let chestEditId = null;
+  const chestPlaceModalEl = document.getElementById('chestPlaceModal');
+  const chestEditModalEl = document.getElementById('chestEditModal');
+  const lootItemModalEl = document.getElementById('lootItemModal');
+  const chestPlaceModal = chestPlaceModalEl ? bootstrap.Modal.getOrCreateInstance(chestPlaceModalEl) : null;
+  const chestEditModal = chestEditModalEl ? bootstrap.Modal.getOrCreateInstance(chestEditModalEl) : null;
+  const lootItemModal = lootItemModalEl ? bootstrap.Modal.getOrCreateInstance(lootItemModalEl) : null;
+
   function showCtrlTab(tabName) {
     ctrlActiveTab = tabName;
     document.getElementById('ctrl-tab-play')?.classList.toggle('d-none', tabName !== 'play');
     document.getElementById('ctrl-tab-stats')?.classList.toggle('d-none', tabName !== 'stats');
+    document.getElementById('ctrl-tab-loot')?.classList.toggle('d-none', tabName !== 'loot');
     document.querySelectorAll('#ctrl-token-tabs [data-ctrl-tab]').forEach((btn) => {
       btn.classList.toggle('active', btn.dataset.ctrlTab === tabName);
     });
+  }
+
+  function classLabelFor(key) {
+    if (!key || key === 'all') return 'Todas';
+    return getClassList().find((c) => c.key === key)?.label || key;
+  }
+
+  function renderLootList(listEl, draft) {
+    if (!listEl) return;
+    const items = draft?.items || [];
+    if (!items.length) {
+      listEl.innerHTML = '<p class="small text-muted mb-0">Sin objetos en el botín.</p>';
+      return;
+    }
+    listEl.innerHTML = items.map((entry, idx) => {
+      const item = getItemById(entry.itemId);
+      const name = escapeHtml(item?.name || 'Objeto desconocido');
+      return `
+        <div class="swrp-loot-row">
+          ${item?.imageUrl ? `<img src="${escapeHtml(item.imageUrl)}" alt="" class="swrp-loot-row__img" loading="lazy">` : '<div class="swrp-loot-row__img swrp-loot-row__img--empty"></div>'}
+          <span class="swrp-loot-row__name">${name}</span>
+          <span class="swrp-loot-row__prob">${lootProbPercent(entry.prob)}%</span>
+          <button type="button" class="btn btn-sm btn-swrp btn-swrp-danger" data-loot-remove="${idx}">×</button>
+        </div>`;
+    }).join('');
+    listEl.querySelectorAll('[data-loot-remove]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const i = Number(btn.dataset.lootRemove);
+        if (lootDraft?.items) {
+          lootDraft.items.splice(i, 1);
+          renderActiveLootList();
+        }
+      });
+    });
+  }
+
+  function renderActiveLootList() {
+    if (!lootContext) return;
+    renderLootList(document.getElementById(lootContext.listId), lootDraft);
+  }
+
+  function setupLootItemModal() {
+    if (lootItemReady) return;
+    const classSel = document.getElementById('loot-item-filter-class');
+    if (classSel) {
+      classSel.innerHTML = [
+        '<option value="">Todas las clases</option>',
+        '<option value="all">Equipable por todas</option>',
+        ...getClassList().map((c) => `<option value="${escapeHtml(c.key)}">${escapeHtml(c.label)}</option>`)
+      ].join('');
+    }
+    const probSel = document.getElementById('loot-item-prob');
+    if (probSel) {
+      probSel.innerHTML = LOOT_PROB_LEVELS
+        .map((lvl) => `<option value="${lvl}">${lvl} · ${lootProbPercent(lvl)}%</option>`)
+        .join('');
+    }
+    document.getElementById('loot-item-filter-name')?.addEventListener('input', renderLootItemPick);
+    document.getElementById('loot-item-filter-type')?.addEventListener('change', renderLootItemPick);
+    classSel?.addEventListener('change', renderLootItemPick);
+    document.getElementById('btn-loot-item-add')?.addEventListener('click', () => {
+      if (!lootSelection || !lootDraft) return;
+      const prob = Number(document.getElementById('loot-item-prob')?.value) || 1;
+      lootDraft.items.push({ itemId: lootSelection.id, prob });
+      renderActiveLootList();
+      lootItemModal?.hide();
+    });
+    lootItemReady = true;
+  }
+
+  function renderLootItemPick() {
+    const listEl = document.getElementById('loot-item-list');
+    if (!listEl) return;
+    const term = (document.getElementById('loot-item-filter-name')?.value || '').trim().toLowerCase();
+    const type = document.getElementById('loot-item-filter-type')?.value || '';
+    const classKey = document.getElementById('loot-item-filter-class')?.value || '';
+    const items = getCompendiumItems()
+      .filter((it) => !type || it.type === type)
+      .filter((it) => !term || it.name.toLowerCase().includes(term))
+      .filter((it) => {
+        if (!classKey) return true;
+        if (it.type !== 'Equipo') return false;
+        const eq = it.equipClass || 'all';
+        if (classKey === 'all') return eq === 'all';
+        return eq === 'all' || eq === classKey;
+      })
+      .sort((a, b) => a.name.localeCompare(b.name, 'es'));
+
+    if (!items.length) {
+      listEl.innerHTML = '<p class="small text-muted mb-0">Ningún objeto con esos filtros.</p>';
+      lootSelection = null;
+      document.getElementById('btn-loot-item-add').disabled = true;
+      return;
+    }
+    if (!lootSelection || !items.some((i) => i.id === lootSelection.id)) {
+      lootSelection = items[0];
+    }
+    listEl.innerHTML = items.map((it) => {
+      const selected = lootSelection?.id === it.id;
+      const extra = it.type === 'Equipo' ? ` · ${escapeHtml(classLabelFor(it.equipClass))}` : '';
+      return `
+        <button type="button" class="swrp-loot-pick${selected ? ' is-selected' : ''}" data-pick="${escapeHtml(it.id)}">
+          ${it.imageUrl ? `<img src="${escapeHtml(it.imageUrl)}" alt="" class="swrp-loot-pick__img" loading="lazy">` : '<span class="swrp-loot-pick__img swrp-loot-pick__img--empty"></span>'}
+          <span class="swrp-loot-pick__body">
+            <strong>${escapeHtml(it.name)}</strong>
+            <span class="small text-muted d-block">${escapeHtml(it.type)}${extra}</span>
+          </span>
+        </button>`;
+    }).join('');
+    listEl.querySelectorAll('[data-pick]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        lootSelection = items.find((i) => i.id === btn.dataset.pick) || null;
+        renderLootItemPick();
+      });
+    });
+    document.getElementById('btn-loot-item-add').disabled = !lootSelection;
+  }
+
+  function openLootItemModal() {
+    if (!lootDraft) return;
+    setupLootItemModal();
+    lootSelection = null;
+    document.getElementById('loot-item-filter-name').value = '';
+    document.getElementById('loot-item-filter-type').value = '';
+    document.getElementById('loot-item-filter-class').value = '';
+    document.getElementById('loot-item-prob').value = '5';
+    renderLootItemPick();
+    lootItemModal?.show();
   }
 
   async function ensureStatsEditor() {
@@ -425,10 +583,26 @@ export function initBoardPage(ctx) {
     }
   }
 
+  function setupLootTabForToken(token) {
+    const isEnemy = token.side === 'enemy';
+    document.getElementById('ctrl-token-tab-loot')?.classList.toggle('d-none', !isEnemy);
+    if (isEnemy) {
+      lootContext = { kind: 'token', listId: 'ctrl-loot-list', creditsId: 'ctrl-loot-credits' };
+      lootDraft = normalizeLoot(token.loot);
+      const creditsInput = document.getElementById('ctrl-loot-credits');
+      if (creditsInput) creditsInput.value = String(lootDraft.credits || 0);
+      renderActiveLootList();
+    } else {
+      lootContext = null;
+      lootDraft = null;
+    }
+  }
+
   async function openTokenControlModal(token) {
     controlTokenId = token.id;
     showCtrlTab('play');
     syncControlModalForm(token);
+    setupLootTabForToken(token);
     await ensureStatsEditor();
     if (controlTokenId === token.id) {
       loadTokenStatsEditor(token);
@@ -473,8 +647,45 @@ export function initBoardPage(ctx) {
         await board.updateTokenForce(updated.id, forceVal);
       }
     }
+    if (side === 'enemy' && lootContext?.kind === 'token' && lootDraft) {
+      lootDraft.credits = Math.max(0, parseInt(document.getElementById('ctrl-loot-credits')?.value, 10) || 0);
+      lootDraft.resolved = null;
+      await board.updateTokenLoot(updated.id, lootDraft);
+    }
     controlModal?.hide();
     renderActiveTokensList();
+  }
+
+  function openChestPlaceModal() {
+    if (!chestPlaceMini) {
+      const canvas = document.getElementById('chest-place-canvas');
+      chestPlaceMini = new MiniBoardPicker(canvas, board);
+      chestPlaceMini.onCellPick = () => {
+        const label = chestPlaceMini.spawnCol != null
+          ? cellLabel(chestPlaceMini.spawnCol, chestPlaceMini.spawnRow)
+          : 'Clic en el mapa…';
+        document.getElementById('chest-place-label').textContent = label;
+        document.getElementById('btn-confirm-chest').disabled = chestPlaceMini.spawnCol == null;
+      };
+    }
+    document.getElementById('chest-place-image').value = '';
+    chestPlaceMini.setSpawn(null, null);
+    document.getElementById('chest-place-label').textContent = 'Clic en el mapa…';
+    document.getElementById('btn-confirm-chest').disabled = true;
+    chestPlaceModal?.show();
+    requestAnimationFrame(() => chestPlaceMini.resize());
+  }
+
+  function openChestEditModal(chest) {
+    if (!chest) return;
+    chestEditId = chest.id;
+    lootContext = { kind: 'chest', listId: 'chest-loot-list', creditsId: 'chest-loot-credits' };
+    lootDraft = normalizeLoot(chest.loot);
+    document.getElementById('chest-edit-cell').textContent = cellLabel(chest.col, chest.row);
+    document.getElementById('chest-edit-image').value = chest.imageUrl || '';
+    document.getElementById('chest-loot-credits').value = String(lootDraft.credits || 0);
+    renderActiveLootList();
+    chestEditModal?.show();
   }
 
   function getAddCandidates() {
@@ -621,8 +832,52 @@ export function initBoardPage(ctx) {
   }
 
   addModalEl?.addEventListener('shown.bs.modal', () => miniBoard?.resize());
+  chestPlaceModalEl?.addEventListener('shown.bs.modal', () => chestPlaceMini?.resize());
 
   document.getElementById('btn-open-add')?.addEventListener('click', openAddTokenModal);
+  document.getElementById('btn-open-add-chest')?.addEventListener('click', openChestPlaceModal);
+  document.getElementById('ctrl-loot-add')?.addEventListener('click', openLootItemModal);
+  document.getElementById('chest-loot-add')?.addEventListener('click', openLootItemModal);
+
+  document.getElementById('btn-confirm-chest')?.addEventListener('click', async () => {
+    if (chestPlaceMini?.spawnCol == null) return;
+    try {
+      await board.addChest({
+        col: chestPlaceMini.spawnCol,
+        row: chestPlaceMini.spawnRow,
+        imageUrl: document.getElementById('chest-place-image').value.trim()
+      });
+      chestPlaceMini.setSpawn(null, null);
+      chestPlaceModal?.hide();
+    } catch (err) {
+      await swrpAlert({ title: 'Error', message: err.message });
+    }
+  });
+
+  document.getElementById('btn-chest-save')?.addEventListener('click', async () => {
+    if (!chestEditId || !lootDraft) return;
+    lootDraft.credits = Math.max(0, parseInt(document.getElementById('chest-loot-credits')?.value, 10) || 0);
+    lootDraft.resolved = null;
+    await board.updateChest(chestEditId, {
+      imageUrl: document.getElementById('chest-edit-image').value.trim(),
+      loot: lootDraft
+    });
+    chestEditModal?.hide();
+  });
+
+  document.getElementById('btn-chest-delete')?.addEventListener('click', async () => {
+    if (!chestEditId) return;
+    const ok = await swrpConfirm({
+      title: 'Eliminar caja',
+      message: '¿Eliminar esta caja del tablero?',
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+      danger: true
+    });
+    if (!ok) return;
+    await board.removeChest(chestEditId);
+    chestEditModal?.hide();
+  });
 
   document.getElementById('add-token-tabs')?.addEventListener('click', (e) => {
     const tab = e.target.closest('[data-add-tab]');
@@ -727,5 +982,5 @@ export function initBoardPage(ctx) {
 
   renderActiveTokensList();
 
-  return { renderActiveTokensList, openTokenControlModal };
+  return { renderActiveTokensList, openTokenControlModal, openChestEditModal };
 }

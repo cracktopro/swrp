@@ -25,6 +25,7 @@ import {
 import { renderSpawnListUi, renderSpawnMarkersOnLayer } from './escaramuza-spawns-ui.js';
 
 let board = null;
+let boardPageApi = null;
 let allySpawns = [];
 let editingTemplateId = null;
 let isForkMode = false;
@@ -249,6 +250,10 @@ function wireSpawnModal() {
       swrpAlert({ title: 'Celda ocupada', message: 'Elige una celda libre.' });
       return;
     }
+    if (board.chestAt?.(col, row)) {
+      swrpAlert({ title: 'Celda ocupada', message: 'Hay una caja en esa celda.' });
+      return;
+    }
     if (allySpawns.some((s) => s.col === col && s.row === row)) {
       swrpAlert({ title: 'Spawn duplicado', message: 'Ya hay un spawn en esa celda.' });
       return;
@@ -336,12 +341,14 @@ async function initBoardEditor(user, profile, initialState) {
       isGM: true,
       userId: user.uid,
       roster,
+      chestLayer: document.getElementById('board-chest-layer'),
       colLabelsEl: document.getElementById('board-col-labels'),
       rowLabelsEl: document.getElementById('board-row-labels'),
       tooltipEl: document.getElementById('board-token-tooltip'),
       initiativeLogEl: document.getElementById('board-initiative-log'),
       initiativeOrderEl: document.getElementById('board-initiative-order'),
       onTokenClick: (token) => openTokenCard(token, { roster, npcs, charModal, charModalBody }),
+      onChestClick: (chest) => boardPageApi?.openChestEditModal(chest),
       onMapUrlChange: (url) => { mapUrlInput.value = url || ''; },
       onCombatStateChange: (started) => {
         syncCombatUi(started, isGM);
@@ -381,7 +388,7 @@ async function initBoardEditor(user, profile, initialState) {
     rowsInput: gridRowsInput
   });
 
-  initBoardPage({
+  boardPageApi = initBoardPage({
     board,
     roster,
     npcs,

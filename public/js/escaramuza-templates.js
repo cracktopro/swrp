@@ -22,6 +22,7 @@ import {
 } from './party-members.js';
 import { normalizeBoardToken } from './board-vision.js';
 import { DEFAULT_CELL_WIDTH, DEFAULT_CELL_HEIGHT, DEFAULT_COLS, DEFAULT_ROWS } from './board.js';
+import { normalizeLootTemplate, normalizeChestTemplate } from './loot.js';
 import { appUrl } from './app-path.js';
 
 const COLLECTION = 'escaramuzaTemplates';
@@ -209,12 +210,19 @@ export function validateEscaramuzaTemplate({
   }
 }
 
+function stripTokenLootForTemplate(token) {
+  const copy = stripUndefinedDeep({ ...token });
+  if (copy?.loot) copy.loot = normalizeLootTemplate(copy.loot);
+  return copy;
+}
+
 export function buildLayoutFromBoard(board, { enemyOnly = true } = {}) {
   const tokens = enemyOnly
     ? board.tokens.filter((t) => t.side === 'enemy')
     : board.tokens;
   return stripUndefinedDeep({
-    tokens: tokens.map((t) => stripUndefinedDeep({ ...t })),
+    tokens: tokens.map((t) => stripTokenLootForTemplate(t)),
+    chests: (board.chests || []).map((c) => stripUndefinedDeep(normalizeChestTemplate(c))),
     mapUrl: board._mapUrl ?? null,
     grid: board.gridPayload(),
   });
@@ -223,7 +231,13 @@ export function buildLayoutFromBoard(board, { enemyOnly = true } = {}) {
 export function buildFreshBoardState(boardLayout) {
   const layout = boardLayout || {};
   return stripUndefinedDeep({
-    tokens: (layout.tokens || []).map((t) => normalizeBoardToken({ ...t })),
+    tokens: (layout.tokens || []).map((t) => {
+      const token = normalizeBoardToken({ ...t });
+      if (token.loot) token.loot = normalizeLootTemplate(token.loot);
+      return token;
+    }),
+    chests: (layout.chests || []).map((c) => normalizeChestTemplate(c)),
+    pendingCredits: {},
     mapUrl: layout.mapUrl ?? null,
     grid: layout.grid || {
       cols: DEFAULT_COLS,
@@ -249,9 +263,22 @@ export function buildFreshBoardState(boardLayout) {
 }
 
 function cloneTokensForInstance(tokens) {
-  return (tokens || []).map((t) => normalizeBoardToken({
-    ...t,
-    id: uniqueTokenId(t)
+  return (tokens || []).map((t) => {
+    const token = normalizeBoardToken({ ...t, id: uniqueTokenId(t) });
+    if (token.loot) token.loot = normalizeLootTemplate(token.loot);
+    return token;
+  });
+}
+
+function uniqueChestId(chest) {
+  const base = chest?.id || 'chest';
+  return `${base}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function cloneChestsForInstance(chests) {
+  return (chests || []).map((c) => normalizeChestTemplate({
+    ...c,
+    id: uniqueChestId(c)
   }));
 }
 
@@ -419,6 +446,7 @@ export async function createEscaramuzaFromTemplate(user, profile, templateId, ch
 
   const boardState = buildFreshBoardState(template.boardLayout);
   boardState.tokens = cloneTokensForInstance(boardState.tokens);
+  boardState.chests = cloneChestsForInstance(boardState.chests);
 
   await setDoc(doc(db, 'parties', ref.id, 'state', 'board'), {
     ...boardState,

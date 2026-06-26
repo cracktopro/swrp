@@ -197,8 +197,9 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 
 - Lista: pestañas **Mis escaramuzas** | **Escaramuzas de la comunidad**.
 - Editar ajena → `?fork=id` → guardar crea copia nueva.
-- Workspace: metadatos (nombre, era, dificultad, imagen, descripción), mín/máx jugadores, spawns aliados, tablero con enemigos.
+- Workspace: metadatos (nombre, era, dificultad, imagen, descripción), mín/máx jugadores, spawns aliados, tablero con enemigos, **cajas de loot** y botín de enemigos (misma UI que el tablero: pestaña «Objetos» en enemigos, botón «+ Caja»).
 - Validación al guardar: al menos 1 enemigo, spawns ≥ mínimo jugadores, dificultad obligatoria.
+- `boardLayout` guarda enemigos, cofres y configuración de loot (sin estado de partida: sin `resolved`, `creditsClaimed` ni `pendingCredits`).
 - Persistencia: colección `escaramuzaTemplates/{id}`.
 
 ### 8.3 Tablero VTT (`board.html` + `board.js`, `board-page.js`, `board-combat.js`, `board-progress.js`, `board-vision.js`)
@@ -208,7 +209,7 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 **Sidebar (GM):** pestañas Combate | Log | Opciones.
 
 **Opciones GM:**
-- Progreso: guardar/cargar snapshots completos del estado (`board-progress.js`).
+- Progreso: guardar/cargar snapshots completos del estado (`board-progress.js`), incluyendo cofres, botín resuelto, créditos pendientes y `token.loot` en curso.
 - Mapa URL, tamaño de cuadrícula (4–48 columnas/filas; celda fija 48 px).
 - Cargar tablero predefinido del compendio (opcional) o pegar URL manual.
 - Chapas en juego: añadir personajes/NPCs, control modal (stats, HP, facción, visión).
@@ -263,6 +264,23 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 - **Acceso desde el tablero:** la carta del personaje propio (Campaña o Escaramuza) muestra el botón de inventario; al **usar** un objeto allí se registra en el log de combate `«Personaje» ha utilizado el objeto «X»` (`logEntryItemUse` / `board.logItemUse`, tipo de log `item`).
 - **Vender:** elige cantidad si hay varias; suma `precio × cantidad` a los créditos y descuenta del inventario.
 - **Conceder (GM):** panel «Conceder a jugadores» (pestaña Opciones del tablero, `board-grant-panel.js`) para otorgar créditos u objetos del compendio a un personaje de la partida (`grantCreditsToCharacter` / `grantItemToCharacter` en `inventory.js`; recalcula el `moveRange` del token).
+
+### 8.6.2 Sistema de loot (`loot.js`, `loot-modal.js`, `board.js`, `board-page.js`)
+
+- Disponible **solo en el tablero** (Campaña y Escaramuza). Dos fuentes de botín: **enemigos derrotados** y **cajas**.
+- **Botín común (`loot`)** en enemigos (`token.loot`) y cajas (`chest.loot`): `{ credits, items: [{ itemId, prob }], creditsClaimed, resolved }`.
+  - `prob` es un nivel **1-5** → porcentaje (1=5 %, 5=100 %, lineal: `LOOT_PROB_PCT = {1:5,2:29,3:53,4:76,5:100}`).
+  - `resolved`: lista `[{ itemId, qty }]` que se calcula **una sola vez** (al primer saqueo) tirando cada objeto por su probabilidad (`resolveLoot`); se persiste para que todos vean lo mismo.
+- **Configuración (GM):**
+  - **Enemigo:** pestaña **«Objetos»** del modal de control de chapa (solo enemigos): créditos + lista de objetos.
+  - **Caja:** botón **«+ Caja»** (junto a «+ Añadir») abre un modal con minimapa (`MiniBoardPicker`) y URL de miniatura para colocarla; **clic izquierdo** sobre la caja la edita (imagen, créditos, objetos, eliminar).
+  - Añadir objeto: modal compartido `lootItemModal` con filtros **nombre, tipo, clase** y selector de **probabilidad** (1-5). Editar configuración resetea `resolved` (se vuelve a tirar al siguiente saqueo).
+- **Saqueo (jugador):**
+  - **Enemigo:** debe estar **derrotado** y el jugador en una de las **4 celdas ortogonales** (`isCellAdjacentToUser`); en la carta del enemigo aparece el botón **«Saquear»**.
+  - **Caja:** clic en la caja estando en una celda contigua → modal de saqueo.
+  - El modal (`loot-modal.js`) muestra los objetos resueltos; **«Coger»** los pasa al inventario del personaje (`grantItemToCharacter`, respeta límite de casillas) y los retira del botín, dejando el resto para otros jugadores. Cada recogida se registra en el log (tipo `loot`).
+- **Créditos:** al primer saqueo se **reparten entre todos los jugadores** de la partida y se registra en el log. Como las reglas de Firestore solo permiten editar el propio personaje (o al GM), el reparto se hace vía **cola `pendingCredits`** en `state/board`: cada cliente abona a su personaje su parte (`applyMyPendingCredits`) y borra su entrada.
+- La capa de cajas se dibuja en `#board-chest-layer` (`renderChestLayer`); las cajas vacías se atenúan.
 
 ### 8.5.1 Habilidades custom en NPCs (`character-creator.js`)
 
@@ -351,7 +369,8 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
   minPlayers, maxSlots,
   allySpawns: [{ col, row }, ...],
   boardLayout: {
-    tokens: [...],           // enemigos (side: 'enemy')
+    tokens: [...],           // enemigos (side: 'enemy'); opcional token.loot (config)
+    chests: [{ id, col, row, imageUrl, loot }],  // cajas de loot
     mapUrl,
     grid: { cols, rows, cellWidth, cellHeight }
   },
@@ -411,8 +430,14 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
     hp, maxHp, defense, ...
     moveRange?,          // casillas/acción según peso del inventario (personajes)
     tempEffects?,        // [{ stat, amount }] efectos temporales de consumibles
+    loot?,               // botín del enemigo: { credits, items:[{itemId,prob}], creditsClaimed, resolved }
     alerted?, spawnCol?, spawnRow?
   }],
+  chests: [{             // cajas de loot
+    id, col, row, imageUrl,
+    loot: { credits, items: [{ itemId, prob }], creditsClaimed, resolved }
+  }],
+  pendingCredits: { [characterId]: number },  // créditos de loot por abonar (cada cliente abona el suyo)
   combatStarted: boolean,
   log: [...],
   initiativeLog: [...],
@@ -480,6 +505,8 @@ Funciones auxiliares en reglas: `isAdmin`, `isPartyMember`, `isPartyGM`, `isEsca
 | `inventory.js` | Lógica inventario: peso/clase, slots, moveRange, equipo, consumibles, persistencia, conceder GM |
 | `inventory-modal.js` | Modal inventario (pestañas Inventario/Tienda, rejilla 4×8, créditos, equipar, vender, usar) |
 | `board-grant-panel.js` | Panel GM (tablero) para otorgar créditos/objetos a personajes |
+| `loot.js` | Lógica de loot: probabilidades 1-5, normalización, tirada, reparto de créditos |
+| `loot-modal.js` | Modal de saqueo (jugador): coger objetos, reparto de créditos |
 | `dice.js` | Utilidades tiradas |
 | `token-stats-editor.js` | Editor stats inline en modal chapa |
 | `admin.js` | Panel admin usuarios |

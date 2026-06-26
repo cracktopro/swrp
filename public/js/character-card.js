@@ -163,12 +163,8 @@ export function renderCharacterCard(character, options = {}) {
         </div>
         ${char.portraitUrl ? `
           <div class="swrp-card__portrait">
-            ${inventory ? '<button type="button" class="swrp-card__inventory-btn" title="Abrir inventario" aria-label="Abrir inventario"><span class="swrp-card__inventory-icon" aria-hidden="true">🎒</span><span class="swrp-card__inventory-text">Inventario</span></button>' : ''}
             <img src="${escapeHtml(char.portraitUrl)}" alt="${escapeHtml(char.name)}" loading="lazy">
-          </div>` : (inventory ? `
-          <div class="swrp-card__portrait swrp-card__portrait--noimg">
-            <button type="button" class="swrp-card__inventory-btn" title="Abrir inventario" aria-label="Abrir inventario"><span class="swrp-card__inventory-icon" aria-hidden="true">🎒</span><span class="swrp-card__inventory-text">Inventario</span></button>
-          </div>` : '')}
+          </div>` : ''}
       </div>
       <div class="swrp-card__skills-panel">
         <h3 class="swrp-card__skills-title">HABILIDADES</h3>
@@ -179,6 +175,7 @@ export function renderCharacterCard(character, options = {}) {
     <footer class="swrp-card__footer">
       <img class="swrp-card__logo" src="${CARD_LOGO_SRC}" alt="Star Wars Expanded RP">
     </footer>
+    ${inventory ? '<button type="button" class="swrp-card__inventory-btn" title="Abrir inventario" aria-label="Abrir inventario">Inventario</button>' : ''}
   `;
 
   card.querySelector('.swrp-card__copy-id')?.addEventListener('click', async (e) => {

@@ -79,6 +79,7 @@
           <div class="board-stage-wrap">
             <div class="board-stage" id="board-stage">
               <canvas id="board-canvas" class="board-canvas"></canvas>
+              <div id="board-chest-layer" class="board-chest-layer"></div>
               <div id="board-token-layer" class="board-token-layer"></div>
               <div id="board-spawn-layer" class="board-spawn-layer" aria-hidden="true"></div>
             </div>
@@ -246,7 +247,10 @@
           <section class="swrp-panel mb-3" id="gm-token-panel">
             <div class="d-flex justify-content-between align-items-center gap-2 mb-3 flex-wrap">
               <h2 class="swrp-panel__title mb-0">Chapas en juego</h2>
-              <button type="button" id="btn-open-add" class="btn btn-sm btn-swrp btn-swrp-primary">+ Añadir</button>
+              <div class="d-flex gap-2">
+                <button type="button" id="btn-open-add" class="btn btn-sm btn-swrp btn-swrp-primary">+ Añadir</button>
+                <button type="button" id="btn-open-add-chest" class="btn btn-sm btn-swrp btn-swrp-ghost">+ Caja</button>
+              </div>
             </div>
             <p class="small text-muted mb-2">Clic en una chapa para configurarla. Arrastra en el mapa para mover.</p>
             <div id="active-tokens-list" class="swrp-active-tokens"></div>
@@ -276,6 +280,9 @@
             </li>
             <li class="nav-item" role="presentation">
               <button type="button" class="nav-link" data-ctrl-tab="stats" role="tab">Stats</button>
+            </li>
+            <li class="nav-item d-none" role="presentation" id="ctrl-token-tab-loot">
+              <button type="button" class="nav-link" data-ctrl-tab="loot" role="tab">Objetos</button>
             </li>
           </ul>
           <div id="ctrl-tab-play">
@@ -325,6 +332,16 @@
           </div>
           <div id="ctrl-tab-stats" class="d-none">
             <div id="ctrl-stats-editor"></div>
+          </div>
+          <div id="ctrl-tab-loot" class="d-none">
+            <p class="small text-muted mb-2">Define el botín que otorga este enemigo al ser saqueado tras su derrota.</p>
+            <label class="form-label small mb-1" for="ctrl-loot-credits">Créditos (a repartir entre los jugadores)</label>
+            <input type="number" class="form-control form-control-sm mb-3" id="ctrl-loot-credits" min="0" step="1" value="0">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <label class="form-label small mb-0">Objetos del botín</label>
+              <button type="button" id="ctrl-loot-add" class="btn btn-sm btn-swrp btn-swrp-primary">+ Objeto</button>
+            </div>
+            <div id="ctrl-loot-list" class="swrp-loot-list"></div>
           </div>
         </div>
         <div class="modal-footer border-secondary border-opacity-25">
@@ -398,6 +415,95 @@
         <div class="modal-footer border-secondary border-opacity-25">
           <button type="button" class="btn btn-swrp btn-swrp-ghost" data-bs-dismiss="modal">Cancelar</button>
           <button type="button" id="btn-confirm-add" class="btn btn-swrp btn-swrp-primary" disabled>Colocar en tablero</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="chestPlaceModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content swrp-modal-card">
+        <div class="modal-header border-secondary border-opacity-25">
+          <h5 class="modal-title text-gold">Colocar caja</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <label class="form-label small mb-1" for="chest-place-image">Imagen de la miniatura (URL, opcional)</label>
+          <input type="url" class="form-control form-control-sm mb-3" id="chest-place-image" placeholder="https://ejemplo.com/caja.png">
+          <p class="small text-muted mb-2">Celda: <strong id="chest-place-label">Clic en el mapa…</strong></p>
+          <div class="board-mini-wrap">
+            <canvas id="chest-place-canvas" class="board-mini-canvas"></canvas>
+          </div>
+        </div>
+        <div class="modal-footer border-secondary border-opacity-25">
+          <button type="button" class="btn btn-swrp btn-swrp-ghost" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" id="btn-confirm-chest" class="btn btn-swrp btn-swrp-primary" disabled>Colocar caja</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="chestEditModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+      <div class="modal-content swrp-modal-card">
+        <div class="modal-header border-secondary border-opacity-25">
+          <h5 class="modal-title text-gold">Caja · <span id="chest-edit-cell"></span></h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <label class="form-label small mb-1" for="chest-edit-image">Imagen de la miniatura (URL, opcional)</label>
+          <input type="url" class="form-control form-control-sm mb-3" id="chest-edit-image" placeholder="https://ejemplo.com/caja.png">
+          <label class="form-label small mb-1" for="chest-loot-credits">Créditos (a repartir entre los jugadores)</label>
+          <input type="number" class="form-control form-control-sm mb-3" id="chest-loot-credits" min="0" step="1" value="0">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <label class="form-label small mb-0">Objetos de la caja</label>
+            <button type="button" id="chest-loot-add" class="btn btn-sm btn-swrp btn-swrp-primary">+ Objeto</button>
+          </div>
+          <div id="chest-loot-list" class="swrp-loot-list"></div>
+        </div>
+        <div class="modal-footer border-secondary border-opacity-25">
+          <button type="button" id="btn-chest-delete" class="btn btn-swrp btn-swrp-danger me-auto">Eliminar caja</button>
+          <button type="button" class="btn btn-swrp btn-swrp-ghost" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" id="btn-chest-save" class="btn btn-swrp btn-swrp-primary">Guardar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="lootItemModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+      <div class="modal-content swrp-modal-card">
+        <div class="modal-header border-secondary border-opacity-25">
+          <h5 class="modal-title text-gold">Agregar objeto al botín</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-2 mb-2">
+            <div class="col-md-5">
+              <label class="form-label small mb-1" for="loot-item-filter-name">Nombre</label>
+              <input type="search" class="form-control form-control-sm" id="loot-item-filter-name" placeholder="Buscar…" autocomplete="off">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small mb-1" for="loot-item-filter-type">Tipo</label>
+              <select class="form-select form-select-sm" id="loot-item-filter-type">
+                <option value="">Todos los tipos</option>
+                <option value="Equipo">Equipo</option>
+                <option value="Consumible">Consumible</option>
+                <option value="Sin utilidad">Sin utilidad</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label small mb-1" for="loot-item-filter-class">Clase</label>
+              <select class="form-select form-select-sm" id="loot-item-filter-class"></select>
+            </div>
+          </div>
+          <div id="loot-item-list" class="swrp-loot-pick-list mb-3"></div>
+          <label class="form-label small mb-1" for="loot-item-prob">Probabilidad</label>
+          <select class="form-select form-select-sm" id="loot-item-prob"></select>
+        </div>
+        <div class="modal-footer border-secondary border-opacity-25">
+          <button type="button" class="btn btn-swrp btn-swrp-ghost" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" id="btn-loot-item-add" class="btn btn-swrp btn-swrp-primary" disabled>Agregar al botín</button>
         </div>
       </div>
     </div>

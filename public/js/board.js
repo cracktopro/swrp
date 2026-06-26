@@ -23,7 +23,8 @@ import {
   resetEnemyVisionToSpawn
 } from './board-vision.js';
 import { swrpConfirm } from './swrp-dialog.js';
-import { revertTemporaryEffectsOnTokens } from './inventory.js';
+import { revertTemporaryEffectsOnTokens, grantCreditsToCharacter } from './inventory.js';
+import { normalizeLoot, splitCredits } from './loot.js';
 import { renderDiceResultHtml } from './dice.js';
 import {
   buildBoardTokenMap,
@@ -170,6 +171,10 @@ export class TacticalBoard {
     this.cellWidth = DEFAULT_CELL_WIDTH;
     this.cellHeight = DEFAULT_CELL_HEIGHT;
     this.tokens = [];
+    this.chests = [];
+    this.chestLayer = options.chestLayer || null;
+    this.pendingCredits = {};
+    this._applyingPending = false;
     this.mapImage = null;
     this._mapUrl = null;
     this.pointer = null;
@@ -191,6 +196,7 @@ export class TacticalBoard {
     this.onGridSizeChange = options.onGridSizeChange || (() => {});
     this.onGMTokenControl = options.onGMTokenControl || (() => {});
     this.onActiveTurnChange = options.onActiveTurnChange || (() => {});
+    this.onChestClick = options.onChestClick || (() => {});
     this.init();
   }
 
@@ -246,6 +252,8 @@ export class TacticalBoard {
   async applyBoardData(data) {
     if (!data) return;
     this.tokens = (data.tokens || []).map((t) => normalizeBoardToken({ ...t }));
+    this.chests = normalizeChestList(data.chests);
+    this.pendingCredits = (data.pendingCredits && typeof data.pendingCredits === 'object') ? { ...data.pendingCredits } : {};
     this.combatStarted = !!data.combatStarted;
     this.activeTurn = data.activeTurn ?? null;
     this.initiativeOpen = this.combatStarted
@@ -283,6 +291,7 @@ export class TacticalBoard {
     this.onTurnActionsChange?.(this.turnActions);
     this.onActiveTurnChange(this.activeTurn);
     this.onTokensChange(this.tokens);
+    this.applyMyPendingCredits();
   }
 
   async loadLocalState(data) {
@@ -297,6 +306,8 @@ export class TacticalBoard {
     const current = this._localBoardData || { log: [] };
     return stripUndefinedDeep({
       tokens: this.tokens.map((t) => stripUndefinedDeep(t)),
+      chests: this.chests.map((c) => stripUndefinedDeep(c)),
+      pendingCredits: this.pendingCredits || {},
       mapUrl: this._mapUrl ?? current.mapUrl ?? null,
       combatStarted: this.combatStarted,
       grid: this.gridPayload(),
@@ -323,6 +334,8 @@ export class TacticalBoard {
       await this.applyBoardData(snap.data());
     } else {
       this.tokens = [];
+      this.chests = [];
+      this.pendingCredits = {};
       this.combatStarted = false;
       this.activeTurn = null;
       this.initiativeOpen = false;
@@ -351,6 +364,8 @@ export class TacticalBoard {
     const current = snap.exists() ? snap.data() : {};
     return stripUndefinedDeep({
       tokens: this.tokens.map((t) => stripUndefinedDeep(t)),
+      chests: this.chests.map((c) => stripUndefinedDeep(c)),
+      pendingCredits: this.pendingCredits || {},
       mapUrl: this._mapUrl ?? current.mapUrl ?? null,
       combatStarted: this.combatStarted,
       grid: this.gridPayload(),
@@ -443,6 +458,8 @@ export class TacticalBoard {
       if (!snap.exists()) return;
       const data = snap.data();
       this.tokens = (data.tokens || []).map((t) => normalizeBoardToken({ ...t }));
+      this.chests = normalizeChestList(data.chests);
+      this.pendingCredits = (data.pendingCredits && typeof data.pendingCredits === 'object') ? { ...data.pendingCredits } : {};
       this.combatStarted = !!data.combatStarted;
       this.activeTurn = data.activeTurn ?? null;
       this.initiativeOpen = data.combatStarted
@@ -488,6 +505,7 @@ export class TacticalBoard {
       this.onTurnActionsChange?.(this.turnActions);
       this.onActiveTurnChange(this.activeTurn);
       this.onTokensChange(this.tokens);
+      this.applyMyPendingCredits();
     });
   }
 
@@ -1147,6 +1165,7 @@ export class TacticalBoard {
   async placeTokenFromTemplate(template, { col, row, side, facing = 'left' }) {
     if (!this.isGM) throw new Error('Solo el GM puede colocar chapas');
     if (this.tokenAt(col, row)) throw new Error('Celda ocupada');
+    if (this.chestAt(col, row)) throw new Error('Celda ocupada por una caja');
     if (template.kind === 'character' && this.tokenOnBoard(template.sourceId, template.kind)) {
       throw new Error('Este personaje ya está en el tablero');
     }
@@ -1492,6 +1511,8 @@ export class TacticalBoard {
       const current = this._localBoardData || { tokens: [], log: [] };
       this._localBoardData = stripUndefinedDeep({
         tokens: this.tokens.map((t) => stripUndefinedDeep(t)),
+        chests: this.chests.map((c) => stripUndefinedDeep(c)),
+        pendingCredits: this.pendingCredits || {},
         mapUrl: partial.mapUrl !== undefined ? partial.mapUrl : (this._mapUrl ?? current.mapUrl ?? null),
         combatStarted: partial.combatStarted ?? this.combatStarted,
         grid: partial.grid ?? current.grid ?? this.gridPayload(),
@@ -1528,6 +1549,8 @@ export class TacticalBoard {
     const payload = {
       ...stripUndefinedDeep({
         tokens: this.tokens.map((t) => stripUndefinedDeep(t)),
+        chests: this.chests.map((c) => stripUndefinedDeep(c)),
+        pendingCredits: this.pendingCredits || {},
         mapUrl: partial.mapUrl !== undefined ? partial.mapUrl : (current.mapUrl ?? null),
         combatStarted: partial.combatStarted ?? this.combatStarted,
         grid: partial.grid ?? current.grid ?? this.gridPayload(),
@@ -1574,6 +1597,7 @@ export class TacticalBoard {
   render() {
     this.renderGrid();
     this.renderTokenLayer();
+    this.renderChestLayer();
   }
 
   renderGrid() {
@@ -1728,6 +1752,207 @@ export class TacticalBoard {
       this.tokenLayer.appendChild(wrap);
     });
   }
+
+  renderChestLayer() {
+    if (!this.chestLayer) return;
+    this.chestLayer.innerHTML = '';
+    this.chestLayer.style.width = `${this.cols * this.cellWidth}px`;
+    this.chestLayer.style.height = `${this.rows * this.cellHeight}px`;
+
+    this.chests.forEach((chest) => {
+      const wrap = document.createElement('div');
+      const remaining = chestHasRemaining(chest);
+      wrap.className = `swrp-board-chest${remaining ? '' : ' is-empty'}`;
+      wrap.style.left = `${chest.col * this.cellWidth}px`;
+      wrap.style.top = `${chest.row * this.cellHeight}px`;
+      wrap.style.width = `${this.cellWidth}px`;
+      wrap.style.height = `${this.cellHeight}px`;
+      wrap.setAttribute('role', 'button');
+      wrap.tabIndex = 0;
+      wrap.title = remaining ? 'Caja' : 'Caja vacía';
+
+      if (chest.imageUrl) {
+        const img = document.createElement('img');
+        img.className = 'swrp-board-chest__img';
+        img.src = chest.imageUrl;
+        img.alt = 'Caja';
+        img.loading = 'lazy';
+        wrap.appendChild(img);
+      } else {
+        const icon = document.createElement('span');
+        icon.className = 'swrp-board-chest__icon';
+        icon.textContent = remaining ? '📦' : '📭';
+        wrap.appendChild(icon);
+      }
+
+      wrap.addEventListener('mousedown', (ev) => {
+        if (ev.button !== 0) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        this.onChestClick(chest);
+      });
+      this.chestLayer.appendChild(wrap);
+    });
+  }
+
+  // ── Cofres (cajas de loot) ──
+  getChestById(id) {
+    return this.chests.find((c) => c.id === id) || null;
+  }
+
+  chestAt(col, row) {
+    return this.chests.find((c) => c.col === col && c.row === row) || null;
+  }
+
+  async addChest({ col, row, imageUrl = '', loot = null }) {
+    if (col == null || row == null) throw new Error('Indica una celda para la caja.');
+    if (this.tokenAt(col, row) || this.chestAt(col, row)) {
+      throw new Error('Esa celda ya está ocupada.');
+    }
+    const chest = normalizeChest({
+      id: `chest_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+      col,
+      row,
+      imageUrl,
+      loot
+    });
+    this.chests = [...this.chests, chest];
+    this.render();
+    await this.saveState({});
+    await this.appendLog(logEntryLootSystem(`colocó una caja en ${cellLabel(col, row)}`), { force: true });
+    return chest;
+  }
+
+  async updateChest(id, patch) {
+    const idx = this.chests.findIndex((c) => c.id === id);
+    if (idx < 0) return;
+    this.chests[idx] = normalizeChest({ ...this.chests[idx], ...patch });
+    this.render();
+    await this.saveState({});
+  }
+
+  async removeChest(id) {
+    this.chests = this.chests.filter((c) => c.id !== id);
+    this.render();
+    await this.saveState({});
+  }
+
+  async updateTokenLoot(tokenId, loot) {
+    const token = this.tokens.find((t) => t.id === tokenId);
+    if (!token) return;
+    token.loot = normalizeLoot(loot);
+    this.render();
+    await this.saveState({});
+  }
+
+  // ── Adyacencia del jugador ──
+  getUserControlledTokens() {
+    if (!this.userCharacterSourceId) return [];
+    return this.tokens.filter(
+      (t) => t.side !== 'enemy' && t.sourceId === this.userCharacterSourceId
+    );
+  }
+
+  isCellAdjacentToUser(col, row) {
+    return this.getUserControlledTokens().some(
+      (t) => Math.abs(t.col - col) + Math.abs(t.row - row) === 1
+    );
+  }
+
+  // ── Reparto de créditos del loot ──
+  getLootRecipients() {
+    const seen = new Set();
+    const out = [];
+    for (const c of this.roster || []) {
+      if (!c?.id || c.type === 'NPC' || seen.has(c.id)) continue;
+      seen.add(c.id);
+      out.push(c);
+    }
+    return out;
+  }
+
+  // Encola los créditos como "pendientes" en el estado del tablero. Cada jugador
+  // los abona a su propio personaje (permisos de Firestore lo exigen así).
+  async distributeLootCredits(amount) {
+    const recipients = this.getLootRecipients();
+    const split = splitCredits(amount, recipients.length);
+    if (split.total > 0 && recipients.length) {
+      const queue = { ...(this.pendingCredits || {}) };
+      for (let i = 0; i < recipients.length; i++) {
+        const share = split.base + (i < split.remainder ? 1 : 0);
+        if (share > 0) queue[recipients[i].id] = (Number(queue[recipients[i].id]) || 0) + share;
+      }
+      this.pendingCredits = queue;
+      await this.saveState({});
+    }
+    return split;
+  }
+
+  async applyMyPendingCredits() {
+    if (this._applyingPending) return;
+    if (this.userPlayTokenKind !== 'character' || !this.userCharacterSourceId) return;
+    const id = this.userCharacterSourceId;
+    const amount = Math.round(Number(this.pendingCredits?.[id]) || 0);
+    if (amount <= 0) return;
+    this._applyingPending = true;
+    try {
+      await grantCreditsToCharacter(id, amount);
+      const queue = { ...this.pendingCredits };
+      delete queue[id];
+      this.pendingCredits = queue;
+      await this.saveState({});
+    } catch {
+      // se reintentará en el próximo snapshot
+    } finally {
+      this._applyingPending = false;
+    }
+  }
+
+  async logLootCredits(sourceName, split) {
+    const each = split.base > 0 ? ` · ${split.base}${split.remainder ? '–' + (split.base + 1) : ''} c/u` : '';
+    await this.appendLog(
+      logEntryLootSystem(`Saqueo de «${sourceName}»: ${split.total} créditos repartidos entre ${split.count} jugador(es)${each}.`),
+      { force: true }
+    );
+  }
+
+  async logLootItem(character, itemName, sourceName) {
+    const meta = getClassMeta(character?.class || character?.classKey);
+    await this.appendLog({
+      time: timeLabel(),
+      type: 'loot',
+      lootKind: 'item',
+      itemName,
+      sourceName,
+      actor: {
+        isGM: false,
+        name: character?.name || 'Personaje',
+        class: character?.class || character?.classKey,
+        color: meta.color
+      }
+    }, { force: true });
+  }
+}
+
+function normalizeChest(raw) {
+  return stripUndefinedDeep({
+    id: raw?.id || `chest_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+    col: Math.max(0, Math.round(Number(raw?.col) || 0)),
+    row: Math.max(0, Math.round(Number(raw?.row) || 0)),
+    imageUrl: String(raw?.imageUrl || '').trim(),
+    loot: normalizeLoot(raw?.loot)
+  });
+}
+
+function normalizeChestList(list) {
+  return Array.isArray(list) ? list.map((c) => normalizeChest({ ...c })) : [];
+}
+
+function chestHasRemaining(chest) {
+  const loot = normalizeLoot(chest?.loot);
+  const credits = !loot.creditsClaimed && loot.credits > 0;
+  if (loot.resolved) return credits || loot.resolved.length > 0;
+  return credits || loot.items.length > 0;
 }
 
 function turnKeyFromTurn(turn) {
@@ -1775,6 +2000,15 @@ export function logEntryTokenMove(actor, { fromCell, toCell }) {
     fromCell,
     toCell,
     isActionMove: true
+  };
+}
+
+export function logEntryLootSystem(message) {
+  return {
+    time: timeLabel(),
+    type: 'loot',
+    lootKind: 'credits',
+    message
   };
 }
 
@@ -2046,6 +2280,17 @@ export function renderLogEntryHtml(entry, context = {}) {
   const markupOpts = { rosterMap, boardTokenMap };
 
   const time = `<span class="combat-log__time">[${escapeHtml(entry.time || '')}]</span>`;
+
+  if (entry.type === 'loot') {
+    if (entry.lootKind === 'credits') {
+      return `<div class="combat-log__entry">${time} <span class="combat-log__loot-tag">[Loot]</span> ${escapeHtml(entry.message || '')}</div>`;
+    }
+    const lootColor = entry.actor?.color || getClassMeta(entry.actor?.class).color;
+    const lootName = `<span class="combat-log__actor" style="color:${escapeHtml(lootColor)}">${escapeHtml(entry.actor?.name || '')}</span>`;
+    const lootItem = escapeHtml(entry.itemName || 'objeto');
+    const src = entry.sourceName ? ` de <span class="combat-log__loot-src">${escapeHtml(entry.sourceName)}</span>` : '';
+    return `<div class="combat-log__entry">${time} ${lootName} recogió <span class="combat-log__item">${lootItem}</span>${src}.</div>`;
+  }
 
   if (entry.type === 'system' || entry.actor?.isGM) {
     const msg = escapeHtml(entry.message || '');

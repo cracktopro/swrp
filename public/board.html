@@ -28,6 +28,7 @@
           <div class="board-stage-wrap">
             <div class="board-stage" id="board-stage">
               <canvas id="board-canvas" class="board-canvas"></canvas>
+              <div id="board-chest-layer" class="board-chest-layer"></div>
               <div id="board-token-layer" class="board-token-layer"></div>
               <div id="board-spawn-layer" class="board-spawn-layer" aria-hidden="true"></div>
             </div>
@@ -231,7 +232,10 @@
           <section class="swrp-panel mb-3" id="gm-token-panel">
             <div class="d-flex justify-content-between align-items-center gap-2 mb-3 flex-wrap">
               <h2 class="swrp-panel__title mb-0">Chapas en juego</h2>
-              <button type="button" id="btn-open-add" class="btn btn-sm btn-swrp btn-swrp-primary">+ Añadir</button>
+              <div class="d-flex gap-2">
+                <button type="button" id="btn-open-add" class="btn btn-sm btn-swrp btn-swrp-primary">+ Añadir</button>
+                <button type="button" id="btn-open-add-chest" class="btn btn-sm btn-swrp btn-swrp-ghost">+ Caja</button>
+              </div>
             </div>
             <p class="small text-muted mb-2">Clic en una chapa para configurarla. Arrastra en el mapa para mover.</p>
             <div id="active-tokens-list" class="swrp-active-tokens"></div>
@@ -261,6 +265,9 @@
             </li>
             <li class="nav-item" role="presentation">
               <button type="button" class="nav-link" data-ctrl-tab="stats" role="tab">Stats</button>
+            </li>
+            <li class="nav-item d-none" role="presentation" id="ctrl-token-tab-loot">
+              <button type="button" class="nav-link" data-ctrl-tab="loot" role="tab">Objetos</button>
             </li>
           </ul>
           <div id="ctrl-tab-play">
@@ -310,6 +317,16 @@
           </div>
           <div id="ctrl-tab-stats" class="d-none">
             <div id="ctrl-stats-editor"></div>
+          </div>
+          <div id="ctrl-tab-loot" class="d-none">
+            <p class="small text-muted mb-2">Define el botín que otorga este enemigo al ser saqueado tras su derrota.</p>
+            <label class="form-label small mb-1" for="ctrl-loot-credits">Créditos (a repartir entre los jugadores)</label>
+            <input type="number" class="form-control form-control-sm mb-3" id="ctrl-loot-credits" min="0" step="1" value="0">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <label class="form-label small mb-0">Objetos del botín</label>
+              <button type="button" id="ctrl-loot-add" class="btn btn-sm btn-swrp btn-swrp-primary">+ Objeto</button>
+            </div>
+            <div id="ctrl-loot-list" class="swrp-loot-list"></div>
           </div>
         </div>
         <div class="modal-footer border-secondary border-opacity-25">
@@ -388,6 +405,95 @@
     </div>
   </div>
 
+  <div class="modal fade" id="chestPlaceModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content swrp-modal-card">
+        <div class="modal-header border-secondary border-opacity-25">
+          <h5 class="modal-title text-gold">Colocar caja</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <label class="form-label small mb-1" for="chest-place-image">Imagen de la miniatura (URL, opcional)</label>
+          <input type="url" class="form-control form-control-sm mb-3" id="chest-place-image" placeholder="https://ejemplo.com/caja.png">
+          <p class="small text-muted mb-2">Celda: <strong id="chest-place-label">Clic en el mapa…</strong></p>
+          <div class="board-mini-wrap">
+            <canvas id="chest-place-canvas" class="board-mini-canvas"></canvas>
+          </div>
+        </div>
+        <div class="modal-footer border-secondary border-opacity-25">
+          <button type="button" class="btn btn-swrp btn-swrp-ghost" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" id="btn-confirm-chest" class="btn btn-swrp btn-swrp-primary" disabled>Colocar caja</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="chestEditModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+      <div class="modal-content swrp-modal-card">
+        <div class="modal-header border-secondary border-opacity-25">
+          <h5 class="modal-title text-gold">Caja · <span id="chest-edit-cell"></span></h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <label class="form-label small mb-1" for="chest-edit-image">Imagen de la miniatura (URL, opcional)</label>
+          <input type="url" class="form-control form-control-sm mb-3" id="chest-edit-image" placeholder="https://ejemplo.com/caja.png">
+          <label class="form-label small mb-1" for="chest-loot-credits">Créditos (a repartir entre los jugadores)</label>
+          <input type="number" class="form-control form-control-sm mb-3" id="chest-loot-credits" min="0" step="1" value="0">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <label class="form-label small mb-0">Objetos de la caja</label>
+            <button type="button" id="chest-loot-add" class="btn btn-sm btn-swrp btn-swrp-primary">+ Objeto</button>
+          </div>
+          <div id="chest-loot-list" class="swrp-loot-list"></div>
+        </div>
+        <div class="modal-footer border-secondary border-opacity-25">
+          <button type="button" id="btn-chest-delete" class="btn btn-swrp btn-swrp-danger me-auto">Eliminar caja</button>
+          <button type="button" class="btn btn-swrp btn-swrp-ghost" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" id="btn-chest-save" class="btn btn-swrp btn-swrp-primary">Guardar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="lootItemModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+      <div class="modal-content swrp-modal-card">
+        <div class="modal-header border-secondary border-opacity-25">
+          <h5 class="modal-title text-gold">Agregar objeto al botín</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-2 mb-2">
+            <div class="col-md-5">
+              <label class="form-label small mb-1" for="loot-item-filter-name">Nombre</label>
+              <input type="search" class="form-control form-control-sm" id="loot-item-filter-name" placeholder="Buscar…" autocomplete="off">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small mb-1" for="loot-item-filter-type">Tipo</label>
+              <select class="form-select form-select-sm" id="loot-item-filter-type">
+                <option value="">Todos los tipos</option>
+                <option value="Equipo">Equipo</option>
+                <option value="Consumible">Consumible</option>
+                <option value="Sin utilidad">Sin utilidad</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label small mb-1" for="loot-item-filter-class">Clase</label>
+              <select class="form-select form-select-sm" id="loot-item-filter-class"></select>
+            </div>
+          </div>
+          <div id="loot-item-list" class="swrp-loot-pick-list mb-3"></div>
+          <label class="form-label small mb-1" for="loot-item-prob">Probabilidad</label>
+          <select class="form-select form-select-sm" id="loot-item-prob"></select>
+        </div>
+        <div class="modal-footer border-secondary border-opacity-25">
+          <button type="button" class="btn btn-swrp btn-swrp-ghost" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" id="btn-loot-item-add" class="btn btn-swrp btn-swrp-primary" disabled>Agregar al botín</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="modal fade" id="allySpawnModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
       <div class="modal-content swrp-modal-card">
@@ -441,7 +547,9 @@
     import { loadPartyMembers, isPartyGMUser, getMemberPlaySource } from './js/party-members.js';
     import { getPartyIdFromUrl, partyPageUrl } from './js/party-url.js';
     import { appUrl } from './js/app-path.js';
-    import { TacticalBoard, getTokenHp, getTokenMaxHp, getTokenEffectiveDefense, isTokenInCover } from './js/board.js';
+    import { TacticalBoard, getTokenHp, getTokenMaxHp, getTokenEffectiveDefense, isTokenInCover, isTokenDefeated } from './js/board.js';
+    import { openLootModal } from './js/loot-modal.js';
+    import { lootHasRemaining } from './js/loot.js';
     import { loadAllNpcs, npcToCardData } from './js/npcs.js';
     import { loadCompendiumData } from './js/compendium-store.js';
     import { renderCharacterCard, normalizeCharacter } from './js/character-card.js';
@@ -520,6 +628,7 @@
           { isNpc: true, ...cardOpts }
         ));
         document.getElementById('charModalLabel').textContent = npc.name;
+        maybeAddSaqueoButton(token);
         charModal.show();
         return;
       }
@@ -535,7 +644,43 @@
       }
       appendCardToModal(renderCharacterCard(character, cardOpts));
       document.getElementById('charModalLabel').textContent = character.name;
+      maybeAddSaqueoButton(token);
       charModal.show();
+    }
+
+    function lootLooter() {
+      if (!invCtx || invCtx.userPlayTokenKind !== 'character' || !invCtx.userSourceId) return null;
+      const c = roster.find((r) => r.id === invCtx.userSourceId);
+      return { id: invCtx.userSourceId, name: c?.name || 'Jugador', class: c?.class || c?.classKey };
+    }
+
+    async function openEnemyLoot(token) {
+      const looter = lootLooter();
+      if (!looter) {
+        await swrpAlert({ title: 'Sin personaje', message: 'No controlas ningún personaje para saquear.' });
+        return;
+      }
+      charModal.hide();
+      await openLootModal({
+        board: invCtx.board,
+        target: { kind: 'token', id: token.id },
+        sourceName: token.name,
+        looter,
+        partyId: invCtx.partyId
+      });
+    }
+
+    function maybeAddSaqueoButton(token) {
+      if (!invCtx || invCtx.isGM) return;
+      if (token.side !== 'enemy' || !isTokenDefeated(token)) return;
+      if (!invCtx.board.isCellAdjacentToUser(token.col, token.row)) return;
+      if (!lootHasRemaining(token.loot)) return;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn btn-swrp btn-swrp-primary w-100 mt-3';
+      btn.textContent = 'Saquear';
+      btn.addEventListener('click', () => openEnemyLoot(token));
+      charModalBody.appendChild(btn);
     }
 
     function canManageTokenInventory(token) {
@@ -681,6 +826,33 @@
         }
 
         let board;
+        let boardPageApi = null;
+
+        function handleChestClick(chest) {
+          if (isGM) {
+            boardPageApi?.openChestEditModal(chest);
+            return;
+          }
+          openChestLootForPlayer(chest);
+        }
+
+        async function openChestLootForPlayer(chest) {
+          if (!board.isCellAdjacentToUser(chest.col, chest.row)) {
+            await swrpAlert({ title: 'Demasiado lejos', message: 'Sitúate en una casilla contigua a la caja para abrirla.' });
+            return;
+          }
+          if (!lootHasRemaining(chest.loot)) {
+            await swrpAlert({ title: 'Caja vacía', message: 'No queda nada en esta caja.' });
+            return;
+          }
+          const looter = lootLooter();
+          if (!looter) {
+            await swrpAlert({ title: 'Sin personaje', message: 'No controlas ningún personaje para recoger objetos.' });
+            return;
+          }
+          await openLootModal({ board, target: { kind: 'chest', id: chest.id }, sourceName: 'Caja', looter, partyId });
+        }
+
         board = new TacticalBoard(
           document.getElementById('board-canvas'),
           document.getElementById('board-token-layer'),
@@ -692,12 +864,14 @@
             userCharacterSourceId,
             userPlayTokenKind,
             roster,
+            chestLayer: document.getElementById('board-chest-layer'),
             colLabelsEl: document.getElementById('board-col-labels'),
             rowLabelsEl: document.getElementById('board-row-labels'),
             tooltipEl: document.getElementById('board-token-tooltip'),
             initiativeLogEl: document.getElementById('board-initiative-log'),
             initiativeOrderEl: document.getElementById('board-initiative-order'),
             onTokenClick: openTokenCard,
+            onChestClick: handleChestClick,
             onMapUrlChange: (url) => { mapUrlInput.value = url || ''; },
             onCombatStateChange: (started) => {
               syncCombatUi(started, isGM);
@@ -718,8 +892,10 @@
           partyId,
           partyType: party?.type,
           board,
+          isGM,
           userId: user.uid,
-          userSourceId: userCharacterSourceId
+          userSourceId: userCharacterSourceId,
+          userPlayTokenKind
         };
 
         await board.loadState();
@@ -728,7 +904,7 @@
         boardSidebar.syncGmSidebar(board);
 
         if (isGM) {
-          initBoardPage({
+          boardPageApi = initBoardPage({
             board,
             roster,
             npcs,

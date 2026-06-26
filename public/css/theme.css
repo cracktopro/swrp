@@ -1431,6 +1431,150 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
   pointer-events: auto;
 }
 
+/* ── Cofres / cajas de loot ── */
+.board-chest-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.swrp-board-chest {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  cursor: pointer;
+  padding: 3px;
+  transition: transform 0.12s ease, filter 0.12s ease;
+}
+
+.swrp-board-chest:hover {
+  transform: scale(1.08);
+  filter: drop-shadow(0 0 6px rgba(255, 199, 0, 0.7));
+}
+
+.swrp-board-chest__img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+.swrp-board-chest__icon {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.swrp-board-chest.is-empty {
+  opacity: 0.45;
+  filter: grayscale(0.7);
+}
+
+/* ── Listas de configuración de loot (GM) ── */
+.swrp-loot-list,
+.swrp-loot-take-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.swrp-loot-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.swrp-loot-row__img,
+.swrp-loot-pick__img,
+.swrp-loot-take-img {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.3);
+  flex: 0 0 auto;
+}
+
+.swrp-loot-row__img--empty,
+.swrp-loot-pick__img--empty,
+.swrp-loot-take-img--empty {
+  display: inline-block;
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+}
+
+.swrp-loot-row__name {
+  flex: 1 1 auto;
+  font-size: 0.85rem;
+}
+
+.swrp-loot-row__prob {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #ffd166;
+  white-space: nowrap;
+}
+
+/* ── Selector de objeto para el botín ── */
+.swrp-loot-pick-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.swrp-loot-pick {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  color: inherit;
+}
+
+.swrp-loot-pick.is-selected {
+  border-color: rgba(255, 199, 0, 0.8);
+  background: rgba(255, 199, 0, 0.1);
+}
+
+.swrp-loot-pick__body {
+  flex: 1 1 auto;
+}
+
+/* ── Modal de saqueo (jugador) ── */
+.swrp-loot-take-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.swrp-loot-take-info {
+  flex: 1 1 auto;
+}
+
+.combat-log__loot-tag {
+  color: #ffd166;
+  font-weight: 700;
+}
+
+.combat-log__loot-src {
+  color: #cbd5e1;
+  font-style: italic;
+}
+
 .swrp-board-token-wrap {
   position: absolute;
   width: 48px;
