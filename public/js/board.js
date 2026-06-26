@@ -185,6 +185,7 @@ export class TacticalBoard {
     this._pendingRetryTimer = null;
     this._pendingRetryBackoffMs = 60000;
     this._pendingClaimScheduled = false;
+    this._logEntries = [];
     this.mapImage = null;
     this._mapUrl = null;
     this.pointer = null;
@@ -296,7 +297,8 @@ export class TacticalBoard {
     this.applyGridDimensions();
     this.render();
     this.initiativeLog = data.initiativeLog || [];
-    this.renderLog(data.log || []);
+    this._logEntries = data.log || [];
+    this.renderLog(this._logEntries);
     this.renderInitiativeLog(this.initiativeLog);
     this.renderInitiativeOrderPreview(
       this.turnOrder.length ? this.turnOrder : null
@@ -518,7 +520,8 @@ export class TacticalBoard {
         this.render();
       }
       this.initiativeLog = data.initiativeLog || [];
-      this.renderLog(data.log || []);
+      this._logEntries = data.log || [];
+      this.renderLog(this._logEntries);
       this.renderInitiativeLog(this.initiativeLog);
       this.renderInitiativeOrderPreview(
         this.turnOrder.length ? this.turnOrder : null
@@ -1501,24 +1504,30 @@ export class TacticalBoard {
         });
         return;
       }
-      await this.saveState({});
       const actor = this.getActiveTurnActor();
+      let logged = false;
       if (isActionMove && actor) {
         await this.appendLog(logEntryTokenMove(actor, {
           fromCell: cellLabel(fromCol, fromRow),
           toCell: cellLabel(token.col, token.row)
         }), { force: this.isNarrativePhase() });
+        logged = true;
         await this.consumeMoveAction();
       } else if (this.combatStarted && actor) {
         await this.appendLog(logEntryToken(token, 'move', {
           fromCell: cellLabel(fromCol, fromRow),
           toCell: cellLabel(token.col, token.row)
         }));
+        logged = true;
       } else if (this.isNarrativePhase() && this.isGM && !this.activeTurn) {
         await this.appendLog(logEntryToken(token, 'move', {
           fromCell: cellLabel(fromCol, fromRow),
           toCell: cellLabel(token.col, token.row)
         }), { force: true });
+        logged = true;
+      }
+      if (!logged) {
+        await this.saveState({});
       }
       this.render();
       return;
@@ -1617,12 +1626,11 @@ export class TacticalBoard {
 
   async appendLog(entry, { force = false } = {}) {
     if (!force && !this.combatStarted) return;
-    const refDoc = doc(db, 'parties', this.partyId, 'state', 'board');
-    const snap = await getDoc(refDoc);
-    const current = snap.exists() ? snap.data() : { log: [] };
-    const log = [...(current.log || []), stripUndefinedDeep(entry)].slice(-100);
-    await setDoc(refDoc, { ...stripUndefinedDeep({ log }), updatedAt: serverTimestamp() }, { merge: true });
+    if (isFirestoreQuotaBlocked()) return;
+    const log = [...(this._logEntries || []), stripUndefinedDeep(entry)].slice(-100);
+    this._logEntries = log;
     this.renderLog(log);
+    await this.saveState({ log });
   }
 
   async saveState(partial = {}) {
@@ -1665,6 +1673,7 @@ export class TacticalBoard {
     }
 
     if (!this.partyId) return;
+    if (isFirestoreQuotaBlocked()) return;
     const refDoc = doc(db, 'parties', this.partyId, 'state', 'board');
     const snap = await getDoc(refDoc);
     const current = snap.exists() ? snap.data() : { tokens: [], log: [] };
@@ -1680,7 +1689,7 @@ export class TacticalBoard {
         activeTurn: partial.activeTurn !== undefined
           ? partial.activeTurn
           : (this.activeTurn ?? current.activeTurn ?? null),
-        log: partial.log !== undefined ? partial.log : (current.log || []),
+        log: partial.log !== undefined ? partial.log : (this._logEntries ?? current.log ?? []),
         initiativeLog: partial.initiativeLog !== undefined
           ? partial.initiativeLog
           : (current.initiativeLog || []),
@@ -1699,7 +1708,15 @@ export class TacticalBoard {
       }),
       updatedAt: serverTimestamp()
     };
-    await setDoc(refDoc, payload, { merge: true });
+    try {
+      await setDoc(refDoc, payload, { merge: true });
+      if (partial.log !== undefined) {
+        this._logEntries = partial.log;
+      }
+    } catch (err) {
+      markFirestoreQuotaExceeded(err);
+      throw err;
+    }
   }
 
   renderLog(entries) {

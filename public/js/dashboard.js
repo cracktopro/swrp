@@ -23,6 +23,11 @@ import {
 } from './escaramuza-templates.js';
 import { characterEditUrl } from './character-url.js';
 import { NPC_ERAS, DEFAULT_NPC_ERA } from './npcs.js';
+import {
+  assertFirestoreWritable,
+  formatFirestoreWriteError,
+  markFirestoreQuotaExceeded
+} from './firestore-quota.js';
 
 export { NPC_ERAS as PARTY_ERAS, DEFAULT_NPC_ERA as DEFAULT_PARTY_ERA };
 
@@ -95,20 +100,26 @@ export async function loadAllParties() {
 
 export async function createParty(profile, { name, type, era, difficulty, imageUrl = '', description = '' }) {
   if (!isAdmin(profile)) throw new Error('Solo un administrador puede crear partidas');
+  assertFirestoreWritable('crear la partida');
   const diff = readDifficulty(difficulty);
   if (!diff) throw new Error('Selecciona una dificultad');
-  const ref = await addDoc(collection(db, 'parties'), {
-    name,
-    type,
-    era: readPartyEra({ era }),
-    difficulty: diff,
-    imageUrl: imageUrl.trim(),
-    description: description.trim(),
-    status: 'active',
-    phase: 'narrative',
-    createdAt: serverTimestamp()
-  });
-  return ref.id;
+  try {
+    const ref = await addDoc(collection(db, 'parties'), {
+      name,
+      type,
+      era: readPartyEra({ era }),
+      difficulty: diff,
+      imageUrl: imageUrl.trim(),
+      description: description.trim(),
+      status: 'active',
+      phase: 'narrative',
+      createdAt: serverTimestamp()
+    });
+    return ref.id;
+  } catch (err) {
+    markFirestoreQuotaExceeded(err);
+    throw new Error(formatFirestoreWriteError(err, 'crear la partida'));
+  }
 }
 
 export async function updateParty(profile, partyId, data) {
@@ -142,7 +153,13 @@ export async function deleteCharacter(userId, charId) {
 
 export async function deleteParty(profile, partyId) {
   if (!isAdmin(profile)) throw new Error('Solo un administrador puede eliminar partidas');
-  await deleteDoc(doc(db, 'parties', partyId));
+  assertFirestoreWritable('eliminar la partida');
+  try {
+    await deleteDoc(doc(db, 'parties', partyId));
+  } catch (err) {
+    markFirestoreQuotaExceeded(err);
+    throw new Error(formatFirestoreWriteError(err, 'eliminar la partida'));
+  }
 }
 
 export function renderCharacterPanel(characters, container, { onDelete } = {}) {

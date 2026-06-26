@@ -24,6 +24,11 @@ import { normalizeBoardToken } from './board-vision.js';
 import { DEFAULT_CELL_WIDTH, DEFAULT_CELL_HEIGHT, DEFAULT_COLS, DEFAULT_ROWS } from './board.js';
 import { normalizeLootTemplate, normalizeChestTemplate } from './loot.js';
 import { appUrl } from './app-path.js';
+import {
+  assertFirestoreWritable,
+  formatFirestoreWriteError,
+  markFirestoreQuotaExceeded
+} from './firestore-quota.js';
 
 const COLLECTION = 'escaramuzaTemplates';
 
@@ -420,43 +425,69 @@ export async function assignSpawnToMember(party, partyId, userId) {
 }
 
 export async function createEscaramuzaFromTemplate(user, profile, templateId, character) {
+  assertFirestoreWritable('crear la escaramuza');
   const template = await loadEscaramuzaTemplate(templateId);
   if (!template) throw new Error('Plantilla no encontrada');
   if (!character?.id) throw new Error('Selecciona un personaje');
 
-  const ref = await addDoc(collection(db, 'parties'), {
-    name: template.name,
-    type: 'Escaramuza',
-    era: readTemplateEra(template.era),
-    imageUrl: template.imageUrl || '',
-    description: template.description || '',
-    status: 'active',
-    phase: 'board',
-    templateId,
-    difficulty: readDifficulty(template.difficulty) || DEFAULT_ESCARAMUZA_DIFFICULTY,
-    createdBy: user.uid,
-    creatorUsername: profile?.username || user.displayName || user.email || 'Usuario',
-    minPlayers: template.minPlayers || 1,
-    maxSlots: template.maxSlots || 1,
-    allySpawns: template.allySpawns || [],
-    createdAt: serverTimestamp()
-  });
+  try {
+    const ref = await addDoc(collection(db, 'parties'), {
+      name: template.name,
+      type: 'Escaramuza',
+      era: readTemplateEra(template.era),
+      imageUrl: template.imageUrl || '',
+      description: template.description || '',
+      status: 'active',
+      phase: 'board',
+      templateId,
+      difficulty: readDifficulty(template.difficulty) || DEFAULT_ESCARAMUZA_DIFFICULTY,
+      createdBy: user.uid,
+      creatorUsername: profile?.username || user.displayName || user.email || 'Usuario',
+      minPlayers: template.minPlayers || 1,
+      maxSlots: template.maxSlots || 1,
+      allySpawns: template.allySpawns || [],
+      createdAt: serverTimestamp()
+    });
 
-  await joinParty(ref.id, user, profile, { playMode: 'gm', character });
+    await joinParty(ref.id, user, profile, { playMode: 'gm', character });
 
-  const boardState = buildFreshBoardState(template.boardLayout);
-  boardState.tokens = cloneTokensForInstance(boardState.tokens);
-  boardState.chests = cloneChestsForInstance(boardState.chests);
+    const boardState = buildFreshBoardState(template.boardLayout);
+    boardState.tokens = cloneTokensForInstance(boardState.tokens);
+    boardState.chests = cloneChestsForInstance(boardState.chests);
 
-  await setDoc(doc(db, 'parties', ref.id, 'state', 'board'), {
-    ...boardState,
-    updatedAt: serverTimestamp()
-  });
+    const members = await loadPartyMembers(ref.id);
+    const member = members.find((m) => m.userId === user.uid);
+    const spawns = template.allySpawns || [];
+    const spawnIndex = getCharacterMemberSpawnIndex(members, user.uid);
+    const spawn = spawns[spawnIndex];
+    if (member && spawn) {
+      const char = memberToActiveCharacter(member);
+      const occupied = boardState.tokens.some((t) => t.col === spawn.col && t.row === spawn.row);
+      if (char && !occupied) {
+        const tokenTemplate = tokenFromCharacter(char);
+        boardState.tokens.push(stripUndefinedDeep(normalizeBoardToken({
+          ...tokenTemplate,
+          id: uniqueTokenId(tokenTemplate),
+          col: spawn.col,
+          row: spawn.row,
+          side: 'ally',
+          facing: 'left',
+          spawnCol: spawn.col,
+          spawnRow: spawn.row
+        })));
+      }
+    }
 
-  const party = { allySpawns: template.allySpawns || [] };
-  await assignSpawnToMember(party, ref.id, user.uid);
+    await setDoc(doc(db, 'parties', ref.id, 'state', 'board'), {
+      ...boardState,
+      updatedAt: serverTimestamp()
+    });
 
-  return ref.id;
+    return ref.id;
+  } catch (err) {
+    markFirestoreQuotaExceeded(err);
+    throw new Error(formatFirestoreWriteError(err, 'crear la escaramuza'));
+  }
 }
 
 export function renderTemplatePickCard(template, { selected = false, onSelect } = {}) {

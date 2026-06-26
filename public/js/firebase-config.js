@@ -17,7 +17,8 @@ import {
   orderBy,
   serverTimestamp,
   onSnapshot,
-  collectionGroup
+  collectionGroup,
+  setLogLevel
 } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js';
 import {
   getStorage,
@@ -42,6 +43,8 @@ const analytics = typeof window !== 'undefined' && window.location.hostname !== 
   : null;
 const auth = getAuth(app);
 const db = getFirestore(app);
+// Evita spam en consola cuando Firestore reintenta escrituras tras resource-exhausted.
+setLogLevel(typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'warn' : 'error');
 const storage = getStorage(app);
 
 export {
