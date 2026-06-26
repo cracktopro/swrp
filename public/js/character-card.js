@@ -92,7 +92,7 @@ export function resolveCharacterStats(character) {
 }
 
 export function renderCharacterCard(character, options = {}) {
-  const { mini = false, showSkills = true, isNpc = false, copyMentionId = null, boardContext = null, inventory = null } = options;
+  const { mini = false, showSkills = true, isNpc = false, copyMentionId = null, boardContext = null, inventory = null, loot = null } = options;
   const char = normalizeCharacter(character, character?.id);
   const meta = getClassMeta(char.class);
   const stats = resolveCharacterStats(char);
@@ -176,6 +176,7 @@ export function renderCharacterCard(character, options = {}) {
       <img class="swrp-card__logo" src="${CARD_LOGO_SRC}" alt="Star Wars Expanded RP">
     </footer>
     ${inventory ? '<button type="button" class="swrp-card__inventory-btn" title="Abrir inventario" aria-label="Abrir inventario">Inventario</button>' : ''}
+    ${loot ? '<button type="button" class="swrp-card__loot-btn" title="Saquear enemigo" aria-label="Saquear">Saquear</button>' : ''}
   `;
 
   card.querySelector('.swrp-card__copy-id')?.addEventListener('click', async (e) => {
@@ -199,6 +200,13 @@ export function renderCharacterCard(character, options = {}) {
     card.querySelector('.swrp-card__inventory-btn')?.addEventListener('click', (e) => {
       e.stopPropagation();
       inventory.onOpen(character);
+    });
+  }
+
+  if (loot && typeof loot.onOpen === 'function') {
+    card.querySelector('.swrp-card__loot-btn')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      loot.onOpen(character);
     });
   }
 

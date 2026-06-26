@@ -211,6 +211,14 @@
             </select>
             <button type="button" id="compendium-board-load" class="btn btn-sm btn-swrp btn-swrp-ghost w-100">Cargar tablero seleccionado</button>
           </section>
+          <section class="swrp-panel mb-3" id="board-shop-panel">
+            <h2 class="swrp-panel__title">Tienda de objetos</h2>
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="board-shop-enabled" checked>
+              <label class="form-check-label small" for="board-shop-enabled">Tienda activa para los jugadores</label>
+            </div>
+            <p class="small text-muted mb-0 mt-2">Si está desactivada, los jugadores no verán la pestaña Tienda en su inventario.</p>
+          </section>
           <section class="swrp-panel mb-3" id="board-grant-panel">
             <h2 class="swrp-panel__title">Conceder a jugadores</h2>
             <p class="small text-muted mb-2">Otorga créditos u objetos del compendio a un personaje de la partida.</p>
@@ -618,8 +626,18 @@
       };
     }
 
+    function buildLootOption(token) {
+      if (!invCtx || invCtx.isGM) return null;
+      if (token.side !== 'enemy' || !isTokenDefeated(token)) return null;
+      if (!invCtx.board.isCellAdjacentToUser(token.col, token.row)) return null;
+      if (!lootHasRemaining(token.loot)) return null;
+      return { onOpen: () => openEnemyLoot(token) };
+    }
+
     function openTokenCard(token, { copyMentionId = token?.id } = {}) {
       const cardOpts = buildTokenCardOptions(token, copyMentionId);
+      const lootOpt = buildLootOption(token);
+      if (lootOpt) cardOpts.loot = lootOpt;
       if (token.kind === 'npc') {
         const npc = resolveNpcData(token);
         if (!npc) return;
@@ -628,7 +646,6 @@
           { isNpc: true, ...cardOpts }
         ));
         document.getElementById('charModalLabel').textContent = npc.name;
-        maybeAddSaqueoButton(token);
         charModal.show();
         return;
       }
@@ -644,7 +661,6 @@
       }
       appendCardToModal(renderCharacterCard(character, cardOpts));
       document.getElementById('charModalLabel').textContent = character.name;
-      maybeAddSaqueoButton(token);
       charModal.show();
     }
 
@@ -670,19 +686,6 @@
       });
     }
 
-    function maybeAddSaqueoButton(token) {
-      if (!invCtx || invCtx.isGM) return;
-      if (token.side !== 'enemy' || !isTokenDefeated(token)) return;
-      if (!invCtx.board.isCellAdjacentToUser(token.col, token.row)) return;
-      if (!lootHasRemaining(token.loot)) return;
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'btn btn-swrp btn-swrp-primary w-100 mt-3';
-      btn.textContent = 'Saquear';
-      btn.addEventListener('click', () => openEnemyLoot(token));
-      charModalBody.appendChild(btn);
-    }
-
     function canManageTokenInventory(token) {
       return !!invCtx
         && (invCtx.partyType === 'Campaña' || invCtx.partyType === 'Escaramuza')
@@ -698,6 +701,7 @@
       openInventoryModal(character, {
         partyId: invCtx.partyId,
         canEdit: true,
+        shopEnabled: invCtx.board.shopEnabled !== false,
         logUse: (item) => invCtx.board.logItemUse(character, item)
       });
     }
@@ -829,11 +833,19 @@
         let boardPageApi = null;
 
         function handleChestClick(chest) {
-          if (isGM) {
-            boardPageApi?.openChestEditModal(chest);
-            return;
-          }
+          if (isGM) return;
           openChestLootForPlayer(chest);
+        }
+
+        function handleChestEditClick(chest) {
+          if (!isGM) return;
+          boardPageApi?.openChestEditModal(chest);
+        }
+
+        function syncShopToggleUi() {
+          const el = document.getElementById('board-shop-enabled');
+          if (!el || !board) return;
+          el.checked = board.shopEnabled !== false;
         }
 
         async function openChestLootForPlayer(chest) {
@@ -872,6 +884,8 @@
             initiativeOrderEl: document.getElementById('board-initiative-order'),
             onTokenClick: openTokenCard,
             onChestClick: handleChestClick,
+            onChestEditClick: handleChestEditClick,
+            onBoardMetaChange: syncShopToggleUi,
             onMapUrlChange: (url) => { mapUrlInput.value = url || ''; },
             onCombatStateChange: (started) => {
               syncCombatUi(started, isGM);
@@ -926,6 +940,15 @@
             rowsInput: gridRowsInput
           });
           initBoardGrantPanel({ roster, partyId });
+          syncShopToggleUi();
+          document.getElementById('board-shop-enabled')?.addEventListener('change', async (e) => {
+            try {
+              await board.setShopEnabled(e.target.checked);
+            } catch (err) {
+              await swrpAlert({ title: 'Error', message: err.message });
+              syncShopToggleUi();
+            }
+          });
           escaramuzaSpawnsEditor = initPartyEscaramuzaSlotsPanel({
             board,
             party,

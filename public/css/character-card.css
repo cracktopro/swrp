@@ -429,6 +429,43 @@
   font-size: 0.6rem;
 }
 
+.swrp-card__loot-btn {
+  position: absolute;
+  right: 0.85rem;
+  bottom: 0.85rem;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.34rem 0.9rem;
+  font-family: var(--font-display, inherit);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1;
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(135deg, #d4781a 0%, #8b4510 100%);
+  border: 1px solid color-mix(in srgb, #ffb347 65%, #fff 35%);
+  border-radius: 999px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.55), 0 0 12px rgba(255, 140, 0, 0.25);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+}
+
+.swrp-card__loot-btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.12);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6), 0 0 18px rgba(255, 140, 0, 0.4);
+}
+
+.swrp-card--mini .swrp-card__loot-btn {
+  right: 0.5rem;
+  bottom: 0.5rem;
+  padding: 0.26rem 0.7rem;
+  font-size: 0.6rem;
+}
+
 .swrp-card__footer {
   flex-shrink: 0;
   margin-top: 0.5rem;

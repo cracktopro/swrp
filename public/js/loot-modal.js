@@ -61,6 +61,10 @@ export async function openLootModal({ board, target, sourceName = 'Botín', loot
   state = { board, target, sourceName, looter, partyId };
   modalEl.querySelector('#swrp-loot-source').textContent = sourceName;
 
+  if (target.kind === 'chest') {
+    await board.markChestOpened(target.id);
+  }
+
   // Resolver el botín la primera vez y repartir créditos.
   const loot = resolveLoot(readTargetLoot());
   let creditsMsg = '';

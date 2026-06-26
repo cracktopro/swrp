@@ -349,6 +349,7 @@ async function initBoardEditor(user, profile, initialState) {
       initiativeOrderEl: document.getElementById('board-initiative-order'),
       onTokenClick: (token) => openTokenCard(token, { roster, npcs, charModal, charModalBody }),
       onChestClick: (chest) => boardPageApi?.openChestEditModal(chest),
+      onChestEditClick: (chest) => boardPageApi?.openChestEditModal(chest),
       onMapUrlChange: (url) => { mapUrlInput.value = url || ''; },
       onCombatStateChange: (started) => {
         syncCombatUi(started, isGM);

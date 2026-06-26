@@ -74,7 +74,7 @@ function ensureModal() {
             <li class="nav-item" role="presentation">
               <button type="button" class="nav-link active" data-inv-tab="inv" role="tab">Inventario</button>
             </li>
-            <li class="nav-item" role="presentation">
+            <li class="nav-item" role="presentation" id="swrp-inv-shop-tab-wrap">
               <button type="button" class="nav-link" data-inv-tab="shop" role="tab">Tienda</button>
             </li>
           </ul>
@@ -141,7 +141,15 @@ function ensureModal() {
   });
 }
 
+function syncShopTabVisibility() {
+  const enabled = state?.shopEnabled !== false;
+  const wrap = modalEl?.querySelector('#swrp-inv-shop-tab-wrap');
+  wrap?.classList.toggle('d-none', !enabled);
+  if (!enabled && state?.activeTab === 'shop') setTab('inv');
+}
+
 function setTab(tab) {
+  if (tab === 'shop' && state?.shopEnabled === false) tab = 'inv';
   state.activeTab = tab;
   modalEl.querySelectorAll('[data-inv-tab]').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.invTab === tab);
@@ -152,7 +160,7 @@ function setTab(tab) {
   if (tab === 'shop') renderShop();
 }
 
-export function openInventoryModal(character, { partyId = null, canEdit = true, onChange = null, logUse = null } = {}) {
+export function openInventoryModal(character, { partyId = null, canEdit = true, shopEnabled = true, onChange = null, logUse = null } = {}) {
   ensureModal();
   const norm = normalizeInventory(character);
   state = {
@@ -168,6 +176,7 @@ export function openInventoryModal(character, { partyId = null, canEdit = true, 
     currentHp: character.currentHp ?? character.hp ?? null,
     maxHp: character.maxHp ?? null,
     canEdit,
+    shopEnabled: shopEnabled !== false,
     onChange,
     logUse,
     selectedItemId: null,
@@ -176,6 +185,7 @@ export function openInventoryModal(character, { partyId = null, canEdit = true, 
   };
   modalEl.querySelector('#swrp-inv-name').textContent = state.name;
   populateShopClassFilter();
+  syncShopTabVisibility();
   setTab('inv');
   render();
   bsModal.show();

@@ -1445,30 +1445,30 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
   justify-content: center;
   pointer-events: auto;
   cursor: pointer;
-  padding: 3px;
+  padding: 2px;
   transition: transform 0.12s ease, filter 0.12s ease;
 }
 
 .swrp-board-chest:hover {
   transform: scale(1.08);
-  filter: drop-shadow(0 0 6px rgba(255, 199, 0, 0.7));
+  filter: drop-shadow(0 0 6px rgba(255, 199, 0, 0.55));
 }
 
 .swrp-board-chest__img {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  border-radius: 6px;
+  pointer-events: none;
+  user-select: none;
 }
 
-.swrp-board-chest__icon {
-  font-size: 1.6rem;
-  line-height: 1;
+.swrp-board-chest--empty {
+  opacity: 0.72;
+  filter: grayscale(0.35);
 }
 
-.swrp-board-chest.is-empty {
-  opacity: 0.45;
-  filter: grayscale(0.7);
+.swrp-board-chest--empty:hover {
+  filter: grayscale(0.2) drop-shadow(0 0 4px rgba(255, 199, 0, 0.35));
 }
 
 /* ── Listas de configuración de loot (GM) ── */

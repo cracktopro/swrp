@@ -55,8 +55,24 @@ export function normalizeChestTemplate(raw) {
     col: Math.max(0, Math.round(Number(raw?.col) || 0)),
     row: Math.max(0, Math.round(Number(raw?.row) || 0)),
     imageUrl: String(raw?.imageUrl || '').trim(),
+    opened: false,
     loot: normalizeLootTemplate(raw?.loot)
   };
+}
+
+export const CHEST_ICONS = {
+  closed: 'icons/caja_cerrada.png',
+  open: 'icons/caja_abierta.png',
+  empty: 'icons/caja_vacia.png'
+};
+
+/** Estado visual de la caja en el tablero: cerrada | abierta | vacía. */
+export function getChestVisualState(chest) {
+  const opened = chest?.opened === true;
+  const remaining = lootHasRemaining(chest?.loot);
+  if (!opened) return 'closed';
+  if (remaining) return 'open';
+  return 'empty';
 }
 
 /** ¿Hay algo configurado en el loot (créditos u objetos)? */
