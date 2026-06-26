@@ -246,6 +246,19 @@
               <input type="number" class="form-control" id="item-edit-price" min="0" step="1" value="0">
             </div>
           </div>
+          <div id="item-edit-equip" class="border border-secondary border-opacity-25 rounded p-2 mb-2 d-none">
+            <p class="small text-gold mb-2">Requisitos para equipar</p>
+            <div class="row g-2">
+              <div class="col-8">
+                <label class="form-label small" for="item-edit-equip-class">Clase</label>
+                <select class="form-select form-select-sm" id="item-edit-equip-class"></select>
+              </div>
+              <div class="col-4">
+                <label class="form-label small" for="item-edit-equip-level">Nivel mínimo</label>
+                <input type="number" class="form-control form-control-sm" id="item-edit-equip-level" min="1" max="20" value="1">
+              </div>
+            </div>
+          </div>
           <div id="item-edit-effect" class="border border-secondary border-opacity-25 rounded p-2 mb-1 d-none">
             <p class="small text-gold mb-2" id="item-edit-effect-title">Efecto</p>
             <div class="row g-2">

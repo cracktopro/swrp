@@ -163,11 +163,11 @@ export function renderCharacterCard(character, options = {}) {
         </div>
         ${char.portraitUrl ? `
           <div class="swrp-card__portrait">
-            ${inventory ? '<button type="button" class="swrp-card__inventory-btn" title="Inventario" aria-label="Abrir inventario"><span class="swrp-card__inventory-icon">🎒</span></button>' : ''}
+            ${inventory ? '<button type="button" class="swrp-card__inventory-btn" title="Abrir inventario" aria-label="Abrir inventario"><span class="swrp-card__inventory-icon" aria-hidden="true">🎒</span><span class="swrp-card__inventory-text">Inventario</span></button>' : ''}
             <img src="${escapeHtml(char.portraitUrl)}" alt="${escapeHtml(char.name)}" loading="lazy">
           </div>` : (inventory ? `
           <div class="swrp-card__portrait swrp-card__portrait--noimg">
-            <button type="button" class="swrp-card__inventory-btn" title="Inventario" aria-label="Abrir inventario"><span class="swrp-card__inventory-icon">🎒</span></button>
+            <button type="button" class="swrp-card__inventory-btn" title="Abrir inventario" aria-label="Abrir inventario"><span class="swrp-card__inventory-icon" aria-hidden="true">🎒</span><span class="swrp-card__inventory-text">Inventario</span></button>
           </div>` : '')}
       </div>
       <div class="swrp-card__skills-panel">

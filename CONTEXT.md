@@ -244,7 +244,7 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 - Pestañas: Progresión, Habilidades, Especies, NPCs, **Tableros** (mapas VTT reutilizables, solo admin edita), **Objetos**.
 - **Habilidades → Otros:** catálogo de habilidades personalizadas creadas para NPCs (Activa/Pasiva; nombre y descripción). No forman parte de las clases de juego.
 - **Objetos** (`compendium/data.items`, solo admin edita): catálogo de objetos para inventarios. Campos: nombre, descripción, imagen (URL del icono), tipo, **peso (KG)** y precio de venta. Por tipo:
-  - **Equipo:** ocupa la ranura especial del inventario (solo uno equipado). Sube una estadística (HP/Defensa/Ataque/Daño/Fuerza) en `statBonus` mientras esté equipado.
+  - **Equipo:** ocupa la ranura especial del inventario (solo uno equipado). Sube una estadística (HP/Defensa/Ataque/Daño/Fuerza) en `statBonus` mientras esté equipado. Define además **`equipClass`** (clase que puede equiparlo; `'all'` = todas, sin contar «Otros») y **`equipLevel`** (nivel mínimo 1–20); el inventario solo permite equiparlo si el personaje cumple ambos requisitos.
   - **Consumible:** se usa en partida, desaparece y aplica un efecto (estadística + aumento). `temporary: true` → el efecto se revierte al **Finalizar combate**; `false` → permanente. Una cura (HP) nunca supera el máximo del personaje. **Estadística «Ninguna» (`stat: 'none'`):** consumible sin efecto mecánico (llaves, piezas, etc.); solo se gasta y se registra (uso narrativo/rol).
   - **Sin utilidad:** solo se puede vender.
 - Galería NPC con filtros.
@@ -252,15 +252,17 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 
 ### 8.6.1 Sistema de inventario (`inventory.js`, `inventory-modal.js`)
 
-- Ligado a **personajes de usuario**; el botón de inventario aparece sobre el retrato en la carta y se activa solo en **partidas de tipo Campaña** (`party-page.js`).
-- Modal: rejilla **4×8 (32 casillas)**, ranura de **Equipo** aparte, créditos (icono `icons/creditos.svg`, por defecto 0) y barra de **peso** con aviso de sobrecarga.
+- Ligado a **personajes de usuario**; el botón de inventario (pill con el color de la clase, abajo-derecha del retrato) aparece en la carta. Se accede desde el foro (Campaña, `party-page.js`) y desde el tablero (Campaña y **Escaramuza**) en la carta del personaje propio.
+- Modal con dos pestañas (**Inventario** y **Tienda**): rejilla **4×8 (32 casillas)**, ranura de **Equipo** aparte, **créditos** encima de la barra de **peso** (icono `icons/creditos.svg`, por defecto 0) con aviso de sobrecarga.
+- **Tienda:** lista todo el catálogo de objetos con filtros por **nombre, tipo y clase**; permite **vender** los objetos que se poseen (también disponible desde la pestaña Inventario).
 - **Peso máximo por clase (KG):** Guardián Jedi / Guerrero Sith 10 · Cónsul Jedi / Inquisidor Sith 8 · Soldado / Contrabandista 15 · Especialista Técnico / Cazarrecompensas 20 · Noble 12 (`CLASS_MAX_WEIGHT`).
 - **Agrupación:** objetos del mismo tipo comparten casilla (con contador), pero el peso suma por unidad.
 - **Penalización de movimiento (tablero):** normal 6 casillas; si supera el peso máximo → 3; si además la rejilla está llena (32) → 1. El token guarda `moveRange` (recalculado al colocarlo y al cambiar el inventario en partida).
 - **Equipo:** suma su `statBonus` a la estadística (en la carta vía `resolveCharacterStats` y en las stats de combate del token).
 - **Consumibles:** «Usar» elimina 1 unidad. Cura (HP) sube `currentHp`/HP del token hasta el máximo. No-HP permanente → `statBonuses` del personaje; no-HP temporal → se aplica al token y se registra en `token.tempEffects`, revertido en `endCombat` (board.js). Los consumibles **sin efecto** («Ninguna») se usan en foro o tablero.
-- **Acceso desde el tablero:** la carta del personaje propio (Campaña) muestra el botón de inventario; al **usar** un objeto allí se registra en el log de combate `«Personaje» ha utilizado el objeto «X»` (`logEntryItemUse` / `board.logItemUse`, tipo de log `item`).
+- **Acceso desde el tablero:** la carta del personaje propio (Campaña o Escaramuza) muestra el botón de inventario; al **usar** un objeto allí se registra en el log de combate `«Personaje» ha utilizado el objeto «X»` (`logEntryItemUse` / `board.logItemUse`, tipo de log `item`).
 - **Vender:** elige cantidad si hay varias; suma `precio × cantidad` a los créditos y descuenta del inventario.
+- **Conceder (GM):** panel «Conceder a jugadores» (pestaña Opciones del tablero, `board-grant-panel.js`) para otorgar créditos u objetos del compendio a un personaje de la partida (`grantCreditsToCharacter` / `grantItemToCharacter` en `inventory.js`; recalcula el `moveRange` del token).
 
 ### 8.5.1 Habilidades custom en NPCs (`character-creator.js`)
 
@@ -333,7 +335,8 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
     weight,           // KG
     price,            // créditos de venta
     stat?, statBonus?,        // Equipo y Consumible
-    temporary?                // solo Consumible
+    temporary?,               // solo Consumible
+    equipClass?, equipLevel?  // solo Equipo ('all'|claseKey · nivel 1-20)
   }, ...],
   seedVersion: number,
   updatedAt
@@ -474,8 +477,9 @@ Funciones auxiliares en reglas: `isAdmin`, `isPartyMember`, `isPartyGM`, `isEsca
 | `board-vision.js` | Conos visión, normalización tokens |
 | `compendium-store.js` | Carga/merge compendio, stats, clases, objetos |
 | `compendium-page.js` | UI compendio (incl. pestaña Objetos) |
-| `inventory.js` | Lógica inventario: peso/clase, slots, moveRange, equipo, consumibles, persistencia |
-| `inventory-modal.js` | Modal inventario (rejilla 4×8, créditos, equipar, vender, usar) |
+| `inventory.js` | Lógica inventario: peso/clase, slots, moveRange, equipo, consumibles, persistencia, conceder GM |
+| `inventory-modal.js` | Modal inventario (pestañas Inventario/Tienda, rejilla 4×8, créditos, equipar, vender, usar) |
+| `board-grant-panel.js` | Panel GM (tablero) para otorgar créditos/objetos a personajes |
 | `dice.js` | Utilidades tiradas |
 | `token-stats-editor.js` | Editor stats inline en modal chapa |
 | `admin.js` | Panel admin usuarios |

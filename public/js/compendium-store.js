@@ -250,6 +250,13 @@ export function normalizeCompendiumItem(raw) {
   if (type === 'Consumible') {
     item.temporary = item.stat !== 'none' && (raw?.temporary === true || raw?.temporary === 'true');
   }
+  if (type === 'Equipo') {
+    // Clase que puede equiparlo ('all' = todas) y nivel mínimo (1-20).
+    const classKeys = getClassList().map((c) => c.key);
+    const eq = raw?.equipClass;
+    item.equipClass = (eq === 'all' || classKeys.includes(eq)) ? eq : 'all';
+    item.equipLevel = Math.min(20, Math.max(1, Math.round(Number(raw?.equipLevel) || 1)));
+  }
   return item;
 }
 

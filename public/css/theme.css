@@ -3198,15 +3198,16 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
 /* ── Modal de inventario ── */
 .swrp-inv__topbar {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 1rem;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.4rem;
   margin-bottom: 1rem;
 }
 
 .swrp-inv__credits {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 0.4rem;
   font-family: var(--font-display);
   font-size: 1.4rem;
@@ -3227,8 +3228,7 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
 }
 
 .swrp-inv__weight {
-  flex: 1 1 220px;
-  min-width: 180px;
+  width: 100%;
 }
 
 .swrp-inv__weight-head {
@@ -3329,15 +3329,17 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
 
 .swrp-inv__grid {
   display: grid;
-  grid-template-columns: repeat(var(--inv-cols, 4), 1fr);
-  gap: 6px;
+  grid-template-columns: repeat(var(--inv-cols, 4), 44px);
+  justify-content: start;
+  gap: 5px;
 }
 
 .swrp-inv__cell {
   position: relative;
-  aspect-ratio: 1 / 1;
+  width: 44px;
+  height: 44px;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 6px;
+  border-radius: 5px;
   background: rgba(255, 255, 255, 0.03);
   padding: 0;
 }
@@ -3362,18 +3364,19 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
 
 .swrp-inv__cell-name {
   display: block;
-  font-size: 0.6rem;
+  font-size: 0.5rem;
+  line-height: 1.05;
   text-align: center;
-  padding: 2px;
+  padding: 1px;
   color: rgba(255, 255, 255, 0.8);
   word-break: break-word;
 }
 
 .swrp-inv__cell-qty {
   position: absolute;
-  right: 2px;
-  bottom: 2px;
-  font-size: 0.7rem;
+  right: 1px;
+  bottom: 1px;
+  font-size: 0.62rem;
   font-weight: 700;
   line-height: 1;
   padding: 1px 4px;
@@ -3403,5 +3406,75 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
   object-fit: contain;
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.05);
+}
+
+/* ── Tienda (pestaña del inventario) ── */
+.swrp-shop__filters {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+@media (max-width: 575px) {
+  .swrp-shop__filters {
+    grid-template-columns: 1fr;
+  }
+}
+
+.swrp-shop__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 52vh;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.swrp-shop__row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.swrp-shop__img {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  object-fit: contain;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.swrp-shop__img--empty {
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+}
+
+.swrp-shop__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.swrp-shop__title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.swrp-shop__owned {
+  font-size: 0.7rem;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(212, 175, 55, 0.18);
+  color: var(--swrp-gold);
+}
+
+.swrp-shop__actions {
+  flex-shrink: 0;
 }
 

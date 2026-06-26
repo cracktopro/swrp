@@ -210,6 +210,24 @@
             </select>
             <button type="button" id="compendium-board-load" class="btn btn-sm btn-swrp btn-swrp-ghost w-100">Cargar tablero seleccionado</button>
           </section>
+          <section class="swrp-panel mb-3" id="board-grant-panel">
+            <h2 class="swrp-panel__title">Conceder a jugadores</h2>
+            <p class="small text-muted mb-2">Otorga créditos u objetos del compendio a un personaje de la partida.</p>
+            <label class="form-label small" for="board-grant-character">Personaje</label>
+            <select class="form-select form-select-sm mb-2" id="board-grant-character"></select>
+            <label class="form-label small" for="board-grant-credits">Créditos</label>
+            <div class="d-flex gap-2 mb-3">
+              <input type="number" class="form-control form-control-sm" id="board-grant-credits" value="0" step="1">
+              <button type="button" id="board-grant-credits-btn" class="btn btn-sm btn-swrp btn-swrp-primary flex-shrink-0">Otorgar</button>
+            </div>
+            <label class="form-label small" for="board-grant-item">Objeto</label>
+            <select class="form-select form-select-sm mb-2" id="board-grant-item"></select>
+            <div class="d-flex gap-2">
+              <input type="number" class="form-control form-control-sm" id="board-grant-item-qty" value="1" min="1" style="max-width:90px;">
+              <button type="button" id="board-grant-item-btn" class="btn btn-sm btn-swrp btn-swrp-primary flex-grow-1">Otorgar objeto</button>
+            </div>
+            <p id="board-grant-status" class="small text-muted mt-2 mb-0"></p>
+          </section>
           <section class="swrp-panel mb-3" id="gm-token-panel">
             <div class="d-flex justify-content-between align-items-center gap-2 mb-3 flex-wrap">
               <h2 class="swrp-panel__title mb-0">Chapas en juego</h2>
@@ -435,6 +453,7 @@
     import { swrpConfirm, swrpAlert } from './js/swrp-dialog.js';
     import { initPartyEscaramuzaSlotsPanel } from './js/escaramuza-spawns-ui.js';
     import { initBoardGridPanel, syncBoardGridInputs } from './js/board-grid-panel.js';
+    import { initBoardGrantPanel } from './js/board-grant-panel.js';
 
     const charModal = new bootstrap.Modal(document.getElementById('charModal'));
     const mentionModal = new bootstrap.Modal(document.getElementById('boardMentionModal'));
@@ -521,7 +540,7 @@
 
     function canManageTokenInventory(token) {
       return !!invCtx
-        && invCtx.partyType === 'Campaña'
+        && (invCtx.partyType === 'Campaña' || invCtx.partyType === 'Escaramuza')
         && token.kind !== 'npc'
         && token.sourceId === invCtx.userSourceId;
     }
@@ -730,6 +749,7 @@
             colsInput: gridColsInput,
             rowsInput: gridRowsInput
           });
+          initBoardGrantPanel({ roster, partyId });
           escaramuzaSpawnsEditor = initPartyEscaramuzaSlotsPanel({
             board,
             party,

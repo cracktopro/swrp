@@ -155,11 +155,10 @@ export async function initPartyPage({ user, profile, partyId, ui }) {
     const own = userCharacters.find((c) => c.id === char.id) || null;
     if (own) {
       preview.appendChild(renderCharacterCard(own, {
-        mini: true,
         inventory: { onOpen: () => openOwnInventory(own.id) }
       }));
     } else {
-      preview.appendChild(renderCharacterCard(char, { mini: true }));
+      preview.appendChild(renderCharacterCard(char));
     }
   }
 

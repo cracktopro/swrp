@@ -240,6 +240,46 @@ export function revertTemporaryEffectsOnTokens(tokens) {
   return changed;
 }
 
+/** El GM otorga créditos a un personaje. Devuelve el nuevo total. */
+export async function grantCreditsToCharacter(characterId, amount) {
+  if (!characterId) throw new Error('Personaje no válido.');
+  const amt = Math.round(Number(amount) || 0);
+  if (!amt) throw new Error('Indica una cantidad de créditos distinta de cero.');
+  const ref = doc(db, 'characters', characterId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) throw new Error('El personaje no existe.');
+  const current = Math.max(0, Math.round(Number(snap.data().credits) || 0));
+  const next = Math.max(0, current + amt);
+  await updateDoc(ref, { credits: next, updatedAt: serverTimestamp() });
+  return next;
+}
+
+/** El GM otorga un objeto a un personaje (agrupa por tipo, respeta el límite de casillas). */
+export async function grantItemToCharacter(characterId, itemId, qty = 1, partyId = null) {
+  if (!characterId) throw new Error('Personaje no válido.');
+  if (!itemId) throw new Error('Selecciona un objeto.');
+  const n = Math.max(1, Math.round(Number(qty) || 1));
+  const ref = doc(db, 'characters', characterId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) throw new Error('El personaje no existe.');
+  const data = snap.data();
+  const { inventory, equippedItemId } = normalizeInventory(data);
+  const next = addItemToInventory(inventory, itemId, n);
+  await updateDoc(ref, {
+    inventory: next.map((e) => ({ itemId: e.itemId, qty: e.qty })),
+    updatedAt: serverTimestamp()
+  });
+  if (partyId) {
+    await updateBoardTokenMoveRange(partyId, {
+      id: characterId,
+      class: data.class || data.classKey,
+      inventory: next,
+      equippedItemId
+    });
+  }
+  return next;
+}
+
 /** Actualiza el rango de movimiento del token del personaje en el tablero (peso). */
 export async function updateBoardTokenMoveRange(partyId, character) {
   if (!partyId || !character?.id) return;

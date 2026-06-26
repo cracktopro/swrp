@@ -611,6 +611,7 @@ function renderItemsList(isAdmin) {
         </div>
         <p class="small mb-1">${escapeHtml(item.description)}</p>
         ${effect}
+        ${item.type === 'Equipo' ? `<p class="small mb-1 text-muted">Equipa: ${item.equipClass === 'all' || !item.equipClass ? 'Todas las clases' : escapeHtml(getClassList().find((c) => c.key === item.equipClass)?.label || item.equipClass)} · Nivel ${Math.max(1, Number(item.equipLevel) || 1)}+</p>` : ''}
         <p class="small text-muted mb-0">${item.weight} KG · ${item.price} créditos</p>
         ${isAdmin ? `<div class="d-flex gap-1 mt-2">
           <button type="button" class="btn btn-sm btn-swrp btn-swrp-ghost btn-edit-item">Editar</button>
@@ -654,15 +655,29 @@ function populateItemStatSelect(type) {
   if (opts.some((o) => o.key === prev)) sel.value = prev;
 }
 
+function populateItemClassSelect() {
+  const sel = document.getElementById('item-edit-equip-class');
+  if (!sel) return;
+  const prev = sel.value;
+  const opts = ['<option value="all">Todas</option>'];
+  for (const c of getClassList()) {
+    opts.push(`<option value="${escapeHtml(c.key)}">${escapeHtml(c.label)}</option>`);
+  }
+  sel.innerHTML = opts.join('');
+  if (prev) sel.value = prev;
+}
+
 function syncItemModalFields() {
   const type = document.getElementById('item-edit-type').value;
   const effectWrap = document.getElementById('item-edit-effect');
+  const equipWrap = document.getElementById('item-edit-equip');
   const tempWrap = document.getElementById('item-edit-temp-wrap');
   const bonusWrap = document.getElementById('item-edit-bonus')?.closest('.col-6');
   const title = document.getElementById('item-edit-effect-title');
   const hasEffect = type === 'Equipo' || type === 'Consumible';
   populateItemStatSelect(type);
   effectWrap.classList.toggle('d-none', !hasEffect);
+  equipWrap?.classList.toggle('d-none', type !== 'Equipo');
   const stat = document.getElementById('item-edit-stat').value;
   const noEffect = type === 'Consumible' && stat === 'none';
   bonusWrap?.classList.toggle('d-none', noEffect);
@@ -696,6 +711,9 @@ function openItemModal(item) {
   document.getElementById('item-edit-stat').value = item?.stat || 'hp';
   document.getElementById('item-edit-bonus').value = String(item?.statBonus ?? 0);
   document.getElementById('item-edit-temp').checked = !!item?.temporary;
+  populateItemClassSelect();
+  document.getElementById('item-edit-equip-class').value = item?.equipClass || 'all';
+  document.getElementById('item-edit-equip-level').value = String(item?.equipLevel ?? 1);
   syncItemModalFields();
   updateItemImagePreview();
   bootstrap.Modal.getOrCreateInstance(document.getElementById('itemModal')).show();
@@ -713,7 +731,9 @@ async function saveItemFromModal() {
     price: document.getElementById('item-edit-price').value,
     stat: document.getElementById('item-edit-stat').value,
     statBonus: document.getElementById('item-edit-bonus').value,
-    temporary: document.getElementById('item-edit-temp').checked
+    temporary: document.getElementById('item-edit-temp').checked,
+    equipClass: document.getElementById('item-edit-equip-class').value,
+    equipLevel: document.getElementById('item-edit-equip-level').value
   });
   if (!normalized) {
     alert('El nombre del objeto es obligatorio.');

@@ -1,9 +1,8 @@
 import { appUrl } from './app-path.js';
-import { getItemById, getCompendiumItems } from './compendium-store.js';
+import { getItemById, getCompendiumItems, getClassList } from './compendium-store.js';
 import { swrpAlert, swrpConfirm } from './swrp-dialog.js';
 import {
   INVENTORY_COLS,
-  INVENTORY_ROWS,
   INVENTORY_MAX_SLOTS,
   normalizeInventory,
   computeInventoryWeight,
@@ -19,7 +18,7 @@ import {
 
 let modalEl = null;
 let bsModal = null;
-let state = null; // { characterId, partyId, classKey, name, credits, inventory, equippedItemId, statBonuses, currentHp, maxHp, canEdit, onChange, selectedItemId }
+let state = null; // { characterId, partyId, classKey, level, name, credits, inventory, equippedItemId, statBonuses, currentHp, maxHp, canEdit, onChange, logUse, selectedItemId, activeTab, shopFilters }
 
 const CREDITS_ICON = appUrl('icons/creditos.svg');
 
@@ -29,6 +28,32 @@ function escapeHtml(str) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+function classLabel(key) {
+  if (!key || key === 'all') return 'Todas';
+  return getClassList().find((c) => c.key === key)?.label || key;
+}
+
+function itemTypeBadge(type) {
+  const cls = type === 'Equipo' ? 'swrp-item-badge--equipo'
+    : type === 'Consumible' ? 'swrp-item-badge--consumible'
+    : 'swrp-item-badge--inutil';
+  return `<span class="swrp-item-badge ${cls}">${escapeHtml(type)}</span>`;
+}
+
+/** Comprueba si el personaje puede equipar el objeto (clase + nivel). */
+function equipCheck(item) {
+  if (!item || item.type !== 'Equipo') return { ok: false, reason: 'No es un objeto equipable.' };
+  const reqClass = item.equipClass || 'all';
+  if (reqClass !== 'all' && reqClass !== state.classKey) {
+    return { ok: false, reason: `Solo lo equipa la clase ${classLabel(reqClass)}.` };
+  }
+  const reqLevel = Math.max(1, Number(item.equipLevel) || 1);
+  if ((Number(state.level) || 1) < reqLevel) {
+    return { ok: false, reason: `Requiere nivel ${reqLevel}.` };
+  }
+  return { ok: true };
 }
 
 function ensureModal() {
@@ -45,34 +70,86 @@ function ensureModal() {
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
-          <div class="swrp-inv__topbar">
-            <div class="swrp-inv__credits">
-              <span id="swrp-inv-credits">0</span>
-              <span class="swrp-inv__credits-icon" style="-webkit-mask-image:url('${CREDITS_ICON}');mask-image:url('${CREDITS_ICON}')" title="créditos"></span>
-            </div>
-            <div class="swrp-inv__weight">
-              <div class="swrp-inv__weight-head">
-                <span>Peso</span>
-                <span id="swrp-inv-weight-val">0 / 0 KG</span>
+          <ul class="nav nav-tabs swrp-board-tabs mb-3" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button type="button" class="nav-link active" data-inv-tab="inv" role="tab">Inventario</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button type="button" class="nav-link" data-inv-tab="shop" role="tab">Tienda</button>
+            </li>
+          </ul>
+
+          <div data-inv-pane="inv">
+            <div class="swrp-inv__topbar">
+              <div class="swrp-inv__credits">
+                <span id="swrp-inv-credits">0</span>
+                <span class="swrp-inv__credits-icon" style="-webkit-mask-image:url('${CREDITS_ICON}');mask-image:url('${CREDITS_ICON}')" title="créditos"></span>
               </div>
-              <div class="swrp-inv__weight-bar"><div id="swrp-inv-weight-fill" class="swrp-inv__weight-fill"></div></div>
-              <p id="swrp-inv-move" class="swrp-inv__move small mb-0"></p>
+              <div class="swrp-inv__weight">
+                <div class="swrp-inv__weight-head">
+                  <span>Peso</span>
+                  <span id="swrp-inv-weight-val">0 / 0 KG</span>
+                </div>
+                <div class="swrp-inv__weight-bar"><div id="swrp-inv-weight-fill" class="swrp-inv__weight-fill"></div></div>
+                <p id="swrp-inv-move" class="swrp-inv__move small mb-0"></p>
+              </div>
+            </div>
+            <div class="swrp-inv__layout">
+              <div class="swrp-inv__main">
+                <div class="swrp-inv__equip" id="swrp-inv-equip"></div>
+                <div class="swrp-inv__grid" id="swrp-inv-grid"></div>
+              </div>
+              <div class="swrp-inv__detail" id="swrp-inv-detail">
+                <p class="text-muted small mb-0">Selecciona un objeto para ver sus detalles y acciones.</p>
+              </div>
             </div>
           </div>
-          <div class="swrp-inv__layout">
-            <div class="swrp-inv__main">
-              <div class="swrp-inv__equip" id="swrp-inv-equip"></div>
-              <div class="swrp-inv__grid" id="swrp-inv-grid"></div>
+
+          <div data-inv-pane="shop" class="d-none">
+            <div class="swrp-shop__filters">
+              <input type="text" class="form-control form-control-sm" id="swrp-shop-name" placeholder="Buscar por nombre…">
+              <select class="form-select form-select-sm" id="swrp-shop-type">
+                <option value="">Todos los tipos</option>
+                <option value="Equipo">Equipo</option>
+                <option value="Consumible">Consumible</option>
+                <option value="Sin utilidad">Sin utilidad</option>
+              </select>
+              <select class="form-select form-select-sm" id="swrp-shop-class"></select>
             </div>
-            <div class="swrp-inv__detail" id="swrp-inv-detail">
-              <p class="text-muted small mb-0">Selecciona un objeto para ver sus detalles y acciones.</p>
-            </div>
+            <div class="swrp-shop__list" id="swrp-shop-list"></div>
           </div>
         </div>
       </div>
     </div>`;
   document.body.appendChild(modalEl);
   bsModal = bootstrap.Modal.getOrCreateInstance(modalEl, { focus: true });
+
+  modalEl.querySelectorAll('[data-inv-tab]').forEach((btn) => {
+    btn.addEventListener('click', () => setTab(btn.dataset.invTab));
+  });
+  modalEl.querySelector('#swrp-shop-name').addEventListener('input', (e) => {
+    state.shopFilters.name = e.target.value;
+    renderShop();
+  });
+  modalEl.querySelector('#swrp-shop-type').addEventListener('change', (e) => {
+    state.shopFilters.type = e.target.value;
+    renderShop();
+  });
+  modalEl.querySelector('#swrp-shop-class').addEventListener('change', (e) => {
+    state.shopFilters.classKey = e.target.value;
+    renderShop();
+  });
+}
+
+function setTab(tab) {
+  state.activeTab = tab;
+  modalEl.querySelectorAll('[data-inv-tab]').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.invTab === tab);
+  });
+  modalEl.querySelectorAll('[data-inv-pane]').forEach((pane) => {
+    pane.classList.toggle('d-none', pane.dataset.invPane !== tab);
+  });
+  if (tab === 'shop') renderShop();
 }
 
 export function openInventoryModal(character, { partyId = null, canEdit = true, onChange = null, logUse = null } = {}) {
@@ -82,6 +159,7 @@ export function openInventoryModal(character, { partyId = null, canEdit = true, 
     characterId: character.id,
     partyId,
     classKey: character.class || character.classKey,
+    level: character.level ?? 1,
     name: character.name || 'Personaje',
     credits: norm.credits,
     inventory: norm.inventory.map((e) => ({ ...e })),
@@ -92,9 +170,13 @@ export function openInventoryModal(character, { partyId = null, canEdit = true, 
     canEdit,
     onChange,
     logUse,
-    selectedItemId: null
+    selectedItemId: null,
+    activeTab: 'inv',
+    shopFilters: { name: '', type: '', classKey: '' }
   };
   modalEl.querySelector('#swrp-inv-name').textContent = state.name;
+  populateShopClassFilter();
+  setTab('inv');
   render();
   bsModal.show();
 }
@@ -104,6 +186,7 @@ function render() {
   renderEquip();
   renderGrid();
   renderDetail();
+  if (state.activeTab === 'shop') renderShop();
 }
 
 function renderTopbar() {
@@ -202,12 +285,22 @@ function renderDetail() {
     effect = `<p class="small text-info mb-1">${statLabel(item.stat)} +${item.statBonus}${item.type === 'Consumible' && item.temporary ? ' · temporal' : ''}</p>`;
   }
 
+  let requirement = '';
+  if (item.type === 'Equipo') {
+    requirement = `<p class="small text-muted mb-1">Clase: ${escapeHtml(classLabel(item.equipClass))} · Nivel mín.: ${Math.max(1, Number(item.equipLevel) || 1)}</p>`;
+  }
+
   const actions = [];
   if (state.canEdit) {
     if (item.type === 'Equipo') {
-      actions.push(isEquipped
-        ? '<button type="button" class="btn btn-sm btn-swrp btn-swrp-ghost" data-act="unequip">Quitar equipo</button>'
-        : '<button type="button" class="btn btn-sm btn-swrp btn-swrp-primary" data-act="equip">Equipar</button>');
+      if (isEquipped) {
+        actions.push('<button type="button" class="btn btn-sm btn-swrp btn-swrp-ghost" data-act="unequip">Quitar equipo</button>');
+      } else if (ownedQty > 0) {
+        const check = equipCheck(item);
+        actions.push(check.ok
+          ? '<button type="button" class="btn btn-sm btn-swrp btn-swrp-primary" data-act="equip">Equipar</button>'
+          : `<button type="button" class="btn btn-sm btn-swrp btn-swrp-primary" disabled title="${escapeHtml(check.reason)}">Equipar</button><span class="small text-warning d-block mt-1">${escapeHtml(check.reason)}</span>`);
+      }
     }
     if (item.type === 'Consumible' && ownedQty > 0) {
       actions.push('<button type="button" class="btn btn-sm btn-swrp btn-swrp-success" data-act="use">Usar</button>');
@@ -222,11 +315,12 @@ function renderDetail() {
       ${item.imageUrl ? `<img src="${escapeHtml(item.imageUrl)}" alt="" class="swrp-inv__detail-img">` : ''}
       <div>
         <strong class="text-gold">${escapeHtml(item.name)}</strong>
-        <span class="swrp-item-badge ${item.type === 'Equipo' ? 'swrp-item-badge--equipo' : item.type === 'Consumible' ? 'swrp-item-badge--consumible' : 'swrp-item-badge--inutil'}">${escapeHtml(item.type)}</span>
+        ${itemTypeBadge(item.type)}
       </div>
     </div>
     <p class="small mb-1">${escapeHtml(item.description)}</p>
     ${effect}
+    ${requirement}
     <p class="small text-muted mb-1">${item.weight} KG · Venta: ${item.price} créditos${isEquipped ? ' · Equipado' : ''}${ownedQty ? ` · Tienes: ${ownedQty}` : ''}</p>
     <div class="d-flex gap-2 flex-wrap mt-2">${actions.join('')}</div>`;
 
@@ -234,6 +328,75 @@ function renderDetail() {
   detail.querySelector('[data-act="unequip"]')?.addEventListener('click', () => unequipItem());
   detail.querySelector('[data-act="use"]')?.addEventListener('click', () => useConsumable(item));
   detail.querySelector('[data-act="sell"]')?.addEventListener('click', () => sellItem(item, ownedQty));
+}
+
+function populateShopClassFilter() {
+  const sel = modalEl.querySelector('#swrp-shop-class');
+  if (!sel) return;
+  const opts = ['<option value="">Todas las clases</option>', '<option value="all">Equipable por todas</option>'];
+  for (const c of getClassList()) {
+    opts.push(`<option value="${escapeHtml(c.key)}">${escapeHtml(c.label)}</option>`);
+  }
+  sel.innerHTML = opts.join('');
+  sel.value = state.shopFilters.classKey || '';
+}
+
+function renderShop() {
+  const list = modalEl.querySelector('#swrp-shop-list');
+  if (!list) return;
+  const { name, type, classKey } = state.shopFilters;
+  const term = name.trim().toLowerCase();
+  const items = getCompendiumItems()
+    .filter((it) => !type || it.type === type)
+    .filter((it) => !term || it.name.toLowerCase().includes(term))
+    .filter((it) => {
+      if (!classKey) return true;
+      // El filtro por clase solo aplica a objetos de tipo Equipo.
+      if (it.type !== 'Equipo') return false;
+      const eq = it.equipClass || 'all';
+      if (classKey === 'all') return eq === 'all';
+      return eq === 'all' || eq === classKey;
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, 'es'));
+
+  if (!items.length) {
+    list.innerHTML = '<p class="text-muted small mb-0">No hay objetos que coincidan con los filtros.</p>';
+    return;
+  }
+
+  list.innerHTML = items.map((item) => {
+    const entry = state.inventory.find((e) => e.itemId === item.id);
+    const ownedQty = entry?.qty || 0;
+    const isEquipped = state.equippedItemId === item.id;
+    const totalOwned = ownedQty + (isEquipped ? 1 : 0);
+    let meta = `${item.weight} KG · ${item.price} créditos`;
+    if (item.type === 'Equipo') meta += ` · ${escapeHtml(classLabel(item.equipClass))} · Nv. ${Math.max(1, Number(item.equipLevel) || 1)}`;
+    const canSell = state.canEdit && ownedQty > 0;
+    return `
+      <div class="swrp-shop__row">
+        ${item.imageUrl ? `<img src="${escapeHtml(item.imageUrl)}" alt="" class="swrp-shop__img" loading="lazy">` : '<div class="swrp-shop__img swrp-shop__img--empty"></div>'}
+        <div class="swrp-shop__info">
+          <div class="swrp-shop__title">
+            <strong class="text-gold">${escapeHtml(item.name)}</strong>
+            ${itemTypeBadge(item.type)}
+            ${totalOwned ? `<span class="swrp-shop__owned">Tienes: ${totalOwned}</span>` : ''}
+          </div>
+          <p class="small text-muted mb-0">${escapeHtml(item.description)}</p>
+          <p class="small text-muted mb-0">${meta}</p>
+        </div>
+        <div class="swrp-shop__actions">
+          ${canSell ? `<button type="button" class="btn btn-sm btn-swrp btn-swrp-danger" data-shop-sell="${escapeHtml(item.id)}">Vender</button>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+
+  list.querySelectorAll('[data-shop-sell]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const item = getItemById(btn.dataset.shopSell);
+      const entry = state.inventory.find((e) => e.itemId === btn.dataset.shopSell);
+      if (item && entry) sellItem(item, entry.qty);
+    });
+  });
 }
 
 async function persist(patch) {
@@ -262,6 +425,12 @@ async function persist(patch) {
 }
 
 async function equipItem(itemId) {
+  const item = getItemById(itemId);
+  const check = equipCheck(item);
+  if (!check.ok) {
+    await swrpAlert({ title: 'No puedes equipar', message: check.reason });
+    return;
+  }
   // Un Equipo equipado ocupa la ranura especial (sale de la rejilla).
   state.inventory = removeItemFromInventory(state.inventory, itemId, 1);
   // Si ya había uno equipado, devuélvelo a la rejilla.
