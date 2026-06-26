@@ -176,8 +176,10 @@ export class TacticalBoard {
     this.chestLayer = options.chestLayer || null;
     this.pendingCredits = {};
     this._applyingPending = false;
-    this._lastSeenPendingForMe = 0;
-    this._pendingCreditsCooldownUntil = 0;
+    this._lastRemotePendingForMe = 0;
+    this._pendingClaimedAt = 0;
+    this._pendingRetryTimer = null;
+    this._pendingRetryBackoffMs = 30000;
     this.mapImage = null;
     this._mapUrl = null;
     this.pointer = null;
@@ -257,9 +259,9 @@ export class TacticalBoard {
   async applyBoardData(data) {
     if (!data) return;
     this.tokens = (data.tokens || []).map((t) => normalizeBoardToken({ ...t }));
-    this.chests = normalizeChestList(data.chests);
-    this.pendingCredits = (data.pendingCredits && typeof data.pendingCredits === 'object') ? { ...data.pendingCredits } : {};
-    this.shopEnabled = data.shopEnabled !== false;
+      this.chests = normalizeChestList(data.chests);
+      this.pendingCredits = this.mergeIncomingPendingCredits(data.pendingCredits);
+      this.shopEnabled = data.shopEnabled !== false;
     this.combatStarted = !!data.combatStarted;
     this.activeTurn = data.activeTurn ?? null;
     this.initiativeOpen = this.combatStarted
@@ -339,6 +341,11 @@ export class TacticalBoard {
     const snap = await getDoc(doc(db, 'parties', this.partyId, 'state', 'board'));
     if (snap.exists()) {
       await this.applyBoardData(snap.data());
+      const myPending = this.myPendingCreditAmount();
+      this._lastRemotePendingForMe = myPending;
+      if (myPending > 0) {
+        void this.applyMyPendingCredits();
+      }
     } else {
       this.tokens = [];
       this.chests = [];
@@ -468,7 +475,7 @@ export class TacticalBoard {
       const data = snap.data();
       this.tokens = (data.tokens || []).map((t) => normalizeBoardToken({ ...t }));
       this.chests = normalizeChestList(data.chests);
-      this.pendingCredits = (data.pendingCredits && typeof data.pendingCredits === 'object') ? { ...data.pendingCredits } : {};
+      this.pendingCredits = this.mergeIncomingPendingCredits(data.pendingCredits);
       this.shopEnabled = data.shopEnabled !== false;
       this.combatStarted = !!data.combatStarted;
       this.activeTurn = data.activeTurn ?? null;
@@ -515,7 +522,11 @@ export class TacticalBoard {
       this.onTurnActionsChange?.(this.turnActions);
       this.onActiveTurnChange(this.activeTurn);
       this.onTokensChange(this.tokens);
-      this.maybeApplyMyPendingCredits(data.pendingCredits);
+      const currentMy = this.myPendingCreditAmount();
+      if (currentMy > (this._lastRemotePendingForMe ?? 0)) {
+        void this.applyMyPendingCredits();
+      }
+      this._lastRemotePendingForMe = currentMy;
       this.onBoardMetaChange();
     });
   }
@@ -542,43 +553,69 @@ export class TacticalBoard {
     );
   }
 
-  /**
-   * Abona créditos de loot pendientes al personaje propio.
-   * Solo se invoca cuando la cola del jugador cambia (nuevo reparto), no en cada snapshot.
-   */
-  maybeApplyMyPendingCredits(pendingCredits = this.pendingCredits) {
-    const amount = this.myPendingCreditAmount(pendingCredits);
-    const prev = this._lastSeenPendingForMe;
-    this._lastSeenPendingForMe = amount;
-    if (amount <= 0) return;
-    if (amount !== prev) {
-      void this.applyMyPendingCredits();
-      return;
+  /** Ignora entradas obsoletas de pendingCredits tras un claim reciente. */
+  mergeIncomingPendingCredits(incoming) {
+    const base = (incoming && typeof incoming === 'object') ? { ...incoming } : {};
+    if (
+      this.userPlayTokenKind === 'character'
+      && this.userCharacterSourceId
+      && this._pendingClaimedAt
+      && Date.now() - this._pendingClaimedAt < 120000
+    ) {
+      delete base[this.userCharacterSourceId];
     }
-    if (this._pendingCreditsCooldownUntil && Date.now() >= this._pendingCreditsCooldownUntil) {
-      this._pendingCreditsCooldownUntil = 0;
-      void this.applyMyPendingCredits();
-    }
+    return base;
   }
 
+  schedulePendingCreditsRetry() {
+    if (this._pendingRetryTimer) return;
+    const delay = this._pendingRetryBackoffMs;
+    this._pendingRetryBackoffMs = Math.min(this._pendingRetryBackoffMs * 2, 300000);
+    this._pendingRetryTimer = setTimeout(() => {
+      this._pendingRetryTimer = null;
+      void this.applyMyPendingCredits();
+    }, delay);
+  }
+
+  clearPendingCreditsRetry() {
+    if (this._pendingRetryTimer) {
+      clearTimeout(this._pendingRetryTimer);
+      this._pendingRetryTimer = null;
+    }
+    this._pendingRetryBackoffMs = 30000;
+  }
+
+  /**
+   * Abona créditos de loot pendientes al personaje propio.
+   * Primero limpia la cola en Firestore (claim-first) para evitar dobles abonos.
+   */
   async applyMyPendingCredits() {
     if (this._applyingPending) return;
     if (this.userPlayTokenKind !== 'character' || !this.userCharacterSourceId) return;
     const id = this.userCharacterSourceId;
     const amount = this.myPendingCreditAmount();
     if (amount <= 0) return;
-    if (this._pendingCreditsCooldownUntil && Date.now() < this._pendingCreditsCooldownUntil) return;
 
     this._applyingPending = true;
+    const queueBefore = { ...(this.pendingCredits || {}) };
+    delete queueBefore[id];
     try {
+      await this.persistPendingCredits(queueBefore);
+      this._pendingClaimedAt = Date.now();
+      this._lastRemotePendingForMe = 0;
       await grantCreditsToCharacter(id, amount);
-      const queue = { ...(this.pendingCredits || {}) };
-      delete queue[id];
-      await this.persistPendingCredits(queue);
-      this._lastSeenPendingForMe = 0;
+      this.clearPendingCreditsRetry();
     } catch (err) {
       console.warn('No se pudieron abonar créditos pendientes de loot:', err);
-      this._pendingCreditsCooldownUntil = Date.now() + 30000;
+      this._pendingClaimedAt = 0;
+      try {
+        const restore = { ...(this.pendingCredits || {}), [id]: amount };
+        await this.persistPendingCredits(restore);
+        this._lastRemotePendingForMe = amount;
+      } catch (restoreErr) {
+        console.warn('No se pudo restaurar la cola de créditos pendientes:', restoreErr);
+      }
+      this.schedulePendingCreditsRetry();
     } finally {
       this._applyingPending = false;
     }
@@ -1971,7 +2008,6 @@ export class TacticalBoard {
         if (share > 0) queue[recipients[i].id] = (Number(queue[recipients[i].id]) || 0) + share;
       }
       await this.persistPendingCredits(queue);
-      this.maybeApplyMyPendingCredits(queue);
     }
     return split;
   }
