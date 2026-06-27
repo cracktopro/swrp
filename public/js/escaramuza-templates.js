@@ -23,6 +23,7 @@ import {
 import { normalizeBoardToken } from './board-vision.js';
 import { DEFAULT_CELL_WIDTH, DEFAULT_CELL_HEIGHT, DEFAULT_COLS, DEFAULT_ROWS } from './board.js';
 import { normalizeLootTemplate, normalizeChestTemplate } from './loot.js';
+import { normalizeObjectiveList } from './board-objectives.js';
 import { appUrl } from './app-path.js';
 import {
   assertFirestoreWritable,
@@ -228,6 +229,11 @@ export function buildLayoutFromBoard(board, { enemyOnly = true } = {}) {
   return stripUndefinedDeep({
     tokens: tokens.map((t) => stripTokenLootForTemplate(t)),
     chests: (board.chests || []).map((c) => stripUndefinedDeep(normalizeChestTemplate(c))),
+    objectives: (board.objectives || []).map((o) => stripUndefinedDeep({
+      id: o.id,
+      title: o.title || '',
+      text: o.text
+    })),
     mapUrl: board._mapUrl ?? null,
     grid: board.gridPayload(),
   });
@@ -242,6 +248,7 @@ export function buildFreshBoardState(boardLayout) {
       return token;
     }),
     chests: (layout.chests || []).map((c) => normalizeChestTemplate(c)),
+    objectives: normalizeObjectiveList(layout.objectives),
     mapUrl: layout.mapUrl ?? null,
     grid: layout.grid || {
       cols: DEFAULT_COLS,

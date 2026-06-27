@@ -1479,6 +1479,43 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
   gap: 0.4rem;
 }
 
+/* ── Panel de objetivos (tablero / editor) ── */
+.swrp-objectives-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  max-height: min(62vh, 520px);
+  overflow-y: auto;
+}
+
+.swrp-objective-entry {
+  padding: 0.55rem 0.65rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.swrp-objective-entry__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.swrp-objective-entry__actions {
+  display: flex;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.swrp-objective-entry__text {
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.88);
+  white-space: normal;
+  word-break: break-word;
+}
+
 .swrp-loot-row {
   display: flex;
   align-items: center;

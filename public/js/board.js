@@ -29,6 +29,7 @@ import {
   markFirestoreQuotaExceeded
 } from './firestore-quota.js';
 import { normalizeLoot, getChestVisualState, CHEST_ICONS } from './loot.js';
+import { normalizeObjectiveList, normalizeObjectiveEntry } from './board-objectives.js';
 import { renderDiceResultHtml } from './dice.js';
 import {
   buildBoardTokenMap,
@@ -177,6 +178,7 @@ export class TacticalBoard {
     this.cellHeight = DEFAULT_CELL_HEIGHT;
     this.tokens = [];
     this.chests = [];
+    this.objectives = [];
     this.chestLayer = options.chestLayer || null;
     this._logEntries = [];
     this.mapImage = null;
@@ -267,6 +269,7 @@ export class TacticalBoard {
     if (!data) return;
     this.tokens = (data.tokens || []).map((t) => normalizeBoardToken({ ...t }));
     this.chests = normalizeChestList(data.chests);
+    this.objectives = normalizeObjectiveList(data.objectives);
     this.shopEnabled = data.shopEnabled !== false;
     this.combatStarted = !!data.combatStarted;
     this.activeTurn = data.activeTurn ?? null;
@@ -322,6 +325,7 @@ export class TacticalBoard {
     return stripUndefinedDeep({
       tokens: this.tokens.map((t) => stripUndefinedDeep(t)),
       chests: this.chests.map((c) => stripUndefinedDeep(c)),
+      objectives: this.objectives.map((o) => stripUndefinedDeep(o)),
       shopEnabled: this.shopEnabled !== false,
       mapUrl: this._mapUrl ?? current.mapUrl ?? null,
       combatStarted: this.combatStarted,
@@ -350,6 +354,7 @@ export class TacticalBoard {
     } else {
       this.tokens = [];
       this.chests = [];
+      this.objectives = [];
       this.shopEnabled = true;
       this.combatStarted = false;
       this.activeTurn = null;
@@ -380,6 +385,7 @@ export class TacticalBoard {
     return stripUndefinedDeep({
       tokens: this.tokens.map((t) => stripUndefinedDeep(t)),
       chests: this.chests.map((c) => stripUndefinedDeep(c)),
+      objectives: this.objectives.map((o) => stripUndefinedDeep(o)),
       shopEnabled: this.shopEnabled !== false,
       mapUrl: this._mapUrl ?? current.mapUrl ?? null,
       combatStarted: this.combatStarted,
@@ -474,6 +480,7 @@ export class TacticalBoard {
       const data = snap.data();
       this.tokens = (data.tokens || []).map((t) => normalizeBoardToken({ ...t }));
       this.chests = normalizeChestList(data.chests);
+      this.objectives = normalizeObjectiveList(data.objectives);
       this.shopEnabled = data.shopEnabled !== false;
       this.combatStarted = !!data.combatStarted;
       this.activeTurn = data.activeTurn ?? null;
@@ -1533,6 +1540,7 @@ export class TacticalBoard {
       this._localBoardData = stripUndefinedDeep({
         tokens: this.tokens.map((t) => stripUndefinedDeep(t)),
         chests: this.chests.map((c) => stripUndefinedDeep(c)),
+        objectives: this.objectives.map((o) => stripUndefinedDeep(o)),
         shopEnabled: this.shopEnabled !== false,
         mapUrl: partial.mapUrl !== undefined ? partial.mapUrl : (this._mapUrl ?? current.mapUrl ?? null),
         combatStarted: partial.combatStarted ?? this.combatStarted,
@@ -1572,6 +1580,7 @@ export class TacticalBoard {
       ...stripUndefinedDeep({
         tokens: this.tokens.map((t) => stripUndefinedDeep(t)),
         chests: this.chests.map((c) => stripUndefinedDeep(c)),
+        objectives: this.objectives.map((o) => stripUndefinedDeep(o)),
         shopEnabled: this.shopEnabled !== false,
         mapUrl: partial.mapUrl !== undefined ? partial.mapUrl : (current.mapUrl ?? null),
         combatStarted: partial.combatStarted ?? this.combatStarted,
@@ -1880,6 +1889,40 @@ export class TacticalBoard {
   async removeChest(id) {
     this.chests = this.chests.filter((c) => c.id !== id);
     this.render();
+    await this.saveState({});
+  }
+
+  async addObjective(raw) {
+    const entry = normalizeObjectiveEntry(raw);
+    if (!entry) throw new Error('El texto del objetivo es obligatorio');
+    this.objectives = [...this.objectives, entry];
+    this.onBoardMetaChange();
+    await this.saveState({});
+    return entry;
+  }
+
+  async updateObjective(id, patch) {
+    const idx = this.objectives.findIndex((o) => o.id === id);
+    if (idx < 0) throw new Error('Objetivo no encontrado');
+    const next = normalizeObjectiveEntry({
+      ...this.objectives[idx],
+      ...patch,
+      id
+    });
+    if (!next) throw new Error('El texto del objetivo es obligatorio');
+    this.objectives = [
+      ...this.objectives.slice(0, idx),
+      next,
+      ...this.objectives.slice(idx + 1)
+    ];
+    this.onBoardMetaChange();
+    await this.saveState({});
+    return next;
+  }
+
+  async removeObjective(id) {
+    this.objectives = this.objectives.filter((o) => o.id !== id);
+    this.onBoardMetaChange();
     await this.saveState({});
   }
 

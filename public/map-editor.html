@@ -97,6 +97,9 @@
           <li class="nav-item" role="presentation">
             <button type="button" class="nav-link" data-board-tab="log" role="tab">Log</button>
           </li>
+          <li class="nav-item" role="presentation">
+            <button type="button" class="nav-link" data-board-tab="objetivos" role="tab">Objetivos</button>
+          </li>
           <li class="nav-item" role="presentation" id="board-sidebar-tab-opciones">
             <button type="button" class="nav-link" data-board-tab="opciones" role="tab">Opciones</button>
           </li>
@@ -196,6 +199,17 @@
             <p id="combat-idle-msg" class="small text-muted mb-2">Fase narrativa: las acciones del tablero se registran aquí.</p>
             <div id="combat-log" class="combat-log"></div>
             <button type="button" id="clear-log" class="btn btn-sm btn-swrp btn-swrp-ghost mt-2 w-100 d-none">Borrar historial</button>
+          </section>
+        </div>
+
+        <div id="board-sidebar-objetivos" class="d-none">
+          <section class="swrp-panel">
+            <div class="d-flex justify-content-between align-items-center gap-2 mb-2 flex-wrap">
+              <h2 class="swrp-panel__title mb-0">Objetivos</h2>
+              <button type="button" id="board-objectives-add" class="btn btn-sm btn-swrp btn-swrp-primary">Agregar</button>
+            </div>
+            <p id="board-objectives-hint" class="small text-muted mb-2">Añade reglas, misiones y pistas visibles para todos los jugadores.</p>
+            <div id="board-objectives-list" class="swrp-objectives-list swrp-scrollbar-thin"></div>
           </section>
         </div>
 

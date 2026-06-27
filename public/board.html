@@ -46,6 +46,9 @@
           <li class="nav-item" role="presentation">
             <button type="button" class="nav-link" data-board-tab="log" role="tab">Log</button>
           </li>
+          <li class="nav-item" role="presentation">
+            <button type="button" class="nav-link" data-board-tab="objetivos" role="tab">Objetivos</button>
+          </li>
           <li class="nav-item" role="presentation" id="board-sidebar-tab-opciones">
             <button type="button" class="nav-link" data-board-tab="opciones" role="tab">Opciones</button>
           </li>
@@ -145,6 +148,17 @@
             <p id="combat-idle-msg" class="small text-muted mb-2">Fase narrativa: las acciones del tablero se registran aquí.</p>
             <div id="combat-log" class="combat-log"></div>
             <button type="button" id="clear-log" class="btn btn-sm btn-swrp btn-swrp-ghost mt-2 w-100 d-none">Borrar historial</button>
+          </section>
+        </div>
+
+        <div id="board-sidebar-objetivos" class="d-none">
+          <section class="swrp-panel">
+            <div class="d-flex justify-content-between align-items-center gap-2 mb-2 flex-wrap">
+              <h2 class="swrp-panel__title mb-0">Objetivos</h2>
+              <button type="button" id="board-objectives-add" class="btn btn-sm btn-swrp btn-swrp-primary d-none">Agregar</button>
+            </div>
+            <p id="board-objectives-hint" class="small text-muted mb-2">Reglas, misiones y pistas de la partida.</p>
+            <div id="board-objectives-list" class="swrp-objectives-list swrp-scrollbar-thin"></div>
           </section>
         </div>
 
@@ -570,6 +584,7 @@
     import { initPartyEscaramuzaSlotsPanel } from './js/escaramuza-spawns-ui.js';
     import { initBoardGridPanel, syncBoardGridInputs } from './js/board-grid-panel.js';
     import { initBoardGrantPanel } from './js/board-grant-panel.js';
+    import { initBoardObjectivesPanel } from './js/board-objectives.js';
 
     const charModal = new bootstrap.Modal(document.getElementById('charModal'));
     const mentionModal = new bootstrap.Modal(document.getElementById('boardMentionModal'));
@@ -730,6 +745,7 @@
       const tabsEl = document.getElementById('board-sidebar-tabs');
       const combateEl = document.getElementById('board-sidebar-combate');
       const logEl = document.getElementById('board-sidebar-log');
+      const objetivosEl = document.getElementById('board-sidebar-objetivos');
       const opcionesEl = document.getElementById('board-sidebar-opciones');
       const opcionesTabItem = document.getElementById('board-sidebar-tab-opciones');
       const gotoSetupBtn = document.getElementById('board-goto-setup');
@@ -741,6 +757,7 @@
         activeTab = tabName;
         combateEl?.classList.toggle('d-none', tabName !== 'combate');
         logEl?.classList.toggle('d-none', tabName !== 'log');
+        objetivosEl?.classList.toggle('d-none', tabName !== 'objetivos');
         opcionesEl?.classList.toggle('d-none', tabName !== 'opciones');
         tabsEl?.querySelectorAll('[data-board-tab]').forEach((btn) => {
           btn.classList.toggle('active', btn.dataset.boardTab === tabName);
@@ -832,6 +849,7 @@
 
         let board;
         let boardPageApi = null;
+        let objectivesPanel = null;
 
         function handleChestClick(chest) {
           openChestLootForPlayer(chest);
@@ -846,6 +864,10 @@
           const el = document.getElementById('board-shop-enabled');
           if (!el || !board) return;
           el.checked = board.shopEnabled !== false;
+        }
+
+        function syncObjectivesUi() {
+          objectivesPanel?.refresh();
         }
 
         async function openChestLootForPlayer(chest) {
@@ -885,7 +907,10 @@
             onTokenClick: openTokenCard,
             onChestClick: handleChestClick,
             onChestEditClick: handleChestEditClick,
-            onBoardMetaChange: syncShopToggleUi,
+            onBoardMetaChange: () => {
+              syncShopToggleUi();
+              syncObjectivesUi();
+            },
             onMapUrlChange: (url) => { mapUrlInput.value = url || ''; },
             onCombatStateChange: (started) => {
               syncCombatUi(started, isGM);
@@ -916,6 +941,14 @@
         board.watchState();
         syncCombatUi(board.combatStarted, isGM);
         boardSidebar.syncGmSidebar(board);
+
+        objectivesPanel = initBoardObjectivesPanel({
+          board,
+          listEl: document.getElementById('board-objectives-list'),
+          addBtn: document.getElementById('board-objectives-add'),
+          hintEl: document.getElementById('board-objectives-hint'),
+          editable: isGM
+        });
 
         if (isGM) {
           boardPageApi = initBoardPage({

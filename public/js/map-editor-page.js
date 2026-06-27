@@ -23,6 +23,7 @@ import {
   renderEscaramuzaListCard
 } from './escaramuza-templates.js';
 import { renderSpawnListUi, renderSpawnMarkersOnLayer } from './escaramuza-spawns-ui.js';
+import { initBoardObjectivesPanel } from './board-objectives.js';
 
 let board = null;
 let boardPageApi = null;
@@ -33,6 +34,7 @@ let templateListTab = 'mine';
 let userCharacters = [];
 let npcs = [];
 let spawnMiniBoard = null;
+let objectivesPanel = null;
 
 export async function initMapEditorPage() {
   const { user, profile } = await requireAuth();
@@ -375,6 +377,14 @@ async function initBoardEditor(user, profile, initialState) {
   syncCombatUi(board.combatStarted, isGM);
   boardSidebar.syncGmSidebar(board);
 
+  objectivesPanel = initBoardObjectivesPanel({
+    board,
+    listEl: document.getElementById('board-objectives-list'),
+    addBtn: document.getElementById('board-objectives-add'),
+    hintEl: document.getElementById('board-objectives-hint'),
+    editable: true
+  });
+
   await initBoardGridPanel({
     board,
     colsInput: gridColsInput,
@@ -504,6 +514,7 @@ function initBoardSidebar(isGM) {
   const tabsEl = document.getElementById('board-sidebar-tabs');
   const combateEl = document.getElementById('board-sidebar-combate');
   const logEl = document.getElementById('board-sidebar-log');
+  const objetivosEl = document.getElementById('board-sidebar-objetivos');
   const opcionesEl = document.getElementById('board-sidebar-opciones');
   const gotoSetupBtn = document.getElementById('board-goto-setup');
   let activeTab = 'opciones';
@@ -513,6 +524,7 @@ function initBoardSidebar(isGM) {
     activeTab = tabName;
     combateEl?.classList.toggle('d-none', tabName !== 'combate');
     logEl?.classList.toggle('d-none', tabName !== 'log');
+    objetivosEl?.classList.toggle('d-none', tabName !== 'objetivos');
     opcionesEl?.classList.toggle('d-none', tabName !== 'opciones');
     tabsEl?.querySelectorAll('[data-board-tab]').forEach((btn) => {
       btn.classList.toggle('active', btn.dataset.boardTab === tabName);

@@ -197,16 +197,18 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 
 - Lista: pestañas **Mis escaramuzas** | **Escaramuzas de la comunidad**.
 - Editar ajena → `?fork=id` → guardar crea copia nueva.
-- Workspace: metadatos (nombre, era, dificultad, imagen, descripción), mín/máx jugadores, spawns aliados, tablero con enemigos, **cajas de loot** y botín de enemigos (misma UI que el tablero: pestaña «Objetos» en enemigos, botón «+ Caja»).
+- Workspace: metadatos (nombre, era, dificultad, imagen, descripción), mín/máx jugadores, spawns aliados, tablero con enemigos, **cajas de loot**, botín de enemigos y **objetivos** (misma UI que el tablero: pestaña «Objetos» en enemigos, botón «+ Caja»; pestaña «Objetivos» para reglas/misiones/pistas).
 - Validación al guardar: al menos 1 enemigo, spawns ≥ mínimo jugadores, dificultad obligatoria.
-- `boardLayout` guarda enemigos, cofres y configuración de loot (sin estado de partida: sin `resolved`, `creditShares` ni `creditsClaimedBy`).
+- `boardLayout` guarda enemigos, cofres, **objetivos** y configuración de loot (sin estado de partida: sin `resolved`, `creditShares` ni `creditsClaimedBy`).
 - Persistencia: colección `escaramuzaTemplates/{id}`.
 
 ### 8.3 Tablero VTT (`board.html` + `board.js`, `board-page.js`, `board-combat.js`, `board-progress.js`, `board-vision.js`)
 
 **Acceso:** miembro de la partida. Escaramuza oculta enlace al foro; entra directo al tablero.
 
-**Sidebar (GM):** pestañas Combate | Log | Opciones.
+**Sidebar:** pestañas Combate | Log | **Objetivos** (todos los jugadores) | Opciones (solo GM).
+
+**Objetivos** (`board-objectives.js`): lista de entradas con título opcional y texto (reglas, misiones, pistas). Visible para jugadores y GM; solo el GM puede agregar, editar y eliminar. Sincronización en tiempo real vía `state/board.objectives`. En plantillas de escaramuza se guardan en `boardLayout.objectives` y se importan al crear una partida desde la plantilla.
 
 **Opciones GM:**
 - Progreso: guardar/cargar snapshots completos del estado (`board-progress.js`), incluyendo cofres, botín resuelto, créditos pendientes y `token.loot` en curso.
@@ -371,6 +373,7 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
   boardLayout: {
     tokens: [...],           // enemigos (side: 'enemy'); opcional token.loot (config)
     chests: [{ id, col, row, imageUrl, loot }],  // cajas de loot
+    objectives: [{ id, title?, text }],  // reglas / misiones / pistas
     mapUrl,
     grid: { cols, rows, cellWidth, cellHeight }
   },
@@ -437,6 +440,7 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
     id, col, row, imageUrl, opened?,
     loot: { credits, items, creditShares, creditsClaimedBy, resolved }
   }],
+  objectives: [{ id, title?, text }],  // reglas / misiones / pistas (GM edita)
   combatStarted: boolean,
   log: [...],
   initiativeLog: [...],
@@ -498,6 +502,7 @@ Funciones auxiliares en reglas: `isAdmin`, `isPartyMember`, `isPartyGM`, `isEsca
 | `board-grid-panel.js` | Panel GM cuadrícula y carga de tableros del compendio |
 | `board-combat.js` | Turnos, iniciativa, dados en tablero |
 | `board-progress.js` | Guardados de progreso del tablero |
+| `board-objectives.js` | Pestaña Objetivos: reglas/misiones/pistas (lectura jugadores, edición GM) |
 | `board-vision.js` | Conos visión, normalización tokens |
 | `compendium-store.js` | Carga/merge compendio, stats, clases, objetos |
 | `compendium-page.js` | UI compendio (incl. pestaña Objetos) |
