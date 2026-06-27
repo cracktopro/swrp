@@ -627,10 +627,11 @@
     }
 
     function buildLootOption(token) {
-      if (!invCtx || invCtx.isGM) return null;
+      if (!invCtx) return null;
+      if (invCtx.userPlayTokenKind !== 'character' || !invCtx.userSourceId) return null;
       if (token.side !== 'enemy' || !isTokenDefeated(token)) return null;
       if (!invCtx.board.isCellAdjacentToUser(token.col, token.row)) return null;
-      if (!lootHasRemainingForCharacter(token.loot, invCtx?.userCharacterSourceId)) return null;
+      if (!lootHasRemainingForCharacter(token.loot, invCtx.userSourceId)) return null;
       return { onOpen: () => openEnemyLoot(token) };
     }
 
@@ -833,7 +834,6 @@
         let boardPageApi = null;
 
         function handleChestClick(chest) {
-          if (isGM) return;
           openChestLootForPlayer(chest);
         }
 

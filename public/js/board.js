@@ -203,6 +203,14 @@ export class TacticalBoard {
     this.onChestClick = options.onChestClick || (() => {});
     this.onChestEditClick = options.onChestEditClick || (() => {});
     this.onBoardMetaChange = options.onBoardMetaChange || (() => {});
+    if (this.chestLayer) {
+      this.chestLayer.addEventListener('contextmenu', (ev) => {
+        if (ev.target.closest('.swrp-board-chest')) {
+          ev.preventDefault();
+          ev.stopPropagation();
+        }
+      }, true);
+    }
     this.init();
   }
 
@@ -1801,7 +1809,12 @@ export class TacticalBoard {
       img.loading = 'lazy';
       wrap.appendChild(img);
 
-      wrap.addEventListener('contextmenu', (ev) => ev.preventDefault());
+      wrap.oncontextmenu = () => false;
+      wrap.addEventListener('contextmenu', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+      });
+      img.oncontextmenu = () => false;
       wrap.addEventListener('mousedown', (ev) => {
         ev.preventDefault();
         ev.stopPropagation();

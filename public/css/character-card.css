@@ -433,7 +433,7 @@
   position: absolute;
   right: 0.85rem;
   bottom: 0.85rem;
-  z-index: 4;
+  z-index: 6;
   display: inline-flex;
   align-items: center;
   justify-content: center;
