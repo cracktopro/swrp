@@ -81,10 +81,13 @@ export const CHEST_ICONS = {
 /** Estado visual de la caja en el tablero: cerrada | abierta | vacía. */
 export function getChestVisualState(chest) {
   const opened = chest?.opened === true;
-  const remaining = lootHasRemaining(chest?.loot);
   if (!opened) return 'closed';
-  if (remaining) return 'open';
-  return 'empty';
+  const l = normalizeLoot(chest?.loot);
+  // Coincide con el modal: sin filas en resolved → caja vacía (aunque queden créditos).
+  if (l.resolved !== null) {
+    return l.resolved.length > 0 ? 'open' : 'empty';
+  }
+  return lootHasRemaining(l) ? 'open' : 'empty';
 }
 
 /** ¿Hay algo configurado en el loot (créditos u objetos)? */
@@ -100,9 +103,11 @@ export function lootHasConfig(loot) {
  */
 export function lootHasRemaining(loot) {
   const l = normalizeLoot(loot);
-  if (l.resolved?.length) return true;
-  if (lootHasUnclaimedCredits(l)) return true;
-  return l.items.length > 0 || (!l.creditShares && l.credits > 0);
+  if (l.resolved !== null) {
+    if (l.resolved.length > 0) return true;
+    return lootHasUnclaimedCredits(l);
+  }
+  return l.items.length > 0 || l.credits > 0;
 }
 
 /** ¿Este personaje tiene algo que reclamar en el botín? */
