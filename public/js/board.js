@@ -1297,6 +1297,28 @@ export class TacticalBoard {
     this.onTokensChange(this.tokens);
   }
 
+  /** Elimina todas las chapas y cajas del tablero (solo GM). */
+  async clearBoard() {
+    if (!this.isGM) return;
+    if (!this.tokens.length && !this.chests.length) return;
+
+    this.tokens = [];
+    this.chests = [];
+    this.selectedTokenId = null;
+    this.highlightedTokenId = null;
+    this.highlightSource = null;
+    this.onSelectionChange(null);
+
+    if (this.activeTurn) {
+      this.activeTurn = null;
+      this.onActiveTurnChange?.(null);
+    }
+
+    await this.saveState({ activeTurn: null });
+    this.render();
+    this.onTokensChange(this.tokens);
+  }
+
   async deleteSelectedToken() {
     if (!this.isGM || !this.selectedTokenId) return;
     await this.removeToken(this.selectedTokenId);

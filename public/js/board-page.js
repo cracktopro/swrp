@@ -864,6 +864,21 @@ export function initBoardPage(ctx) {
     if (token) openCharacterCard(token);
   });
 
+  document.getElementById('btn-clear-board')?.addEventListener('click', async () => {
+    const ok = await swrpConfirm({
+      title: 'Limpiar Tablero',
+      message: 'Si realizas esta acción perderás toda la configuración de personajes, NPCs y cajas. ¿Desea continuar?',
+      confirmText: 'Continuar',
+      cancelText: 'Cancelar',
+      danger: true
+    });
+    if (!ok) return;
+    await board.clearBoard();
+    controlTokenId = null;
+    controlModal?.hide();
+    renderActiveTokensList();
+  });
+
   board.onTokensChange = () => renderActiveTokensList();
   board.onGMTokenControl = (token) => {
     if (isGM) openTokenControlModal(token);
