@@ -103,18 +103,46 @@
               <label class="form-label" for="party-description">Descripción</label>
               <textarea class="form-control" id="party-description" rows="3" placeholder="Breve resumen de la partida…"></textarea>
             </div>
+            <div class="mb-3" id="custom-gm-pawn-section">
+              <p class="small text-muted mb-2">Serás el <strong class="text-gold">GM</strong> de la partida. Opcionalmente elige con qué figura jugarás en mesa.</p>
+              <label class="form-label" for="custom-gm-pawn-mode">Figura en mesa</label>
+              <select class="form-select mb-2" id="custom-gm-pawn-mode">
+                <option value="none" selected>Sin personaje en mesa</option>
+                <option value="character">Uno de mis personajes</option>
+                <option value="npc">Un personaje NPC</option>
+              </select>
+              <div id="custom-gm-picker-wrap" class="d-none">
+                <label class="form-label mb-2" id="custom-gm-picker-label">Elige tu personaje</label>
+                <div class="row g-2 mb-2">
+                  <div class="col-md-4">
+                    <label class="form-label small mb-1" for="custom-gm-filter-name">Nombre</label>
+                    <input type="search" class="form-control form-control-sm" id="custom-gm-filter-name" placeholder="Buscar…" autocomplete="off">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label small mb-1" for="custom-gm-filter-class">Clase</label>
+                    <select class="form-select form-select-sm" id="custom-gm-filter-class"></select>
+                  </div>
+                  <div class="col-md-4 d-none" id="custom-gm-filter-era-wrap">
+                    <label class="form-label small mb-1" for="custom-gm-filter-era">Era</label>
+                    <select class="form-select form-select-sm" id="custom-gm-filter-era"></select>
+                  </div>
+                </div>
+                <div id="custom-gm-picker-list" class="swrp-npc-picker-list swrp-scrollbar-thin"></div>
+              </div>
+            </div>
           </div>
 
           <div id="party-create-predefined" class="d-none">
-            <p class="small text-muted mb-2">Elige una escaramuza creada en el editor de mapas. Se abrirá el tablero y otros jugadores podrán unirse si quedan plazas.</p>
+            <p class="small text-muted mb-2">Crearás la escaramuza como <strong class="text-gold">GM</strong>. Elige una plantilla del editor de mapas; otros jugadores podrán unirse si quedan plazas.</p>
             <div class="mb-3">
-              <label class="form-label" for="predefined-join-mode">¿Con qué personaje jugarás?</label>
+              <label class="form-label" for="predefined-join-mode">Figura en mesa (opcional)</label>
               <select class="form-select" id="predefined-join-mode">
+                <option value="none" selected>Sin personaje en mesa</option>
                 <option value="character">Con uno de mis personajes</option>
                 <option value="npc">Con un personaje NPC</option>
               </select>
             </div>
-            <div class="mb-3" id="predefined-picker-wrap">
+            <div class="mb-3 d-none" id="predefined-picker-wrap">
               <label class="form-label mb-2" id="predefined-picker-label">Elige tu personaje</label>
               <div class="row g-2 mb-2">
                 <div class="col-md-4">
@@ -215,7 +243,7 @@
       loadUserCharacters,
       loadUserPartyIds,
       loadAllParties,
-      createParty,
+      createPartyAsCreator,
       updateParty,
       openParty,
       deleteCharacter,
@@ -228,6 +256,7 @@
     import { loadPartyMembers } from './js/party-members.js';
     import { buildNpcEraSelectOptions, buildNpcEraFormOptions, DEFAULT_NPC_ERA, loadAllNpcs, npcToCardData } from './js/npcs.js';
     import { initNpcPicker, initCharacterPicker } from './js/npc-picker.js';
+    import { swrpAlert } from './js/swrp-dialog.js';
     import {
       loadAllEscaramuzaTemplates,
       createEscaramuzaFromTemplate,
@@ -252,6 +281,8 @@
     let predefinedTemplatesCache = [];
     let predefinedEntityPicker = null;
     let predefinedPickerMode = null;
+    let customGmEntityPicker = null;
+    let customGmPickerMode = null;
 
     const charsPanel = document.getElementById('characters-panel');
     const partiesEl = document.getElementById('parties-list');
@@ -282,7 +313,7 @@
             await deleteCharacter(user.uid, char.id);
             await refreshCharacters();
           } catch (err) {
-            alert('Error: ' + err.message);
+            await swrpAlert({ title: 'Error', message: err.message });
           }
         }
       });
@@ -321,7 +352,7 @@
             await deleteParty(profile, party.id);
             await refreshParties();
           } catch (err) {
-            alert('Error: ' + err.message);
+            await swrpAlert({ title: 'Error', message: err.message });
           }
         } : null
       }));
@@ -385,11 +416,19 @@
     }
 
     function syncPredefinedPickerUi() {
-      const mode = document.getElementById('predefined-join-mode')?.value || 'character';
+      const mode = document.getElementById('predefined-join-mode')?.value || 'none';
+      const pickerWrap = document.getElementById('predefined-picker-wrap');
       const eraWrap = document.getElementById('predefined-filter-era-wrap');
       const label = document.getElementById('predefined-picker-label');
 
+      const showPicker = mode === 'character' || mode === 'npc';
+      pickerWrap?.classList.toggle('d-none', !showPicker);
       eraWrap?.classList.toggle('d-none', mode !== 'npc');
+      if (!showPicker) {
+        predefinedEntityPicker = null;
+        predefinedPickerMode = null;
+        return;
+      }
       if (label) {
         label.textContent = mode === 'npc' ? 'Elige un personaje NPC' : 'Elige tu personaje';
       }
@@ -426,12 +465,99 @@
       }
     }
 
+    function syncCustomGmPickerUi() {
+      const mode = document.getElementById('custom-gm-pawn-mode')?.value || 'none';
+      const pickerWrap = document.getElementById('custom-gm-picker-wrap');
+      const eraWrap = document.getElementById('custom-gm-filter-era-wrap');
+      const label = document.getElementById('custom-gm-picker-label');
+
+      const showPicker = mode === 'character' || mode === 'npc';
+      pickerWrap?.classList.toggle('d-none', !showPicker);
+      eraWrap?.classList.toggle('d-none', mode !== 'npc');
+      if (!showPicker) {
+        customGmEntityPicker = null;
+        customGmPickerMode = null;
+        return;
+      }
+      if (label) {
+        label.textContent = mode === 'npc' ? 'Elige un personaje NPC' : 'Elige tu personaje';
+      }
+
+      if (customGmPickerMode !== mode) {
+        customGmEntityPicker = null;
+        customGmPickerMode = mode;
+      }
+
+      if (mode === 'npc') {
+        if (!customGmEntityPicker) {
+          customGmEntityPicker = initNpcPicker({
+            listEl: document.getElementById('custom-gm-picker-list'),
+            nameInput: document.getElementById('custom-gm-filter-name'),
+            classSelect: document.getElementById('custom-gm-filter-class'),
+            eraSelect: document.getElementById('custom-gm-filter-era'),
+            npcs: predefinedNpcsCache
+          });
+        } else {
+          customGmEntityPicker.refresh(predefinedNpcsCache);
+        }
+        return;
+      }
+
+      if (!customGmEntityPicker) {
+        customGmEntityPicker = initCharacterPicker({
+          listEl: document.getElementById('custom-gm-picker-list'),
+          nameInput: document.getElementById('custom-gm-filter-name'),
+          classSelect: document.getElementById('custom-gm-filter-class'),
+          characters: userCharactersCache
+        });
+      } else {
+        customGmEntityPicker.refresh(userCharactersCache);
+      }
+    }
+
+    function resolveGmPawnFromPicker(mode, picker) {
+      if (mode === 'none') return null;
+      const pawn = picker?.getSelected() || null;
+      if (!pawn) {
+        throw new Error(mode === 'npc' ? 'Selecciona un NPC de la lista.' : 'Selecciona un personaje de la lista.');
+      }
+      return pawn;
+    }
+
+    async function resolvePredefinedGmPawn() {
+      const mode = document.getElementById('predefined-join-mode')?.value || 'none';
+      if (mode === 'none') return null;
+      await ensureNpcsCacheForGmPickers();
+      if (mode === 'character') {
+        userCharactersCache = await loadUserCharacters(user.uid);
+      }
+      syncPredefinedPickerUi();
+      return resolveGmPawnFromPicker(mode, predefinedEntityPicker);
+    }
+
+    async function resolveCustomGmPawn() {
+      const mode = document.getElementById('custom-gm-pawn-mode')?.value || 'none';
+      if (mode === 'none') return null;
+      await ensureNpcsCacheForGmPickers();
+      if (mode === 'character') {
+        userCharactersCache = await loadUserCharacters(user.uid);
+      }
+      syncCustomGmPickerUi();
+      return resolveGmPawnFromPicker(mode, customGmEntityPicker);
+    }
+
     async function preparePredefinedTab() {
       if (!predefinedNpcsCache.length) {
         predefinedNpcsCache = (await loadAllNpcs()).map(npcToCardData);
       }
       syncPredefinedPickerUi();
       await loadPredefinedTemplates();
+    }
+
+    async function ensureNpcsCacheForGmPickers() {
+      if (!predefinedNpcsCache.length) {
+        predefinedNpcsCache = (await loadAllNpcs()).map(npcToCardData);
+      }
     }
 
     const predefinedTemplateFilterEra = document.getElementById('predefined-template-filter-era');
@@ -491,13 +617,22 @@
     predefinedTemplateFilterDifficulty?.addEventListener('change', renderPredefinedTemplatesFromCache);
 
     document.getElementById('predefined-join-mode')?.addEventListener('change', syncPredefinedPickerUi);
+    document.getElementById('custom-gm-pawn-mode')?.addEventListener('change', async () => {
+      await ensureNpcsCacheForGmPickers();
+      syncCustomGmPickerUi();
+    });
 
-    document.getElementById('party-create-tabs')?.addEventListener('click', (e) => {
+    document.getElementById('party-create-tabs')?.addEventListener('click', async (e) => {
       const tab = e.target.closest('[data-create-tab]');
       if (!tab) return;
       createModalTab = tab.dataset.createTab;
       syncCreateModalTabs();
-      if (createModalTab === 'predefined') preparePredefinedTab();
+      if (createModalTab === 'predefined') {
+        await preparePredefinedTab();
+      } else if (createModalTab === 'custom') {
+        await ensureNpcsCacheForGmPickers();
+        syncCustomGmPickerUi();
+      }
     });
 
     document.getElementById('btn-new-party').addEventListener('click', async () => {
@@ -508,14 +643,19 @@
       document.getElementById('party-difficulty').value = DEFAULT_ESCARAMUZA_DIFFICULTY;
       document.getElementById('party-image-url').value = '';
       document.getElementById('party-description').value = '';
-      document.getElementById('predefined-join-mode').value = 'character';
+      document.getElementById('predefined-join-mode').value = 'none';
+      document.getElementById('custom-gm-pawn-mode').value = 'none';
       document.getElementById('predefined-template-filter-name').value = '';
       predefinedTemplateFilterEra.value = '';
       predefinedTemplateFilterDifficulty.value = '';
       predefinedEntityPicker = null;
       predefinedPickerMode = null;
+      customGmEntityPicker = null;
+      customGmPickerMode = null;
       userCharactersCache = await loadUserCharacters(user.uid);
+      await ensureNpcsCacheForGmPickers();
       syncCreateModalTabs();
+      syncCustomGmPickerUi();
       if (createModalTab === 'predefined') await preparePredefinedTab();
       partyModal.show();
     });
@@ -529,47 +669,50 @@
       const imageUrl = document.getElementById('party-image-url').value.trim();
       const description = document.getElementById('party-description').value.trim();
       if (!userIsAdmin) {
-        alert('Solo un administrador puede crear partidas personalizadas.');
+        await swrpAlert({ title: 'Sin permiso', message: 'Solo un administrador puede crear partidas personalizadas.' });
         return;
       }
       if (!name) return;
       if (!readDifficulty(difficulty)) {
-        alert('Selecciona una dificultad.');
+        await swrpAlert({ title: 'Dificultad', message: 'Selecciona una dificultad.' });
         return;
       }
       const btn = document.getElementById('party-create');
+      if (btn.disabled) return;
       btn.disabled = true;
+      let navigating = false;
       try {
-        const id = await createParty(profile, { name, type, era, difficulty, imageUrl, description });
+        const pawn = await resolveCustomGmPawn();
+        const id = await createPartyAsCreator(user, profile, { name, type, era, difficulty, imageUrl, description }, pawn);
         partyModal.hide();
+        navigating = true;
         openParty(id);
       } catch (err) {
-        alert('Error al crear la partida: ' + err.message);
+        await swrpAlert({ title: 'Error al crear la partida', message: err.message });
       } finally {
-        btn.disabled = false;
+        if (!navigating) btn.disabled = false;
       }
     });
 
     document.getElementById('party-create-from-template')?.addEventListener('click', async () => {
       if (!selectedTemplateId) {
-        alert('Selecciona una escaramuza de la lista.');
-        return;
-      }
-      const character = predefinedEntityPicker?.getSelected();
-      if (!character) {
-        alert('Selecciona un personaje o NPC de la lista.');
+        await swrpAlert({ title: 'Plantilla', message: 'Selecciona una escaramuza de la lista.' });
         return;
       }
       const btn = document.getElementById('party-create-from-template');
+      if (btn.disabled) return;
       btn.disabled = true;
+      let navigating = false;
       try {
-        const partyId = await createEscaramuzaFromTemplate(user, profile, selectedTemplateId, character);
+        const pawn = await resolvePredefinedGmPawn();
+        const partyId = await createEscaramuzaFromTemplate(user, profile, selectedTemplateId, pawn);
         partyModal.hide();
+        navigating = true;
         window.location.assign(boardPageUrl(partyId));
       } catch (err) {
-        alert('Error al crear la escaramuza: ' + err.message);
+        await swrpAlert({ title: 'Error al crear la escaramuza', message: err.message });
       } finally {
-        btn.disabled = false;
+        if (!navigating) btn.disabled = false;
       }
     });
 
@@ -584,7 +727,7 @@
       if (!userIsAdmin) return;
       if (!name) return;
       if (!readDifficulty(difficulty)) {
-        alert('Selecciona una dificultad.');
+        await swrpAlert({ title: 'Dificultad', message: 'Selecciona una dificultad.' });
         return;
       }
       const btn = document.getElementById('party-save');
@@ -594,7 +737,7 @@
         partyEditModal.hide();
         await refreshParties();
       } catch (err) {
-        alert('Error al guardar: ' + err.message);
+        await swrpAlert({ title: 'Error al guardar', message: err.message });
       } finally {
         btn.disabled = false;
       }

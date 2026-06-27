@@ -11,7 +11,7 @@ import {
 } from './firebase-config.js';
 import { isAdmin } from './auth.js';
 import { loadParty } from './party.js';
-import { getPartyMember, loadPartyMembers } from './party-members.js';
+import { getPartyMember, loadPartyMembers, joinParty } from './party-members.js';
 import { renderCharacterCard } from './character-card.js';
 import { loadUserCharacters } from './characters.js';
 import { partyPageUrl, boardPageUrl, rememberPartyId } from './party-url.js';
@@ -120,6 +120,13 @@ export async function createParty(profile, { name, type, era, difficulty, imageU
     markFirestoreQuotaExceeded(err);
     throw new Error(formatFirestoreWriteError(err, 'crear la partida'));
   }
+}
+
+/** Crea la partida y une al creador como GM (figura en mesa opcional). */
+export async function createPartyAsCreator(user, profile, partyData, pawn = null) {
+  const id = await createParty(profile, partyData);
+  await joinParty(id, user, profile, { playMode: 'gm', character: pawn || null });
+  return id;
 }
 
 export async function updateParty(profile, partyId, data) {

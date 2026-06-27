@@ -430,12 +430,12 @@ export async function assignSpawnToMember(party, partyId, userId) {
   await placeMemberTokenAtSpawn(partyId, member, spawn.col, spawn.row);
 }
 
-export async function createEscaramuzaFromTemplate(user, profile, templateId, character) {
+export async function createEscaramuzaFromTemplate(user, profile, templateId, character = null) {
   assertFirestoreWritable('crear la escaramuza');
   const template = await loadEscaramuzaTemplate(templateId);
   if (!template) throw new Error('Plantilla no encontrada');
-  if (!character?.id) throw new Error('Selecciona un personaje');
 
+  let partyId = null;
   try {
     const ref = await addDoc(collection(db, 'parties'), {
       name: template.name,
@@ -454,8 +454,9 @@ export async function createEscaramuzaFromTemplate(user, profile, templateId, ch
       allySpawns: template.allySpawns || [],
       createdAt: serverTimestamp()
     });
+    partyId = ref.id;
 
-    await joinParty(ref.id, user, profile, { playMode: 'gm', character });
+    await joinParty(ref.id, user, profile, { playMode: 'gm', character: character || null });
 
     const boardState = buildFreshBoardState(template.boardLayout);
     boardState.tokens = cloneTokensForInstance(boardState.tokens);
@@ -491,6 +492,14 @@ export async function createEscaramuzaFromTemplate(user, profile, templateId, ch
 
     return ref.id;
   } catch (err) {
+    if (partyId) {
+      const member = await getPartyMember(partyId, user.uid);
+      if (!member) {
+        try {
+          await deleteDoc(doc(db, 'parties', partyId));
+        } catch { /* ignorar */ }
+      }
+    }
     markFirestoreQuotaExceeded(err);
     throw new Error(formatFirestoreWriteError(err, 'crear la escaramuza'));
   }

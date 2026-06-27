@@ -135,7 +135,7 @@ Encuentro táctico corto. Dos orígenes:
 #### A) Desde plantilla (`templateId` presente)
 - Cualquier usuario autenticado la crea desde Dashboard → **Partidas predefinidas**.
 - Se copian: nombre, era, dificultad, imagen, descripción, `minPlayers`, `maxSlots`, `allySpawns`, layout del tablero.
-- Creador entra como **GM** con personaje o NPC elegido; redirección directa al tablero.
+- Creador entra como **GM** (figura en mesa opcional: personaje, NPC o ninguna); redirección directa al tablero en escaramuzas predefinidas.
 - Otros jugadores se unen solo con **personaje propio**; plazas limitadas por `maxSlots` si hay config de slots.
 - Spawns aliados colocan automáticamente el token al unirse.
 
@@ -182,12 +182,12 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 
 **Modal Nueva Partida**
 - Pestañas ampliadas (`swrp-dashboard-tabs`).
-- **Partida personalizada** (solo admin): nombre, tipo, era, dificultad, imagen URL, descripción.
-- **Partidas predefinidas** (todos):
-  1. Modo personaje: mis personajes | NPC (selector tarjeta con filtros — `npc-picker.js`).
-  2. Título **Escaramuzas Predefinidas** + filtros nombre, era, dificultad (`filterEscaramuzaTemplates`).
-  3. Lista de plantillas (`renderTemplatePickCard`) — clic para seleccionar.
-  4. Botón **Crear escaramuza** → `createEscaramuzaFromTemplate` → tablero.
+- **Partida personalizada** (solo admin): nombre, tipo, era, dificultad, imagen URL, descripción. El creador **siempre es GM**; opcionalmente elige figura en mesa (sin personaje, personaje propio o NPC).
+- **Partidas predefinidas** (todos): el creador **siempre es GM** de la escaramuza. Opcionalmente elige figura en mesa (sin personaje, personaje propio o NPC). Luego:
+  1. Título **Escaramuzas Predefinidas** + filtros nombre, era, dificultad (`filterEscaramuzaTemplates`).
+  2. Lista de plantillas (`renderTemplatePickCard`) — clic para seleccionar.
+  3. Botón **Crear escaramuza** → `createEscaramuzaFromTemplate` → tablero.
+- Quien se une después a una escaramuza predefinida solo puede hacerlo con **personaje propio** (no GM ni NPC).
 
 **Modal Opciones de partida** (admin): editar metadatos incl. dificultad.
 

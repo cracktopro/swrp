@@ -105,11 +105,16 @@ export async function joinParty(partyId, user, profile, { playMode, character })
       throw new Error('No quedan plazas en esta escaramuza');
     }
   }
-  if (party?.templateId && playMode !== 'character') {
-    throw new Error('En escaramuzas predefinidas solo puedes unirte con un personaje propio');
-  }
-
-  if (playMode === 'gm') {
+  if (party?.templateId) {
+    if (playMode === 'gm') {
+      const gm = getPartyGM(members);
+      if (gm) throw new Error('Esta partida ya tiene un GM asignado');
+    } else if (playMode === 'npc') {
+      throw new Error('En escaramuzas predefinidas solo puedes unirte con un personaje propio');
+    } else if (!character?.id) {
+      throw new Error('Selecciona un personaje para unirte');
+    }
+  } else if (playMode === 'gm') {
     const gm = getPartyGM(members);
     if (gm) throw new Error('Esta partida ya tiene un GM asignado');
   } else if (playMode === 'npc') {
