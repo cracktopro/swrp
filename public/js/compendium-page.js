@@ -38,6 +38,7 @@ function escapeHtml(str) {
 
 let cachedNpcs = [];
 let npcFiltersReady = false;
+let itemFiltersReady = false;
 
 function setupNpcFilters() {
   if (npcFiltersReady) return;
@@ -124,6 +125,7 @@ export async function initCompendiumPage({ isAdmin }) {
   renderSkillsList(getSkillsClassList()[0]?.key || firstClass, isAdmin);
   renderSpeciesList(isAdmin);
   renderBoardsList(isAdmin);
+  setupItemFilters();
   renderItemsList(isAdmin);
   await renderNpcs(isAdmin);
 }
@@ -575,6 +577,41 @@ document.getElementById('board-edit-url')?.addEventListener('input', updateBoard
 
 // ── Objetos ──────────────────────────────────────────────────────────
 
+function setupItemFilters() {
+  if (itemFiltersReady) return;
+  const classSel = document.getElementById('item-filter-class');
+  if (!classSel) return;
+
+  classSel.innerHTML = [
+    '<option value="">Todas las clases</option>',
+    '<option value="all">Equipable por todas</option>',
+    ...getClassList().map((c) => `<option value="${escapeHtml(c.key)}">${escapeHtml(c.label)}</option>`)
+  ].join('');
+
+  const rerender = () => renderItemsList(document.body.dataset.compAdmin === '1');
+  document.getElementById('item-filter-name')?.addEventListener('input', rerender);
+  document.getElementById('item-filter-type')?.addEventListener('change', rerender);
+  classSel.addEventListener('change', rerender);
+  itemFiltersReady = true;
+}
+
+function filterItemsFromUi(items) {
+  const term = (document.getElementById('item-filter-name')?.value || '').trim().toLowerCase();
+  const type = document.getElementById('item-filter-type')?.value || '';
+  const classKey = document.getElementById('item-filter-class')?.value || '';
+
+  return (items || [])
+    .filter((it) => !type || it.type === type)
+    .filter((it) => !term || it.name.toLowerCase().includes(term))
+    .filter((it) => {
+      if (!classKey) return true;
+      if (it.type !== 'Equipo') return false;
+      const eq = it.equipClass || 'all';
+      if (classKey === 'all') return eq === 'all';
+      return eq === 'all' || eq === classKey;
+    });
+}
+
 function itemTypeBadgeClass(type) {
   if (type === 'Equipo') return 'swrp-item-badge--equipo';
   if (type === 'Consumible') return 'swrp-item-badge--consumible';
@@ -584,23 +621,27 @@ function itemTypeBadgeClass(type) {
 function renderItemsList(isAdmin) {
   const container = document.getElementById('items-list');
   if (!container) return;
-  const items = getCompendiumItems();
-  if (!items.length) {
+  const allItems = getCompendiumItems();
+  if (!allItems.length) {
     container.innerHTML = '<p class="text-muted mb-0">No hay objetos definidos en el compendio.</p>';
     return;
   }
-  const statLabelOf = (key) => ITEM_STAT_DEFS.find((s) => s.key === key)?.label || key;
-  container.innerHTML = items
+  const items = filterItemsFromUi(allItems)
     .slice()
-    .sort((a, b) => a.name.localeCompare(b.name, 'es'))
-    .map((item) => {
-      let effect = '';
-      if (item.type === 'Consumible' && item.stat === 'none') {
-        effect = '<p class="small mb-1 text-muted">Sin efecto mecánico (uso narrativo)</p>';
-      } else if ((item.type === 'Equipo' || item.type === 'Consumible') && item.statBonus) {
-        effect = `<p class="small mb-1 text-info">${statLabelOf(item.stat)} ${item.statBonus >= 0 ? '+' : ''}${item.statBonus}${item.type === 'Consumible' && item.temporary ? ' · temporal' : ''}</p>`;
-      }
-      return `
+    .sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  if (!items.length) {
+    container.innerHTML = '<p class="text-muted mb-0">Ningún objeto con esos filtros.</p>';
+    return;
+  }
+  const statLabelOf = (key) => ITEM_STAT_DEFS.find((s) => s.key === key)?.label || key;
+  container.innerHTML = items.map((item) => {
+    let effect = '';
+    if (item.type === 'Consumible' && item.stat === 'none') {
+      effect = '<p class="small mb-1 text-muted">Sin efecto mecánico (uso narrativo)</p>';
+    } else if ((item.type === 'Equipo' || item.type === 'Consumible') && item.statBonus) {
+      effect = `<p class="small mb-1 text-info">${statLabelOf(item.stat)} ${item.statBonus >= 0 ? '+' : ''}${item.statBonus}${item.type === 'Consumible' && item.temporary ? ' · temporal' : ''}</p>`;
+    }
+    return `
       <div class="swrp-item-card" data-item-id="${escapeHtml(item.id)}">
         <div class="swrp-item-card__head">
           ${item.imageUrl ? `<img src="${escapeHtml(item.imageUrl)}" alt="" class="swrp-item-card__img" loading="lazy">` : '<div class="swrp-item-card__img swrp-item-card__img--empty"></div>'}
@@ -618,8 +659,7 @@ function renderItemsList(isAdmin) {
           <button type="button" class="btn btn-sm btn-swrp btn-swrp-danger btn-del-item">Eliminar</button>
         </div>` : ''}
       </div>`;
-    })
-    .join('');
+  }).join('');
 
   if (!isAdmin) return;
   container.querySelectorAll('.btn-edit-item').forEach((btn) => {

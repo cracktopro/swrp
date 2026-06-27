@@ -25,8 +25,17 @@
       <div class="col-lg-6">
         <section class="swrp-panel">
           <h2 class="swrp-panel__title" id="form-title">Creador de Personaje</h2>
+          <ul class="nav nav-tabs swrp-board-tabs mb-3 d-none" id="npc-editor-tabs" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button type="button" class="nav-link active" data-npc-tab="general" role="tab">General</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button type="button" class="nav-link" data-npc-tab="loot" role="tab">Objetos</button>
+            </li>
+          </ul>
           <div id="save-alert" class="alert alert-swrp d-none" role="alert"></div>
           <form id="char-form">
+            <div id="npc-tab-general">
             <div class="mb-3">
               <label class="form-label" for="char-name">Nombre</label>
               <input type="text" class="form-control" id="char-name" required maxlength="40">
@@ -77,8 +86,6 @@
               <label class="form-label">Habilidades de combate</label>
               <div id="skills-picker"></div>
             </div>
-            <button type="submit" id="save-btn" class="btn btn-swrp btn-swrp-primary">Guardar Personaje</button>
-          </form>
             <div class="mb-3 d-none" id="npc-custom-skills-wrap">
               <label class="form-label">Nueva habilidad custom</label>
               <div id="npc-custom-skill-form" class="swrp-panel p-3">
@@ -103,6 +110,19 @@
                 <p class="form-text small text-muted mb-0 mt-2">Se guarda en el compendio (clase «Otros») al guardar el NPC y podrá reutilizarse en otros NPCs.</p>
               </div>
             </div>
+            </div>
+            <div id="npc-tab-loot" class="d-none">
+              <p class="small text-muted mb-2">Botín por defecto al colocar este NPC como enemigo en el tablero. El GM puede ajustarlo en cada partida sin modificar el compendio.</p>
+              <label class="form-label small mb-1" for="npc-loot-credits">Créditos (a repartir entre los jugadores)</label>
+              <input type="number" class="form-control form-control-sm mb-3" id="npc-loot-credits" min="0" step="1" value="0">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <label class="form-label small mb-0">Objetos del botín</label>
+                <button type="button" id="npc-loot-add" class="btn btn-sm btn-swrp btn-swrp-primary">+ Objeto</button>
+              </div>
+              <div id="npc-loot-list" class="swrp-loot-list"></div>
+            </div>
+            <button type="submit" id="save-btn" class="btn btn-swrp btn-swrp-primary">Guardar Personaje</button>
+          </form>
         </section>
       </div>
       <div class="col-lg-6">
@@ -113,6 +133,45 @@
       </div>
     </div>
   </main>
+
+  <div class="modal fade" id="lootItemModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+      <div class="modal-content swrp-modal-card">
+        <div class="modal-header border-secondary border-opacity-25">
+          <h5 class="modal-title text-gold">Agregar objeto al botín</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-2 mb-2">
+            <div class="col-md-5">
+              <label class="form-label small mb-1" for="loot-item-filter-name">Nombre</label>
+              <input type="search" class="form-control form-control-sm" id="loot-item-filter-name" placeholder="Buscar…" autocomplete="off">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small mb-1" for="loot-item-filter-type">Tipo</label>
+              <select class="form-select form-select-sm" id="loot-item-filter-type">
+                <option value="">Todos los tipos</option>
+                <option value="Equipo">Equipo</option>
+                <option value="Consumible">Consumible</option>
+                <option value="Sin utilidad">Sin utilidad</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label small mb-1" for="loot-item-filter-class">Clase</label>
+              <select class="form-select form-select-sm" id="loot-item-filter-class"></select>
+            </div>
+          </div>
+          <div id="loot-item-list" class="swrp-loot-pick-list mb-3"></div>
+          <label class="form-label small mb-1" for="loot-item-prob">Probabilidad</label>
+          <select class="form-select form-select-sm" id="loot-item-prob"></select>
+        </div>
+        <div class="modal-footer border-secondary border-opacity-25">
+          <button type="button" class="btn btn-swrp btn-swrp-ghost" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" id="btn-loot-item-add" class="btn btn-swrp btn-swrp-primary" disabled>Agregar al botín</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script type="module">
     import { renderNavbar } from './js/navbar.js';

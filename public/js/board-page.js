@@ -21,8 +21,8 @@ import {
   loadTokenStatsEditor,
   readTokenStatsEditor
 } from './token-stats-editor.js';
-import { getCompendiumItems, getItemById } from './compendium-store.js';
-import { normalizeLoot, lootProbPercent, LOOT_PROB_LEVELS } from './loot.js';
+import { normalizeLoot } from './loot.js';
+import { renderLootList, createLootItemPicker } from './loot-editor-ui.js';
 
 function escapeHtml(str) {
   return String(str)
@@ -285,8 +285,6 @@ export function initBoardPage(ctx) {
   // ── Loot (botín de enemigos y cajas) ──
   let lootDraft = null;       // loot normalizado en edición
   let lootContext = null;     // { kind:'token'|'chest', listId, creditsId }
-  let lootSelection = null;   // objeto seleccionado en el modal de elección
-  let lootItemReady = false;
   let chestPlaceMini = null;
   let chestEditId = null;
   const chestPlaceModalEl = document.getElementById('chestPlaceModal');
@@ -294,7 +292,11 @@ export function initBoardPage(ctx) {
   const lootItemModalEl = document.getElementById('lootItemModal');
   const chestPlaceModal = chestPlaceModalEl ? bootstrap.Modal.getOrCreateInstance(chestPlaceModalEl) : null;
   const chestEditModal = chestEditModalEl ? bootstrap.Modal.getOrCreateInstance(chestEditModalEl) : null;
-  const lootItemModal = lootItemModalEl ? bootstrap.Modal.getOrCreateInstance(lootItemModalEl) : null;
+  const lootItemPicker = createLootItemPicker({
+    modalEl: lootItemModalEl,
+    getDraft: () => lootDraft,
+    onItemsChanged: () => renderActiveLootList()
+  });
 
   function showCtrlTab(tabName) {
     ctrlActiveTab = tabName;
@@ -306,132 +308,19 @@ export function initBoardPage(ctx) {
     });
   }
 
-  function classLabelFor(key) {
-    if (!key || key === 'all') return 'Todas';
-    return getClassList().find((c) => c.key === key)?.label || key;
-  }
-
-  function renderLootList(listEl, draft) {
-    if (!listEl) return;
-    const items = draft?.items || [];
-    if (!items.length) {
-      listEl.innerHTML = '<p class="small text-muted mb-0">Sin objetos en el botín.</p>';
-      return;
-    }
-    listEl.innerHTML = items.map((entry, idx) => {
-      const item = getItemById(entry.itemId);
-      const name = escapeHtml(item?.name || 'Objeto desconocido');
-      return `
-        <div class="swrp-loot-row">
-          ${item?.imageUrl ? `<img src="${escapeHtml(item.imageUrl)}" alt="" class="swrp-loot-row__img" loading="lazy">` : '<div class="swrp-loot-row__img swrp-loot-row__img--empty"></div>'}
-          <span class="swrp-loot-row__name">${name}</span>
-          <span class="swrp-loot-row__prob">${lootProbPercent(entry.prob)}%</span>
-          <button type="button" class="btn btn-sm btn-swrp btn-swrp-danger" data-loot-remove="${idx}">×</button>
-        </div>`;
-    }).join('');
-    listEl.querySelectorAll('[data-loot-remove]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const i = Number(btn.dataset.lootRemove);
-        if (lootDraft?.items) {
-          lootDraft.items.splice(i, 1);
-          renderActiveLootList();
-        }
-      });
-    });
-  }
-
   function renderActiveLootList() {
     if (!lootContext) return;
-    renderLootList(document.getElementById(lootContext.listId), lootDraft);
-  }
-
-  function setupLootItemModal() {
-    if (lootItemReady) return;
-    const classSel = document.getElementById('loot-item-filter-class');
-    if (classSel) {
-      classSel.innerHTML = [
-        '<option value="">Todas las clases</option>',
-        '<option value="all">Equipable por todas</option>',
-        ...getClassList().map((c) => `<option value="${escapeHtml(c.key)}">${escapeHtml(c.label)}</option>`)
-      ].join('');
-    }
-    const probSel = document.getElementById('loot-item-prob');
-    if (probSel) {
-      probSel.innerHTML = LOOT_PROB_LEVELS
-        .map((lvl) => `<option value="${lvl}">${lvl} · ${lootProbPercent(lvl)}%</option>`)
-        .join('');
-    }
-    document.getElementById('loot-item-filter-name')?.addEventListener('input', renderLootItemPick);
-    document.getElementById('loot-item-filter-type')?.addEventListener('change', renderLootItemPick);
-    classSel?.addEventListener('change', renderLootItemPick);
-    document.getElementById('btn-loot-item-add')?.addEventListener('click', () => {
-      if (!lootSelection || !lootDraft) return;
-      const prob = Number(document.getElementById('loot-item-prob')?.value) || 1;
-      lootDraft.items.push({ itemId: lootSelection.id, prob });
-      renderActiveLootList();
-      lootItemModal?.hide();
+    renderLootList(document.getElementById(lootContext.listId), lootDraft, (idx) => {
+      if (lootDraft?.items) {
+        lootDraft.items.splice(idx, 1);
+        renderActiveLootList();
+      }
     });
-    lootItemReady = true;
-  }
-
-  function renderLootItemPick() {
-    const listEl = document.getElementById('loot-item-list');
-    if (!listEl) return;
-    const term = (document.getElementById('loot-item-filter-name')?.value || '').trim().toLowerCase();
-    const type = document.getElementById('loot-item-filter-type')?.value || '';
-    const classKey = document.getElementById('loot-item-filter-class')?.value || '';
-    const items = getCompendiumItems()
-      .filter((it) => !type || it.type === type)
-      .filter((it) => !term || it.name.toLowerCase().includes(term))
-      .filter((it) => {
-        if (!classKey) return true;
-        if (it.type !== 'Equipo') return false;
-        const eq = it.equipClass || 'all';
-        if (classKey === 'all') return eq === 'all';
-        return eq === 'all' || eq === classKey;
-      })
-      .sort((a, b) => a.name.localeCompare(b.name, 'es'));
-
-    if (!items.length) {
-      listEl.innerHTML = '<p class="small text-muted mb-0">Ningún objeto con esos filtros.</p>';
-      lootSelection = null;
-      document.getElementById('btn-loot-item-add').disabled = true;
-      return;
-    }
-    if (!lootSelection || !items.some((i) => i.id === lootSelection.id)) {
-      lootSelection = items[0];
-    }
-    listEl.innerHTML = items.map((it) => {
-      const selected = lootSelection?.id === it.id;
-      const extra = it.type === 'Equipo' ? ` · ${escapeHtml(classLabelFor(it.equipClass))}` : '';
-      return `
-        <button type="button" class="swrp-loot-pick${selected ? ' is-selected' : ''}" data-pick="${escapeHtml(it.id)}">
-          ${it.imageUrl ? `<img src="${escapeHtml(it.imageUrl)}" alt="" class="swrp-loot-pick__img" loading="lazy">` : '<span class="swrp-loot-pick__img swrp-loot-pick__img--empty"></span>'}
-          <span class="swrp-loot-pick__body">
-            <strong>${escapeHtml(it.name)}</strong>
-            <span class="small text-muted d-block">${escapeHtml(it.type)}${extra}</span>
-          </span>
-        </button>`;
-    }).join('');
-    listEl.querySelectorAll('[data-pick]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        lootSelection = items.find((i) => i.id === btn.dataset.pick) || null;
-        renderLootItemPick();
-      });
-    });
-    document.getElementById('btn-loot-item-add').disabled = !lootSelection;
   }
 
   function openLootItemModal() {
     if (!lootDraft) return;
-    setupLootItemModal();
-    lootSelection = null;
-    document.getElementById('loot-item-filter-name').value = '';
-    document.getElementById('loot-item-filter-type').value = '';
-    document.getElementById('loot-item-filter-class').value = '';
-    document.getElementById('loot-item-prob').value = '5';
-    renderLootItemPick();
-    lootItemModal?.show();
+    lootItemPicker.open();
   }
 
   async function ensureStatsEditor() {

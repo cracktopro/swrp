@@ -22,7 +22,9 @@ import {
 } from './firebase-config.js';
 import { renderCharacterCard } from './character-card.js';
 import { loadCharacterById } from './characters.js';
-import { loadNpcById, createNpc, updateNpc, buildNpcEraFormOptions, DEFAULT_NPC_ERA } from './npcs.js';
+import { loadNpcById, createNpc, updateNpc, buildNpcEraFormOptions, DEFAULT_NPC_ERA, normalizeNpcLoot, serializeNpcLoot } from './npcs.js';
+import { normalizeLootTemplate } from './loot.js';
+import { renderLootList, createLootItemPicker } from './loot-editor-ui.js';
 import { characterViewUrl } from './character-url.js';
 import { appUrl } from './app-path.js';
 
@@ -34,6 +36,9 @@ let editingNpcId = null;
 let mode = 'hero';
 const NPC_SKILL_LEVEL = 20;
 let statsOverride = null;
+let npcLootDraft = normalizeLootTemplate({});
+let npcLootPicker = null;
+let npcEditorTab = 'general';
 
 function showSaveAlert(message) {
   const alertEl = document.getElementById('save-alert');
@@ -99,6 +104,56 @@ function syncNpcOnlyFields() {
   document.getElementById('stats-edit-wrap')?.classList.toggle('d-none', !isNpc);
   document.getElementById('char-level-wrap')?.classList.toggle('d-none', isNpc);
   document.getElementById('npc-custom-skills-wrap')?.classList.toggle('d-none', !isNpc);
+  document.getElementById('npc-editor-tabs')?.classList.toggle('d-none', !isNpc);
+  if (!isNpc) {
+    showNpcEditorTab('general');
+  }
+}
+
+function showNpcEditorTab(tabName) {
+  npcEditorTab = tabName;
+  document.getElementById('npc-tab-general')?.classList.toggle('d-none', tabName !== 'general');
+  document.getElementById('npc-tab-loot')?.classList.toggle('d-none', tabName !== 'loot');
+  document.querySelectorAll('#npc-editor-tabs [data-npc-tab]').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.npcTab === tabName);
+  });
+}
+
+function resetNpcLootDraft(loot) {
+  npcLootDraft = normalizeNpcLoot(loot || {});
+  const creditsEl = document.getElementById('npc-loot-credits');
+  if (creditsEl) creditsEl.value = String(npcLootDraft.credits || 0);
+  syncNpcLootList();
+}
+
+function syncNpcLootList() {
+  renderLootList(document.getElementById('npc-loot-list'), npcLootDraft, (idx) => {
+    npcLootDraft.items.splice(idx, 1);
+    syncNpcLootList();
+  });
+}
+
+function readNpcLootFromUi() {
+  const credits = Math.max(0, parseInt(document.getElementById('npc-loot-credits')?.value, 10) || 0);
+  return serializeNpcLoot({ ...npcLootDraft, credits });
+}
+
+function setupNpcLootEditor() {
+  if (npcLootPicker) return;
+  npcLootPicker = createLootItemPicker({
+    modalEl: document.getElementById('lootItemModal'),
+    getDraft: () => npcLootDraft,
+    onItemsChanged: () => syncNpcLootList()
+  });
+  document.getElementById('npc-loot-add')?.addEventListener('click', () => {
+    if (!isNpcMode()) return;
+    npcLootPicker.open();
+  });
+  document.getElementById('npc-editor-tabs')?.addEventListener('click', (e) => {
+    const tab = e.target.closest('[data-npc-tab]');
+    if (!tab || !isNpcMode()) return;
+    showNpcEditorTab(tab.dataset.npcTab);
+  });
 }
 
 function populateSpeciesSelect() {
@@ -159,6 +214,7 @@ export async function initCharacterCreator(userId, { characterId = null, npcId =
   setupCreatorTabs(isAdmin);
   bindFormEvents(userId);
   bindCustomSkillForm();
+  setupNpcLootEditor();
   syncNpcOnlyFields();
 
   if (npcId) {
@@ -179,6 +235,7 @@ export async function initCharacterCreator(userId, { characterId = null, npcId =
     statsOverride = null;
     pendingCustomSkills = [];
     npcSkillSource = 'class';
+    resetNpcLootDraft({});
     syncStatsFieldsFromBase();
     updateSkillPicker();
     updatePreview();
@@ -214,6 +271,7 @@ function setupCreatorTabs(isAdmin) {
       document.getElementById('save-btn').textContent = 'Guardar';
       document.getElementById('char-form').reset();
       document.getElementById('char-level').value = 1;
+      resetNpcLootDraft({});
       populateClassSelect();
       syncStatsFieldsFromBase();
       updateSkillPicker();
@@ -312,6 +370,9 @@ function applyEntityToForm(entity) {
   updatePortraitPreview(entity.portraitUrl || entity.image);
   updateSkillPicker();
   updatePreview();
+  if (isNpcMode()) {
+    resetNpcLootDraft(entity.loot);
+  }
   syncNpcOnlyFields();
 }
 
@@ -645,6 +706,8 @@ async function saveNpc(userId) {
     skills: skillIds,
     createdBy: userId
   };
+  const loot = readNpcLootFromUi();
+  payload.loot = loot;
 
   if (editingNpcId) {
     const { createdBy, ...updatePayload } = payload;

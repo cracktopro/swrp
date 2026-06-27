@@ -9,6 +9,7 @@ import {
   deleteDoc,
   serverTimestamp
 } from './firebase-config.js';
+import { normalizeLootTemplate } from './loot.js';
 
 export const NPC_ERAS = [
   'Antigua República',
@@ -18,6 +19,21 @@ export const NPC_ERAS = [
 ];
 
 export const DEFAULT_NPC_ERA = 'República';
+
+export function normalizeNpcLoot(raw) {
+  return normalizeLootTemplate(raw || {});
+}
+
+/** Solo créditos + objetos (plantilla de botín, sin estado de partida). */
+export function serializeNpcLoot(raw) {
+  const l = normalizeNpcLoot(raw);
+  return { credits: l.credits, items: l.items };
+}
+
+export function npcHasDefaultLoot(npc) {
+  const l = normalizeNpcLoot(npc?.loot);
+  return l.credits > 0 || l.items.length > 0;
+}
 
 function escapeHtml(str) {
   return String(str)

@@ -12,7 +12,7 @@ import {
 import { normalizeCharacter, getClassMeta } from './character-card.js';
 import { docToCharacter } from './characters.js';
 import { getStats } from './compendium-store.js';
-import { npcToMembershipCharacter } from './npcs.js';
+import { npcToMembershipCharacter, normalizeNpcLoot, npcHasDefaultLoot } from './npcs.js';
 import { loadParty } from './party.js';
 import { hasEscaramuzaSlotConfig } from './escaramuza-templates.js';
 import { applyPermanentModifiers, computeMoveRange, normalizeInventory } from './inventory.js';
@@ -255,7 +255,7 @@ export function tokenFromCharacter(char, kind = 'character') {
 
 export function tokenFromNpc(npc) {
   const meta = getClassMeta(npc.class);
-  return {
+  const token = {
     id: `npc_${npc.id}`,
     sourceId: npc.id,
     kind: 'npc',
@@ -283,6 +283,10 @@ export function tokenFromNpc(npc) {
       force: npc.force
     })
   };
+  if (npcHasDefaultLoot(npc)) {
+    token.loot = normalizeNpcLoot(npc.loot);
+  }
+  return token;
 }
 
 /** Vincula el personaje a la partida activa (permite al GM guardar progreso global). */

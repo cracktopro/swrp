@@ -246,7 +246,7 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 - Progresión 1–20, habilidades por clase, especies.
 - Pestañas: Progresión, Habilidades, Especies, NPCs, **Tableros** (mapas VTT reutilizables, solo admin edita), **Objetos**.
 - **Habilidades → Otros:** catálogo de habilidades personalizadas creadas para NPCs (Activa/Pasiva; nombre y descripción). No forman parte de las clases de juego.
-- **Objetos** (`compendium/data.items`, solo admin edita): catálogo de objetos para inventarios. Campos: nombre, descripción, imagen (URL del icono), tipo, **peso (KG)** y precio de venta. Por tipo:
+- **Objetos** (`compendium/data.items`, solo admin edita): catálogo de objetos para inventarios. Filtros en la pestaña: **nombre**, **tipo** y **clase** (equipo equipable por esa clase o por todas). Campos: nombre, descripción, imagen (URL del icono), tipo, **peso (KG)** y precio de venta. Por tipo:
   - **Equipo:** ocupa la ranura especial del inventario (solo uno equipado). Sube una estadística (HP/Defensa/Ataque/Daño/Fuerza) en `statBonus` mientras esté equipado. Define además **`equipClass`** (clase que puede equiparlo; `'all'` = todas, sin contar «Otros») y **`equipLevel`** (nivel mínimo 1–20); el inventario solo permite equiparlo si el personaje cumple ambos requisitos.
   - **Consumible:** se usa en partida, desaparece y aplica un efecto (estadística + aumento). `temporary: true` → el efecto se revierte al **Finalizar combate**; `false` → permanente. Una cura (HP) nunca supera el máximo del personaje. **Estadística «Ninguna» (`stat: 'none'`):** consumible sin efecto mecánico (llaves, piezas, etc.); solo se gasta y se registra (uso narrativo/rol).
   - **Sin utilidad:** solo se puede vender.
@@ -287,6 +287,8 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 ### 8.5.1 Habilidades custom en NPCs (`character-creator.js`)
 
 - Al crear/editar NPC (admin), además de las habilidades de su clase (máx. 4 + Rol):
+  - Pestañas **General** y **Objetos** (botín por defecto: créditos + objetos con probabilidad, misma UI que el tablero).
+  - El botín del compendio se copia al colocar el NPC en el tablero (`tokenFromNpc`); el GM puede editarlo por partida sin alterar el NPC del compendio.
   - **Origen «Otros»** en el selector de habilidades: reutilizar personalizadas ya guardadas en el compendio.
   - **Formulario «Nueva habilidad custom»:** tipo Activa o Pasiva, nombre y descripción; se selecciona al añadir y se persiste en `compendium/data.skills.Otros` al guardar el NPC.
 - En la carta (`character-card.js`) se renderizan con el mismo estilo que las habilidades de clase.
@@ -335,6 +337,7 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
   hp, maxHp, defense, attack, damage, force,
   skills: [skillId, ...],
   portraitUrl / image,
+  loot?: { credits, items: [{ itemId, prob }] },  // botín por defecto (plantilla)
   createdBy, createdAt, updatedAt
 }
 ```
@@ -511,6 +514,7 @@ Funciones auxiliares en reglas: `isAdmin`, `isPartyMember`, `isPartyGM`, `isEsca
 | `board-grant-panel.js` | Panel GM (tablero) para otorgar créditos/objetos a personajes |
 | `loot.js` | Lógica de loot: probabilidades 1-5, normalización, tirada, reparto de créditos |
 | `loot-modal.js` | Modal de saqueo (jugador): coger objetos, reparto de créditos |
+| `loot-editor-ui.js` | UI compartida para editar listas de botín y modal de elección de objetos |
 | `dice.js` | Utilidades tiradas |
 | `token-stats-editor.js` | Editor stats inline en modal chapa |
 | `admin.js` | Panel admin usuarios |
