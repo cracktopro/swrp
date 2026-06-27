@@ -2661,22 +2661,33 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
   position: sticky;
   top: 0;
   z-index: 6;
-  justify-content: flex-start;
+  justify-content: stretch;
   border-bottom-color: var(--swrp-border);
   flex-wrap: nowrap;
   background: var(--swrp-bg-deep, #07080d);
   padding-top: 0.15rem;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.board-sidebar-tabs .nav-item {
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 .board-sidebar-tabs .nav-link {
-  min-width: 6.5rem;
-  padding: 0.55rem 1rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0.4rem 0.35rem;
   font-family: var(--font-display);
-  font-size: 0.92rem;
+  font-size: 0.68rem;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
   text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .board-sidebar-tabs .nav-link.active {

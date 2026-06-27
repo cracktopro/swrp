@@ -293,7 +293,8 @@
   font-size: 1rem;
 }
 
-.swrp-card__hex--defense-cover {
+.swrp-card__hex--defense-cover,
+.swrp-card__hex--stat-boosted {
   color: #7dffb3;
   border-color: rgba(57, 255, 120, 0.85);
   box-shadow: 0 0 10px rgba(57, 255, 120, 0.35);

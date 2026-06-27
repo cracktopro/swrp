@@ -1,5 +1,5 @@
 import { getStats, formatAttack, findSkillById, findCustomSkillById, GAME_DATA } from './compendium-store.js';
-import { applyPermanentModifiers } from './inventory.js';
+import { applyPermanentModifiers, computeEquipmentBonus } from './inventory.js';
 import { CARD_LOGO_SRC } from './assets.js';
 
 export function getClassMeta(classKey) {
@@ -91,6 +91,22 @@ export function resolveCharacterStats(character) {
   return stats;
 }
 
+/** Stats con bonus de equipo equipado (para resaltar en verde en la carta). */
+export function getEquipmentBoostedStatKeys(character) {
+  const char = normalizeCharacter(character, character?.id);
+  if (!isHeroCharacter(char)) return new Set();
+  const bonus = computeEquipmentBonus(char.equippedItemId);
+  if (!bonus?.stat || !bonus.amount) return new Set();
+  return new Set([bonus.stat === 'hp' ? 'hp' : bonus.stat]);
+}
+
+function statHexClass(statKey, { boardContext, equipBoosted }) {
+  if (statKey === 'hp' && boardContext?.hpDamaged) return 'swrp-card__hex--hp-damaged';
+  if (statKey === 'defense' && boardContext?.defenseInCover) return 'swrp-card__hex--defense-cover';
+  if (equipBoosted?.has(statKey)) return 'swrp-card__hex--stat-boosted';
+  return '';
+}
+
 export function renderCharacterCard(character, options = {}) {
   const { mini = false, showSkills = true, isNpc = false, copyMentionId = null, boardContext = null, inventory = null, loot = null } = options;
   const char = normalizeCharacter(character, character?.id);
@@ -115,7 +131,8 @@ export function renderCharacterCard(character, options = {}) {
   card.className = `swrp-card theme-${meta.theme}${mini ? ' swrp-card--mini' : ''}${isNpc ? ' swrp-card--npc' : ''}`;
   card.dataset.class = char.class;
 
-  const attackFmt = formatAttack(stats.attack);
+  const equipBoosted = getEquipmentBoostedStatKeys(char);
+  const attackFmt = formatAttack(displayStats.attack ?? stats.attack);
   const forceBlock = meta.hasForce && stats.force != null
     ? `<p class="swrp-card__force"><em>Fuerza: ${stats.force}</em></p>`
     : '';
@@ -156,10 +173,10 @@ export function renderCharacterCard(character, options = {}) {
     <div class="swrp-card__body">
       <div class="swrp-card__left">
         <div class="swrp-card__stats">
-          ${statRow('P.GOLPE', displayStats.hp, boardContext?.hpDamaged ? 'swrp-card__hex--hp-damaged' : '')}
-          ${statRow('DEFENSA', displayStats.defense, boardContext?.defenseInCover ? 'swrp-card__hex--defense-cover' : '')}
-          ${statRow('ATAQUE', attackFmt)}
-          ${statRow('DAÑO', displayStats.damage)}
+          ${statRow('P.GOLPE', displayStats.hp, statHexClass('hp', { boardContext, equipBoosted }))}
+          ${statRow('DEFENSA', displayStats.defense, statHexClass('defense', { boardContext, equipBoosted }))}
+          ${statRow('ATAQUE', attackFmt, statHexClass('attack', { boardContext, equipBoosted }))}
+          ${statRow('DAÑO', displayStats.damage, statHexClass('damage', { boardContext, equipBoosted }))}
         </div>
         ${char.portraitUrl ? `
           <div class="swrp-card__portrait">

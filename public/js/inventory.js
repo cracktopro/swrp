@@ -5,7 +5,8 @@ import {
   updateDoc,
   serverTimestamp
 } from './firebase-config.js';
-import { getItemById, ITEM_STAT_DEFS } from './compendium-store.js';
+import { getItemById, ITEM_STAT_DEFS, getStats } from './compendium-store.js';
+import { normalizeCharacter } from './character-card.js';
 
 export const INVENTORY_COLS = 4;
 export const INVENTORY_ROWS = 8;
@@ -280,18 +281,67 @@ export async function grantItemToCharacter(characterId, itemId, qty = 1, partyId
   return next;
 }
 
-/** Actualiza el rango de movimiento del token del personaje en el tablero (peso). */
-export async function updateBoardTokenMoveRange(partyId, character) {
+/** Actualiza token del tablero: inventario, equipo y stats derivadas. */
+export async function syncBoardTokenInventory(partyId, character) {
   if (!partyId || !character?.id) return;
   const ref = doc(db, 'parties', partyId, 'state', 'board');
   const snap = await getDoc(ref);
   if (!snap.exists()) return;
   const data = snap.data();
-  const tokens = data.tokens || [];
-  const token = tokens.find((t) => t.sourceId === character.id && t.side !== 'enemy');
-  if (!token) return;
-  const newRange = computeMoveRange(character);
-  if (token.moveRange === newRange) return;
-  token.moveRange = newRange;
+  const tokens = [...(data.tokens || [])];
+  const idx = tokens.findIndex((t) => t.sourceId === character.id && t.side !== 'enemy');
+  if (idx < 0) return;
+
+  const existing = tokens[idx];
+  const char = normalizeCharacter(character, character.id);
+  const inv = normalizeInventory(char);
+  const classBase = getStats(char.class, char.level) || {};
+  const snapStats = applyPermanentModifiers({
+    hp: char.currentHp ?? char.hp ?? classBase.hp ?? 0,
+    maxHp: char.maxHp ?? classBase.hp ?? 0,
+    defense: classBase.defense ?? 0,
+    attack: classBase.attack ?? 0,
+    damage: classBase.damage ?? 0,
+    force: classBase.force ?? null
+  }, char);
+  if (snapStats.maxHp != null && snapStats.hp > snapStats.maxHp) {
+    snapStats.hp = snapStats.maxHp;
+  }
+
+  const prevHp = Number(existing.characterSnapshot?.hp);
+  const hp = char.currentHp != null
+    ? snapStats.hp
+    : (Number.isFinite(prevHp) ? Math.min(prevHp, snapStats.maxHp ?? prevHp) : snapStats.hp);
+
+  const prevSnap = existing.characterSnapshot || {};
+  tokens[idx] = {
+    ...existing,
+    moveRange: computeMoveRange(char),
+    characterSnapshot: {
+      ...prevSnap,
+      id: char.id,
+      name: char.name,
+      species: char.species || 'Humanos',
+      class: char.class,
+      level: char.level,
+      type: char.type,
+      portraitUrl: char.portraitUrl || '',
+      skills: char.skills || [],
+      equippedItemId: inv.equippedItemId,
+      statBonuses: inv.statBonuses,
+      hp,
+      maxHp: snapStats.maxHp,
+      defense: snapStats.defense,
+      attack: snapStats.attack,
+      damage: snapStats.damage,
+      force: snapStats.force
+    }
+  };
+
   await updateDoc(ref, { tokens, updatedAt: serverTimestamp() });
+}
+
+/** @deprecated Usa syncBoardTokenInventory */
+export async function updateBoardTokenMoveRange(partyId, character) {
+  return syncBoardTokenInventory(partyId, character);
 }

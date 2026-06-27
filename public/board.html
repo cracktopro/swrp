@@ -718,7 +718,18 @@
         partyId: invCtx.partyId,
         canEdit: true,
         shopEnabled: invCtx.board.shopEnabled !== false,
-        logUse: (item) => invCtx.board.logItemUse(character, item)
+        logUse: (item) => invCtx.board.logItemUse(character, item),
+        onChange: (patch) => {
+          const rosterChar = roster.find((c) => c.id === token.sourceId);
+          if (rosterChar) {
+            Object.assign(rosterChar, patch);
+            if (patch.currentHp != null) rosterChar.currentHp = patch.currentHp;
+          }
+        },
+        onClosed: () => {
+          const updated = board?.tokens?.find((t) => t.sourceId === token.sourceId);
+          if (updated) openTokenCard(updated);
+        }
       });
     }
 

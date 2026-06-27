@@ -13,7 +13,7 @@ import {
   saveCharacterInventory,
   removeItemFromInventory,
   applyConsumableToBoardToken,
-  updateBoardTokenMoveRange
+  syncBoardTokenInventory
 } from './inventory.js';
 
 let modalEl = null;
@@ -160,7 +160,7 @@ function setTab(tab) {
   if (tab === 'shop') renderShop();
 }
 
-export function openInventoryModal(character, { partyId = null, canEdit = true, shopEnabled = true, onChange = null, logUse = null } = {}) {
+export function openInventoryModal(character, { partyId = null, canEdit = true, shopEnabled = true, onChange = null, onClosed = null, logUse = null } = {}) {
   ensureModal();
   const norm = normalizeInventory(character);
   state = {
@@ -178,6 +178,7 @@ export function openInventoryModal(character, { partyId = null, canEdit = true, 
     canEdit,
     shopEnabled: shopEnabled !== false,
     onChange,
+    onClosed,
     logUse,
     selectedItemId: null,
     activeTab: 'inv',
@@ -188,6 +189,13 @@ export function openInventoryModal(character, { partyId = null, canEdit = true, 
   syncShopTabVisibility();
   setTab('inv');
   render();
+  if (onClosed) {
+    const handler = () => {
+      modalEl.removeEventListener('hidden.bs.modal', handler);
+      onClosed();
+    };
+    modalEl.addEventListener('hidden.bs.modal', handler);
+  }
   bsModal.show();
 }
 
@@ -413,11 +421,18 @@ async function persist(patch) {
   try {
     await saveCharacterInventory(state.characterId, patch);
     if (state.partyId) {
-      await updateBoardTokenMoveRange(state.partyId, {
+      await syncBoardTokenInventory(state.partyId, {
         id: state.characterId,
         class: state.classKey,
+        classKey: state.classKey,
+        level: state.level,
+        type: 'Heroe',
+        name: state.name,
+        currentHp: state.currentHp,
+        maxHp: state.maxHp,
         inventory: state.inventory,
-        equippedItemId: state.equippedItemId
+        equippedItemId: state.equippedItemId,
+        statBonuses: state.statBonuses
       });
     }
     if (typeof state.onChange === 'function') {
@@ -445,24 +460,51 @@ async function equipItem(itemId) {
   state.inventory = removeItemFromInventory(state.inventory, itemId, 1);
   // Si ya había uno equipado, devuélvelo a la rejilla.
   if (state.equippedItemId && state.equippedItemId !== itemId) {
+    const prevItem = getItemById(state.equippedItemId);
+    if (prevItem?.stat === 'hp') {
+      const bonus = Number(prevItem.statBonus) || 0;
+      if (state.currentHp != null) state.currentHp = Math.max(0, state.currentHp - bonus);
+      if (state.maxHp != null) state.maxHp = Math.max(1, state.maxHp - bonus);
+      if (state.currentHp != null && state.maxHp != null && state.currentHp > state.maxHp) {
+        state.currentHp = state.maxHp;
+      }
+    }
     state.inventory = addToGrid(state.inventory, state.equippedItemId);
   }
   state.equippedItemId = itemId;
-  await persist({ inventory: state.inventory, equippedItemId: state.equippedItemId });
+  if (item?.stat === 'hp') {
+    const bonus = Number(item.statBonus) || 0;
+    if (state.currentHp != null) state.currentHp += bonus;
+    if (state.maxHp != null) state.maxHp += bonus;
+  }
+  const persistPatch = { inventory: state.inventory, equippedItemId: state.equippedItemId };
+  if (item?.stat === 'hp') persistPatch.currentHp = state.currentHp;
+  await persist(persistPatch);
   render();
 }
 
 async function unequipItem() {
   const prev = state.equippedItemId;
   if (!prev) return;
+  const prevItem = getItemById(prev);
   if (computeUsedSlots(state.inventory) >= INVENTORY_MAX_SLOTS) {
     await swrpAlert({ title: 'Inventario lleno', message: 'No hay espacio en la rejilla para guardar el equipo.' });
     return;
   }
+  if (prevItem?.stat === 'hp') {
+    const bonus = Number(prevItem.statBonus) || 0;
+    if (state.currentHp != null) state.currentHp = Math.max(0, state.currentHp - bonus);
+    if (state.maxHp != null) state.maxHp = Math.max(1, state.maxHp - bonus);
+    if (state.currentHp != null && state.maxHp != null && state.currentHp > state.maxHp) {
+      state.currentHp = state.maxHp;
+    }
+  }
   state.inventory = addToGrid(state.inventory, prev);
   state.equippedItemId = null;
   state.selectedItemId = prev;
-  await persist({ inventory: state.inventory, equippedItemId: null });
+  const persistPatch = { inventory: state.inventory, equippedItemId: null };
+  if (prevItem?.stat === 'hp') persistPatch.currentHp = state.currentHp;
+  await persist(persistPatch);
   render();
 }
 
