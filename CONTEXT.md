@@ -199,7 +199,7 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 - Editar ajena → `?fork=id` → guardar crea copia nueva.
 - Workspace: metadatos (nombre, era, dificultad, imagen, descripción), mín/máx jugadores, spawns aliados, tablero con enemigos, **cajas de loot** y botín de enemigos (misma UI que el tablero: pestaña «Objetos» en enemigos, botón «+ Caja»).
 - Validación al guardar: al menos 1 enemigo, spawns ≥ mínimo jugadores, dificultad obligatoria.
-- `boardLayout` guarda enemigos, cofres y configuración de loot (sin estado de partida: sin `resolved`, `creditsClaimed` ni `pendingCredits`).
+- `boardLayout` guarda enemigos, cofres y configuración de loot (sin estado de partida: sin `resolved`, `creditShares` ni `creditsClaimedBy`).
 - Persistencia: colección `escaramuzaTemplates/{id}`.
 
 ### 8.3 Tablero VTT (`board.html` + `board.js`, `board-page.js`, `board-combat.js`, `board-progress.js`, `board-vision.js`)
@@ -268,7 +268,7 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 ### 8.6.2 Sistema de loot (`loot.js`, `loot-modal.js`, `board.js`, `board-page.js`)
 
 - Disponible **solo en el tablero** (Campaña y Escaramuza). Dos fuentes de botín: **enemigos derrotados** y **cajas**.
-- **Botín común (`loot`)** en enemigos (`token.loot`) y cajas (`chest.loot`): `{ credits, items: [{ itemId, prob }], creditsClaimed, resolved }`.
+- **Botín común (`loot`)** en enemigos (`token.loot`) y cajas (`chest.loot`): `{ credits, items: [{ itemId, prob }], creditShares, creditsClaimedBy, resolved }`.
   - `prob` es un nivel **1-5** → porcentaje (1=5 %, 5=100 %, lineal: `LOOT_PROB_PCT = {1:5,2:29,3:53,4:76,5:100}`).
   - `resolved`: lista `[{ itemId, qty }]` que se calcula **una sola vez** (al primer saqueo) tirando cada objeto por su probabilidad (`resolveLoot`); se persiste para que todos vean lo mismo.
 - **Configuración (GM):**
@@ -279,7 +279,7 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
   - **Enemigo:** debe estar **derrotado** y el jugador en una de las **4 celdas ortogonales** (`isCellAdjacentToUser`); en la carta del enemigo aparece el botón **«Saquear»**.
   - **Caja:** clic en la caja estando en una celda contigua → modal de saqueo.
   - El modal (`loot-modal.js`) muestra los objetos resueltos; **«Coger»** los pasa al inventario del personaje (`grantItemToCharacter`, respeta límite de casillas) y los retira del botín, dejando el resto para otros jugadores. Cada recogida se registra en el log (tipo `loot`).
-- **Créditos:** al primer saqueo se **reparten entre todos los jugadores** de la partida y se registra en el log. Como las reglas de Firestore solo permiten editar el propio personaje (o al GM), el reparto se hace vía **cola `pendingCredits`** en `state/board`: cada cliente abona a su personaje su parte (`applyMyPendingCredits`) y borra su entrada.
+- **Créditos:** en el **primer saqueo** (cualquier jugador) se calculan las partes (`creditShares`: `{ [characterId]: cantidad }`) dividiendo el total entre los jugadores de la partida. **Cada jugador recibe su parte solo cuando él saquea** (abre el modal estando adyacente): una escritura a su personaje + una al botín (`creditsClaimedBy`). No hay cola global ni escrituras automáticas al cargar el tablero.
 - La capa de cajas se dibuja en `#board-chest-layer` (`renderChestLayer`); las cajas vacías se atenúan.
 
 ### 8.5.1 Habilidades custom en NPCs (`character-creator.js`)
@@ -430,14 +430,13 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
     hp, maxHp, defense, ...
     moveRange?,          // casillas/acción según peso del inventario (personajes)
     tempEffects?,        // [{ stat, amount }] efectos temporales de consumibles
-    loot?,               // botín del enemigo: { credits, items:[{itemId,prob}], creditsClaimed, resolved }
+    loot?,               // botín: { credits, items, creditShares, creditsClaimedBy, resolved }
     alerted?, spawnCol?, spawnRow?
   }],
   chests: [{             // cajas de loot
-    id, col, row, imageUrl,
-    loot: { credits, items: [{ itemId, prob }], creditsClaimed, resolved }
+    id, col, row, imageUrl, opened?,
+    loot: { credits, items, creditShares, creditsClaimedBy, resolved }
   }],
-  pendingCredits: { [characterId]: number },  // créditos de loot por abonar (cada cliente abona el suyo)
   combatStarted: boolean,
   log: [...],
   initiativeLog: [...],

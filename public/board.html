@@ -557,7 +557,7 @@
     import { appUrl } from './js/app-path.js';
     import { TacticalBoard, getTokenHp, getTokenMaxHp, getTokenEffectiveDefense, isTokenInCover, isTokenDefeated } from './js/board.js';
     import { openLootModal } from './js/loot-modal.js';
-    import { lootHasRemaining } from './js/loot.js';
+    import { lootHasRemaining, lootHasRemainingForCharacter } from './js/loot.js';
     import { loadAllNpcs, npcToCardData } from './js/npcs.js';
     import { loadCompendiumData } from './js/compendium-store.js';
     import { renderCharacterCard, normalizeCharacter } from './js/character-card.js';
@@ -630,7 +630,7 @@
       if (!invCtx || invCtx.isGM) return null;
       if (token.side !== 'enemy' || !isTokenDefeated(token)) return null;
       if (!invCtx.board.isCellAdjacentToUser(token.col, token.row)) return null;
-      if (!lootHasRemaining(token.loot)) return null;
+      if (!lootHasRemainingForCharacter(token.loot, invCtx?.userCharacterSourceId)) return null;
       return { onOpen: () => openEnemyLoot(token) };
     }
 

@@ -31,6 +31,18 @@ export function normalizeLoot(raw) {
         .filter((e) => e.itemId)
     : [];
   const creditsClaimed = raw?.creditsClaimed === true;
+  const creditsClaimedBy = (raw?.creditsClaimedBy && typeof raw.creditsClaimedBy === 'object')
+    ? { ...raw.creditsClaimedBy }
+    : {};
+  let creditShares = null;
+  if (raw?.creditShares && typeof raw.creditShares === 'object') {
+    creditShares = {};
+    for (const [id, amt] of Object.entries(raw.creditShares)) {
+      const n = Math.max(0, Math.round(Number(amt) || 0));
+      if (id && n > 0) creditShares[id] = n;
+    }
+    if (!Object.keys(creditShares).length) creditShares = null;
+  }
   const resolved = Array.isArray(raw?.resolved)
     ? raw.resolved
         .map((e) => ({
@@ -39,7 +51,7 @@ export function normalizeLoot(raw) {
         }))
         .filter((e) => e.itemId && e.qty > 0)
     : null;
-  return { credits, items, creditsClaimed, resolved };
+  return { credits, items, creditsClaimed, creditsClaimedBy, creditShares, resolved };
 }
 
 /** Solo configuración de botín (plantillas / instancias nuevas): sin estado de partida. */
@@ -82,15 +94,50 @@ export function lootHasConfig(loot) {
 }
 
 /**
- * ¿Queda algo por saquear?
- * - Si aún no se resolvió: hay objetos configurados o créditos sin repartir.
- * - Si ya se resolvió: quedan objetos sin coger o créditos sin repartir.
+ * ¿Queda algo por saquear (cualquier jugador)?
+ * - Objetos sin coger.
+ * - Créditos con parte sin reclamar por alguien.
  */
 export function lootHasRemaining(loot) {
   const l = normalizeLoot(loot);
-  const credits = !l.creditsClaimed && l.credits > 0;
-  if (l.resolved) return credits || l.resolved.length > 0;
-  return credits || l.items.length > 0;
+  if (l.resolved?.length) return true;
+  if (lootHasUnclaimedCredits(l)) return true;
+  return l.items.length > 0 || (!l.creditShares && l.credits > 0);
+}
+
+/** ¿Este personaje tiene algo que reclamar en el botín? */
+export function lootHasRemainingForCharacter(loot, characterId) {
+  if (!characterId) return lootHasRemaining(loot);
+  const l = normalizeLoot(loot);
+  if (l.resolved?.length) return true;
+  if (l.creditShares) {
+    return (Number(l.creditShares[characterId]) || 0) > 0 && !l.creditsClaimedBy[characterId];
+  }
+  if (!l.creditsClaimed && l.credits > 0) return true;
+  return l.items.length > 0;
+}
+
+/** ¿Quedan créditos sin reclamar por algún jugador? */
+export function lootHasUnclaimedCredits(loot) {
+  const l = normalizeLoot(loot);
+  if (l.creditShares) {
+    return Object.entries(l.creditShares).some(
+      ([id, amt]) => (Number(amt) || 0) > 0 && !l.creditsClaimedBy[id]
+    );
+  }
+  return !l.creditsClaimed && l.credits > 0;
+}
+
+/** Calcula la parte de créditos por personaje al resolver el botín. */
+export function buildCreditShares(total, recipientIds) {
+  const ids = (recipientIds || []).filter(Boolean);
+  const split = splitCredits(total, ids.length);
+  const shares = {};
+  for (let i = 0; i < ids.length; i++) {
+    const share = split.base + (i < split.remainder ? 1 : 0);
+    if (share > 0) shares[ids[i]] = share;
+  }
+  return { shares, split };
 }
 
 /** Tira cada objeto configurado por su probabilidad. Devuelve [{ itemId, qty }]. */

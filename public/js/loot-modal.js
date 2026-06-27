@@ -1,6 +1,11 @@
 import { getItemById } from './compendium-store.js';
 import { grantItemToCharacter } from './inventory.js';
-import { normalizeLoot, resolveLoot } from './loot.js';
+import {
+  normalizeLoot,
+  resolveLoot,
+  buildCreditShares,
+  lootHasUnclaimedCredits
+} from './loot.js';
 import { swrpAlert } from './swrp-dialog.js';
 
 let modalEl = null;
@@ -65,16 +70,38 @@ export async function openLootModal({ board, target, sourceName = 'Botín', loot
     await board.markChestOpened(target.id);
   }
 
-  // Resolver el botín la primera vez y repartir créditos.
-  const loot = resolveLoot(readTargetLoot());
+  const before = normalizeLoot(readTargetLoot());
+  let loot = resolveLoot(before);
   let creditsMsg = '';
-  if (!loot.creditsClaimed && loot.credits > 0) {
-    const split = await board.distributeLootCredits(loot.credits);
-    await board.logLootCredits(sourceName, split);
-    loot.creditsClaimed = true;
-    creditsMsg = `Se repartieron ${split.total} créditos entre ${split.count} jugador(es).`;
+
+  if (!before.resolved && loot.resolved) {
+    await persistTargetLoot(loot);
   }
-  await persistTargetLoot(loot);
+
+  if (loot.credits > 0 && !loot.creditShares) {
+    const recipientIds = board.getLootRecipients().map((c) => c.id);
+    const { shares, split } = buildCreditShares(loot.credits, recipientIds);
+    loot = { ...loot, creditShares: shares, creditsClaimed: true };
+    await persistTargetLoot(loot);
+    await board.logLootCredits(sourceName, split);
+  }
+
+  const granted = await board.claimLootCreditsForCharacter(target, looter.id);
+  if (granted > 0) {
+    creditsMsg = `Has recibido ${granted} créditos de tu parte del botín.`;
+  } else {
+    const current = normalizeLoot(readTargetLoot());
+    const myShare = Number(current.creditShares?.[looter.id]) || 0;
+    if (myShare > 0 && current.creditsClaimedBy?.[looter.id]) {
+      creditsMsg = 'Ya has recogido tus créditos de este botín.';
+    } else if (lootHasUnclaimedCredits(current)) {
+      creditsMsg = 'Otros jugadores aún pueden reclamar su parte al saquear.';
+    } else if (loot.credits > 0) {
+      creditsMsg = 'Créditos del botín ya repartidos.';
+    } else {
+      creditsMsg = 'Sin créditos en este botín.';
+    }
+  }
 
   state.creditsMsg = creditsMsg;
   render();
@@ -84,7 +111,7 @@ export async function openLootModal({ board, target, sourceName = 'Botín', loot
 function render() {
   const loot = normalizeLoot(readTargetLoot());
   const creditsEl = modalEl.querySelector('#swrp-loot-credits');
-  creditsEl.textContent = state.creditsMsg || (loot.credits > 0 ? 'Créditos ya repartidos.' : 'Sin créditos.');
+  creditsEl.textContent = state.creditsMsg || '';
 
   const listEl = modalEl.querySelector('#swrp-loot-list');
   const items = loot.resolved || [];
@@ -120,7 +147,6 @@ async function takeItem(itemId) {
     await swrpAlert({ title: 'No se pudo coger', message: err.message || 'Tu inventario no admite el objeto.' });
     return;
   }
-  // Quita una unidad del botín resuelto y persiste.
   const loot = normalizeLoot(readTargetLoot());
   const entry = (loot.resolved || []).find((e) => e.itemId === itemId);
   if (entry) {

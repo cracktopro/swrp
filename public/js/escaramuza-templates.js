@@ -242,7 +242,6 @@ export function buildFreshBoardState(boardLayout) {
       return token;
     }),
     chests: (layout.chests || []).map((c) => normalizeChestTemplate(c)),
-    pendingCredits: {},
     mapUrl: layout.mapUrl ?? null,
     grid: layout.grid || {
       cols: DEFAULT_COLS,
