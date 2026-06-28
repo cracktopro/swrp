@@ -276,7 +276,7 @@ function wireSaveButton(user, profile) {
     const btn = document.getElementById('btn-save-template');
     btn.disabled = true;
     try {
-      const boardLayout = buildLayoutFromBoard(board, { enemyOnly: true });
+      const boardLayout = buildLayoutFromBoard(board, { enemyOnly: false });
       const data = {
         name: document.getElementById('editor-name').value,
         era: document.getElementById('editor-era').value,

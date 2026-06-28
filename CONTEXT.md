@@ -376,7 +376,7 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
   minPlayers, maxSlots,
   allySpawns: [{ col, row }, ...],
   boardLayout: {
-    tokens: [...],           // enemigos (side: 'enemy'); opcional token.loot (config)
+    tokens: [...],           // enemigos, aliados y neutrales; token.loot en enemigos
     chests: [{ id, col, row, imageUrl, loot }],  // cajas de loot
     objectives: [{ id, title?, text }],  // reglas / misiones / pistas
     mapUrl,

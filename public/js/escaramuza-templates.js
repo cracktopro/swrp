@@ -222,7 +222,7 @@ function stripTokenLootForTemplate(token) {
   return copy;
 }
 
-export function buildLayoutFromBoard(board, { enemyOnly = true } = {}) {
+export function buildLayoutFromBoard(board, { enemyOnly = false } = {}) {
   const tokens = enemyOnly
     ? board.tokens.filter((t) => t.side === 'enemy')
     : board.tokens;
