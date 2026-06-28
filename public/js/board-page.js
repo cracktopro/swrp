@@ -39,6 +39,11 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
+function setInputChecked(id, checked) {
+  const el = document.getElementById(id);
+  if (el) el.checked = !!checked;
+}
+
 function nameInitials(name) {
   return String(name || '?')
     .trim()
@@ -518,9 +523,9 @@ export function initBoardPage(ctx) {
       cellEl.className = 'board-cell-badge';
       cellEl.textContent = cellLabel(token.col, token.row);
     }
-    document.getElementById('ctrl-side-ally').checked = side === 'ally';
-    document.getElementById('ctrl-side-neutral').checked = side === 'neutral';
-    document.getElementById('ctrl-side-enemy').checked = side === 'enemy';
+    setInputChecked('ctrl-side-ally', side === 'ally');
+    setInputChecked('ctrl-side-neutral', side === 'neutral');
+    setInputChecked('ctrl-side-enemy', side === 'enemy');
 
     const facingWrap = document.getElementById('ctrl-facing-wrap');
     const visionWrap = document.getElementById('ctrl-vision-wrap');
@@ -785,9 +790,9 @@ export function initBoardPage(ctx) {
     document.querySelectorAll('#add-token-tabs .nav-link').forEach((el, i) => {
       el.classList.toggle('active', i === 0);
     });
-    document.getElementById('add-side-ally').checked = true;
-    document.getElementById('add-side-neutral').checked = false;
-    document.getElementById('add-side-enemy').checked = false;
+    setInputChecked('add-side-ally', true);
+    setInputChecked('add-side-neutral', false);
+    setInputChecked('add-side-enemy', false);
     document.querySelectorAll('#add-facing-wrap [data-facing]').forEach((btn, i) => {
       btn.classList.toggle('active', btn.dataset.facing === 'left');
     });
@@ -865,9 +870,9 @@ export function initBoardPage(ctx) {
     document.querySelectorAll('#add-token-tabs .nav-link').forEach((el) => el.classList.remove('active'));
     tab.classList.add('active');
     if (addTab === 'npcs') {
-      document.getElementById('add-side-enemy').checked = true;
+      setInputChecked('add-side-enemy', true);
     } else if (addTab === 'characters') {
-      document.getElementById('add-side-ally').checked = true;
+      setInputChecked('add-side-ally', true);
     }
     renderAddList();
     syncAddTabLayout();

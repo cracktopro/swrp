@@ -296,6 +296,9 @@
             <li class="nav-item" role="presentation">
               <button type="button" class="nav-link" data-ctrl-tab="stats" role="tab">Stats</button>
             </li>
+            <li class="nav-item d-none" role="presentation" id="ctrl-token-tab-dialogues">
+              <button type="button" class="nav-link" data-ctrl-tab="dialogues" role="tab">Diálogos</button>
+            </li>
             <li class="nav-item d-none" role="presentation" id="ctrl-token-tab-loot">
               <button type="button" class="nav-link" data-ctrl-tab="loot" role="tab">Objetos</button>
             </li>
@@ -306,6 +309,8 @@
             <div class="btn-group w-100" role="group">
               <input type="radio" class="btn-check" name="ctrl-side" id="ctrl-side-ally" value="ally">
               <label class="btn btn-sm btn-swrp btn-swrp-ghost" for="ctrl-side-ally">Aliado</label>
+              <input type="radio" class="btn-check" name="ctrl-side" id="ctrl-side-neutral" value="neutral">
+              <label class="btn btn-sm btn-swrp btn-swrp-ghost" for="ctrl-side-neutral">Neutral</label>
               <input type="radio" class="btn-check" name="ctrl-side" id="ctrl-side-enemy" value="enemy">
               <label class="btn btn-sm btn-swrp btn-swrp-ghost" for="ctrl-side-enemy">Enemigo</label>
             </div>
@@ -348,6 +353,11 @@
           <div id="ctrl-tab-stats" class="d-none">
             <div id="ctrl-stats-editor"></div>
           </div>
+          <div id="ctrl-tab-dialogues" class="d-none">
+            <p class="small text-muted mb-2">Líneas de diálogo que los jugadores pueden leer al hablar con este NPC neutral.</p>
+            <div id="ctrl-dialogues-list" class="mb-2"></div>
+            <button type="button" id="ctrl-dialogue-add" class="btn btn-sm btn-swrp btn-swrp-primary">+ Diálogo</button>
+          </div>
           <div id="ctrl-tab-loot" class="d-none">
             <p class="small text-muted mb-2">Define el botín que otorga este enemigo al ser saqueado tras su derrota.</p>
             <label class="form-label small mb-1" for="ctrl-loot-credits">Créditos (a repartir entre los jugadores)</label>
@@ -376,10 +386,11 @@
         </div>
         <div class="modal-body">
           <div class="row g-3">
-            <div class="col-lg-4">
+            <div class="col-lg-4" id="add-picker-panel">
               <ul class="nav nav-tabs swrp-board-tabs mb-2" id="add-token-tabs">
                 <li class="nav-item"><button type="button" class="nav-link active" data-add-tab="characters">Personajes</button></li>
                 <li class="nav-item"><button type="button" class="nav-link" data-add-tab="npcs">NPCs</button></li>
+                <li class="nav-item"><button type="button" class="nav-link" data-add-tab="neutral">Neutral</button></li>
               </ul>
               <div class="row g-2 mb-2">
                 <div class="col-12">
@@ -401,12 +412,92 @@
               </div>
               <div id="add-token-list" class="swrp-add-token-list"></div>
             </div>
-            <div class="col-lg-8">
-              <fieldset class="mb-2">
+            <div class="col-lg-4 d-none" id="add-neutral-panel">
+              <p class="small text-muted mb-2">Crea un NPC neutral para colocar en el tablero. No se guarda en el compendio.</p>
+              <ul class="nav nav-tabs swrp-board-tabs mb-2" id="bn-editor-tabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                  <button type="button" class="nav-link active" data-bn-tab="general" role="tab">General</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                  <button type="button" class="nav-link" data-bn-tab="loot" role="tab">Objetos</button>
+                </li>
+              </ul>
+              <div id="bn-tab-general" class="swrp-scrollbar-thin" style="max-height: 52vh; overflow-y: auto;">
+                <div class="mb-2">
+                  <label class="form-label small mb-1" for="bn-char-name">Nombre</label>
+                  <input type="text" class="form-control form-control-sm" id="bn-char-name" required maxlength="40">
+                </div>
+                <div class="row g-2 mb-2">
+                  <div class="col-6">
+                    <label class="form-label small mb-1" for="bn-char-class">Clase</label>
+                    <select class="form-select form-select-sm" id="bn-char-class"></select>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label small mb-1" for="bn-char-species">Especie</label>
+                    <select class="form-select form-select-sm" id="bn-char-species"></select>
+                  </div>
+                </div>
+                <div class="mb-2">
+                  <label class="form-label small mb-1" for="bn-char-era">Era</label>
+                  <select class="form-select form-select-sm" id="bn-char-era"></select>
+                </div>
+                <div class="mb-2">
+                  <label class="form-label small mb-1">Estadísticas</label>
+                  <div class="row g-1">
+                    <div class="col-4"><label class="form-label small">P.Golpe</label><input type="number" class="form-control form-control-sm" id="bn-stat-hp" min="0"></div>
+                    <div class="col-4"><label class="form-label small">Defensa</label><input type="number" class="form-control form-control-sm" id="bn-stat-defense" min="0"></div>
+                    <div class="col-4"><label class="form-label small">Ataque</label><input type="number" class="form-control form-control-sm" id="bn-stat-attack"></div>
+                    <div class="col-4"><label class="form-label small">Daño</label><input type="number" class="form-control form-control-sm" id="bn-stat-damage" min="0"></div>
+                    <div class="col-4"><label class="form-label small">Fuerza</label><input type="number" class="form-control form-control-sm" id="bn-stat-force" placeholder="—"></div>
+                  </div>
+                  <button type="button" class="btn btn-sm btn-swrp btn-swrp-ghost mt-1" id="bn-btn-load-base-stats">Restaurar stats de clase</button>
+                </div>
+                <div class="mb-2">
+                  <label class="form-label small mb-1" for="bn-portrait-url">URL del retrato</label>
+                  <input type="url" class="form-control form-control-sm" id="bn-portrait-url" placeholder="https://…">
+                  <img id="bn-portrait-preview" class="d-none mt-1" style="max-width:80px;border:1px solid #444" alt="">
+                  <p id="bn-portrait-preview-error" class="small text-warning d-none mb-0">No se pudo cargar la imagen.</p>
+                </div>
+                <div class="mb-2">
+                  <label class="form-label small mb-1">Habilidades de combate</label>
+                  <div id="bn-skills-picker"></div>
+                </div>
+                <div class="mb-2">
+                  <label class="form-label small mb-1">Nueva habilidad custom</label>
+                  <div class="row g-1 mb-1">
+                    <div class="col-4">
+                      <select class="form-select form-select-sm" id="bn-custom-skill-type">
+                        <option value="Activa">Activa</option>
+                        <option value="Pasiva">Pasiva</option>
+                      </select>
+                    </div>
+                    <div class="col-8">
+                      <input type="text" class="form-control form-control-sm" id="bn-custom-skill-name" maxlength="60" placeholder="Nombre">
+                    </div>
+                  </div>
+                  <textarea class="form-control form-control-sm mb-1" id="bn-custom-skill-desc" rows="2" maxlength="500" placeholder="Descripción"></textarea>
+                  <button type="button" id="bn-btn-add-custom-skill" class="btn btn-sm btn-swrp btn-swrp-primary">Añadir y seleccionar</button>
+                </div>
+              </div>
+              <div id="bn-tab-loot" class="d-none swrp-scrollbar-thin" style="max-height: 52vh; overflow-y: auto;">
+                <p class="small text-muted mb-2">Botín por defecto si este NPC pasa a ser enemigo.</p>
+                <label class="form-label small mb-1" for="bn-loot-credits">Créditos</label>
+                <input type="number" class="form-control form-control-sm mb-2" id="bn-loot-credits" min="0" step="1" value="0">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <label class="form-label small mb-0">Objetos del botín</label>
+                  <button type="button" id="bn-loot-add" class="btn btn-sm btn-swrp btn-swrp-primary">+ Objeto</button>
+                </div>
+                <div id="bn-loot-list" class="swrp-loot-list"></div>
+              </div>
+            </div>
+            <div class="col-lg-8" id="add-placement-panel">
+              <fieldset class="mb-2" id="add-side-fieldset">
                 <legend class="form-label small mb-1">Facción</legend>
                 <div class="btn-group w-100" role="group">
                   <input type="radio" class="btn-check" name="add-side" id="add-side-ally" value="ally" checked>
                   <label class="btn btn-sm btn-swrp btn-swrp-ghost" for="add-side-ally">Aliado</label>
+                  <input type="radio" class="btn-check" name="add-side" id="add-side-neutral" value="neutral">
+                  <label class="btn btn-sm btn-swrp btn-swrp-ghost" for="add-side-neutral">Neutral</label>
                   <input type="radio" class="btn-check" name="add-side" id="add-side-enemy" value="enemy">
                   <label class="btn btn-sm btn-swrp btn-swrp-ghost" for="add-side-enemy">Enemigo</label>
                 </div>
