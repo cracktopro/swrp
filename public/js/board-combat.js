@@ -12,6 +12,7 @@ import {
 } from './board.js';
 import { inferBoardTokenKind } from './board-vision.js';
 import { getMemberPlaySource } from './party-members.js';
+import { findNpcController } from './npc-control.js';
 import { buildBoardTokenMap } from './party-markup.js';
 import { loadAllNpcs, npcToCardData } from './npcs.js';
 import { mountNarrativeComposer } from './narrative-composer.js';
@@ -31,7 +32,7 @@ function isUserPlayToken(token, ctx) {
   return token.sourceId === sid && inferBoardTokenKind(token) === kind;
 }
 
-export function buildTurnOptions(members, tokens) {
+export function buildTurnOptions(members, tokens, npcControlAssignments = {}) {
   const options = [{
     kind: 'enemy',
     label: 'Enemigos (GM)',
@@ -39,6 +40,8 @@ export function buildTurnOptions(members, tokens) {
     sourceId: null,
     tokenId: null
   }];
+
+  const addedTokenIds = new Set();
 
   members
     .filter((m) => m.characterSnapshot && (m.characterId || m.npcId || m.playMode === 'npc'))
@@ -49,6 +52,7 @@ export function buildTurnOptions(members, tokens) {
         (t) => t.sourceId === sourceId && inferBoardTokenKind(t) === tokenKind
       );
       if (onBoard && !isTokenDefeated(onBoard)) {
+        addedTokenIds.add(onBoard.id);
         options.push({
           kind: 'player',
           label: m.characterSnapshot.name,
@@ -57,6 +61,22 @@ export function buildTurnOptions(members, tokens) {
           tokenId: onBoard.id
         });
       }
+    });
+
+  tokens
+    .filter((t) => t.side !== 'enemy' && inferBoardTokenKind(t) === 'npc' && !isTokenDefeated(t))
+    .forEach((token) => {
+      if (addedTokenIds.has(token.id)) return;
+      const userId = findNpcController(token.sourceId, npcControlAssignments);
+      if (!userId) return;
+      addedTokenIds.add(token.id);
+      options.push({
+        kind: 'player',
+        label: token.name,
+        userId,
+        sourceId: token.sourceId,
+        tokenId: token.id
+      });
     });
 
   return options;
@@ -158,7 +178,7 @@ function syncTurnUi(activeTurn, turnOptions, turnOrder, turnOrderIndex, turnBann
   }).join('');
 }
 
-export function computeInitiativeOrder(entries, members, tokens) {
+export function computeInitiativeOrder(entries, members, tokens, npcControlAssignments = {}) {
   const byKey = new Map();
   (entries || []).forEach((entry) => {
     if (typeof entry === 'string') return;
@@ -172,10 +192,10 @@ export function computeInitiativeOrder(entries, members, tokens) {
 
   return Array.from(byKey.values())
     .sort((a, b) => b.initiativeTotal - a.initiativeTotal)
-    .map((entry) => turnFromInitiativeEntry(entry, members, tokens));
+    .map((entry) => turnFromInitiativeEntry(entry, members, tokens, npcControlAssignments));
 }
 
-function turnFromInitiativeEntry(entry, members, tokens) {
+function turnFromInitiativeEntry(entry, members, tokens, npcControlAssignments = {}) {
   if (entry.actorKey === 'enemy' || entry.kind === 'enemy' && !entry.tokenId) {
     return {
       kind: 'enemy',
@@ -191,9 +211,13 @@ function turnFromInitiativeEntry(entry, members, tokens) {
 
   const token = entry.tokenId
     ? tokens.find((t) => t.id === entry.tokenId)
-    : tokens.find((t) => t.kind === 'character' && t.sourceId === entry.sourceId);
+    : tokens.find((t) => t.sourceId === entry.sourceId);
   const sourceId = entry.sourceId || token?.sourceId || null;
-  const member = members.find((m) => m.characterId === sourceId);
+  const member = members.find((m) => m.characterId === sourceId || m.npcId === sourceId);
+  const assignedUserId = member?.userId
+    || (token && token.side !== 'enemy' ? findNpcController(sourceId, npcControlAssignments) : null)
+    || entry.userId
+    || null;
 
   if (entry.kind === 'enemy' || token?.side === 'enemy') {
     return {
@@ -211,7 +235,7 @@ function turnFromInitiativeEntry(entry, members, tokens) {
   return {
     kind: 'player',
     label: entry.actorName || token?.name || 'Jugador',
-    userId: entry.userId || member?.userId || null,
+    userId: assignedUserId,
     sourceId,
     tokenId: entry.tokenId || token?.id || null,
     initiativeTotal: entry.initiativeTotal,
@@ -251,7 +275,13 @@ function resolveTurnActor(ctx) {
 }
 
 function resolveActiveActor(ctx, activeSelect) {
-  const { board, isGM, member, roster, userCharacterSourceId } = ctx;
+  const { board, isGM, member, roster, user } = ctx;
+
+  if (!isGM && board.activeTurn?.kind === 'player' && board.activeTurn.userId === user?.uid) {
+    const turnToken = getTokenForTurn(board.activeTurn, board.tokens);
+    if (turnToken) return actorFromToken(turnToken);
+  }
+
   if (isGM) {
     if (!activeSelect?.value) return null;
     const token = board.tokens.find((t) => t.id === activeSelect.value);
@@ -430,7 +460,8 @@ function refreshInitiativeCharacterSelect(ctx, selectEl) {
 }
 
 function resolveInitiativeActor(ctx, selectEl) {
-  const { board, isGM, roster, members } = ctx;
+  const { board, isGM, roster, members, getNpcControlAssignments } = ctx;
+  const npcControlAssignments = getNpcControlAssignments?.() || {};
   if (!selectEl?.value) return null;
 
   if (isGM && selectEl.value === '__enemies__') {
@@ -449,7 +480,9 @@ function resolveInitiativeActor(ctx, selectEl) {
     const token = board.tokens.find((t) => t.id === selectEl.value);
     if (token) {
       const resolved = actorFromToken(token);
-      const member = members.find((m) => m.characterId === token.sourceId);
+      const member = members.find((m) => m.characterId === token.sourceId || m.npcId === token.sourceId);
+      const userId = member?.userId
+        || (token.side !== 'enemy' ? findNpcController(token.sourceId, npcControlAssignments) : null);
       const actorKey = token.kind === 'character'
         ? `player:${token.sourceId}`
         : `token:${token.id}`;
@@ -457,7 +490,7 @@ function resolveInitiativeActor(ctx, selectEl) {
         ...resolved,
         actorKey,
         kind: token.side === 'enemy' ? 'enemy' : 'player',
-        userId: member?.userId || null,
+        userId: userId || null,
         sourceId: token.sourceId,
         tokenId: token.id
       };
@@ -556,6 +589,7 @@ export function initBoardCombatUi(ctx) {
     isGM,
     userCharacterSourceId,
     userPlayTokenKind,
+    getNpcControlAssignments,
     mentionUi,
     onOpenMention
   } = ctx;
@@ -670,7 +704,12 @@ export function initBoardCombatUi(ctx) {
   }
 
   function refreshInitiativeUi() {
-    const order = computeInitiativeOrder(board.initiativeLog, members, board.tokens);
+    const order = computeInitiativeOrder(
+      board.initiativeLog,
+      members,
+      board.tokens,
+      getNpcControlAssignments?.() || {}
+    );
     board.renderInitiativeOrderPreview(order);
     if (initiativeCompleteBtn) {
       initiativeCompleteBtn.classList.toggle('d-none', !isGM || !board.initiativeOpen || !order.length);
@@ -706,7 +745,8 @@ export function initBoardCombatUi(ctx) {
   }
 
   function refreshAll() {
-    turnOptions = buildTurnOptions(members, board.tokens);
+    const npcControlAssignments = getNpcControlAssignments?.() || {};
+    turnOptions = buildTurnOptions(members, board.tokens, npcControlAssignments);
     syncTurnUi(
       board.activeTurn,
       turnOptions,
@@ -742,7 +782,7 @@ export function initBoardCombatUi(ctx) {
     syncCombatControls();
   }
 
-  let turnOptions = buildTurnOptions(members, board.tokens);
+  let turnOptions = buildTurnOptions(members, board.tokens, getNpcControlAssignments?.() || {});
 
   const prevOnTokensChange = board.onTokensChange;
   board.onTokensChange = (tokens) => {
@@ -847,7 +887,12 @@ export function initBoardCombatUi(ctx) {
 
   initiativeCompleteBtn?.addEventListener('click', async () => {
     if (!isGM || !board.initiativeOpen) return;
-    const order = computeInitiativeOrder(board.initiativeLog, members, board.tokens);
+    const order = computeInitiativeOrder(
+      board.initiativeLog,
+      members,
+      board.tokens,
+      getNpcControlAssignments?.() || {}
+    );
     if (!order.length) {
       await swrpAlert({
         title: 'Sin tiradas',

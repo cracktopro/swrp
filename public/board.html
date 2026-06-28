@@ -181,6 +181,13 @@
             <button type="button" id="btn-save-escaramuza-slots" class="btn btn-sm btn-swrp btn-swrp-primary w-100">Guardar jugadores y spawns</button>
             <p id="board-escaramuza-slots-status" class="small text-muted mt-2 mb-0"></p>
           </section>
+          <section class="swrp-panel mb-3 d-none" id="board-npc-control-panel">
+            <h2 class="swrp-panel__title">Control de NPC aliados</h2>
+            <p class="small text-muted mb-2">Indica qué jugador controlará cada NPC aliado en mesa cuando sea su turno.</p>
+            <div id="board-npc-control-list"></div>
+            <button type="button" id="btn-save-npc-control" class="btn btn-sm btn-swrp btn-swrp-primary w-100 mt-2">Guardar asignaciones</button>
+            <p id="board-npc-control-status" class="small text-muted mt-2 mb-0"></p>
+          </section>
           <section class="swrp-panel mb-3" id="board-progress-panel">
             <h2 class="swrp-panel__title">Progreso de partida</h2>
             <p class="small text-muted mb-2">Guarda o restaura el estado completo del tablero (chapas, mapa, combate y log).</p>
@@ -586,6 +593,7 @@
     import { initBoardGridPanel, syncBoardGridInputs } from './js/board-grid-panel.js';
     import { initBoardGrantPanel } from './js/board-grant-panel.js';
     import { initBoardObjectivesPanel } from './js/board-objectives.js';
+    import { initNpcControlPanel, normalizeNpcControlAssignments } from './js/npc-control.js';
 
     const charModal = new bootstrap.Modal(document.getElementById('charModal'));
     const mentionModal = new bootstrap.Modal(document.getElementById('boardMentionModal'));
@@ -593,6 +601,8 @@
     let roster = [];
     let npcs = [];
     let escaramuzaSpawnsEditor = null;
+    let npcControlPanel = null;
+    let npcControlAssignments = {};
     let invCtx = null;
 
     function escapeHtml(str) {
@@ -837,6 +847,7 @@
         const members = await loadPartyMembers(partyId);
         const member = members.find((m) => m.userId === user.uid);
         const isGM = isPartyGMUser(members, user.uid) || member?.playMode === 'gm';
+        npcControlAssignments = normalizeNpcControlAssignments(party?.npcControlAssignments);
         const playSource = getMemberPlaySource(member);
         const userCharacterSourceId = playSource.sourceId;
         const userPlayTokenKind = playSource.tokenKind;
@@ -954,6 +965,20 @@
         syncCombatUi(board.combatStarted, isGM);
         boardSidebar.syncGmSidebar(board);
 
+        npcControlPanel = initNpcControlPanel({
+          partyId,
+          party,
+          members,
+          getBoard: () => board,
+          isGM,
+          getAssignments: () => npcControlAssignments,
+          setAssignments: (next) => { npcControlAssignments = next; },
+          onSaved: (saved) => {
+            npcControlAssignments = saved;
+            board.onTokensChange?.(board.tokens);
+          }
+        });
+
         objectivesPanel = initBoardObjectivesPanel({
           board,
           listEl: document.getElementById('board-objectives-list'),
@@ -1011,9 +1036,18 @@
           isGM,
           userCharacterSourceId,
           userPlayTokenKind,
+          getNpcControlAssignments: () => npcControlAssignments,
           mentionUi: { modal: mentionModal },
           onOpenMention: openMentionTarget
         });
+
+        if (npcControlPanel) {
+          const prevTokenChange = board.onTokensChange;
+          board.onTokensChange = (tokens) => {
+            prevTokenChange?.(tokens);
+            npcControlPanel?.refresh();
+          };
+        }
 
         document.getElementById('start-combat').addEventListener('click', () => board.startCombat());
         document.getElementById('clear-log').addEventListener('click', () => board.clearLog());

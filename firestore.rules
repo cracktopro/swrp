@@ -90,10 +90,17 @@ service cloud.firestore {
         && keys.hasOnly(['minPlayers', 'maxSlots', 'allySpawns', 'updatedAt']);
     }
 
+    function isEscaramuzaGmNpcControlUpdate(partyId) {
+      let keys = request.resource.data.diff(resource.data).affectedKeys();
+      return resource.data.type == 'Escaramuza'
+        && isPartyGM(partyId)
+        && keys.hasOnly(['npcControlAssignments', 'updatedAt']);
+    }
+
     match /parties/{partyId} {
       allow read: if isSignedIn();
       allow create: if isAdmin() || isEscaramuzaPartyCreate();
-      allow update: if isAdmin() || isEscaramuzaGmSlotUpdate(partyId);
+      allow update: if isAdmin() || isEscaramuzaGmSlotUpdate(partyId) || isEscaramuzaGmNpcControlUpdate(partyId);
       allow delete: if isAdmin();
 
       match /members/{memberId} {

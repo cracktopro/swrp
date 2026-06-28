@@ -216,6 +216,7 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 - Cargar tablero predefinido del compendio (opcional) o pegar URL manual.
 - Chapas en juego: añadir personajes/NPCs, control modal (stats, HP, facción, visión).
 - **Jugadores y spawns** (solo escaramuza sin `templateId`): mín/máx, lista de spawns, modal minitablero (`escaramuza-spawns-ui.js` → `savePartyEscaramuzaSlots`).
+- **Control de NPC aliados** (solo escaramuza, GM): panel en Opciones para asignar cada NPC aliado en mesa a un jugador unido (`npc-control.js` → `parties/{id}.npcControlAssignments`). En escaramuzas el jugador solo controla su personaje; el GM controla enemigos. Los NPC aliados asignados entran en el orden de turnos con `userId` del jugador asignado, que puede moverlos/atacarlos cuando sea su turno.
 
 **Combate:**
 - Fase narrativa con turnos (2 acciones: movimiento hasta 6 casillas / atacar) antes y durante combate.
@@ -396,6 +397,7 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
   // Escaramuza desde plantilla:
   templateId?, createdBy?, creatorUsername?,
   minPlayers?, maxSlots?, allySpawns?,
+  npcControlAssignments?: { [userId: string]: string[] },  // escaramuza: sourceId de NPC aliados por jugador
   createdAt, updatedAt
 }
 ```
@@ -472,7 +474,7 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 | `parties/.../posts` | Miembros | Miembros (`authorId` = uid) |
 | `parties/.../state` | Miembros | Cualquier miembro (tablero colaborativo) |
 
-Funciones auxiliares en reglas: `isAdmin`, `isPartyMember`, `isPartyGM`, `isEscaramuzaPartyCreate`, `isEscaramuzaGmSlotUpdate`.
+Funciones auxiliares en reglas: `isAdmin`, `isPartyMember`, `isPartyGM`, `isEscaramuzaPartyCreate`, `isEscaramuzaGmSlotUpdate`, `isEscaramuzaGmNpcControlUpdate`.
 
 ---
 
@@ -499,6 +501,7 @@ Funciones auxiliares en reglas: `isAdmin`, `isPartyMember`, `isPartyGM`, `isEsca
 | `party-url.js` | URLs partida/tablero, `rememberPartyId` |
 | `escaramuza-templates.js` | Plantillas, dificultad, crear instancia, tarjetas pick/list |
 | `escaramuza-spawns-ui.js` | UI spawns en tablero y editor |
+| `npc-control.js` | Panel GM: asignar NPC aliados en mesa a jugadores (escaramuza) |
 | `map-editor-page.js` | Vista editor de mapas |
 | `board.js` | `TacticalBoard`, grid, tokens, persistencia |
 | `board-page.js` | UI GM: añadir/controlar chapas, `MiniBoardPicker` |

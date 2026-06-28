@@ -1032,7 +1032,9 @@ export class TacticalBoard {
     if (turn.kind === 'enemy') {
       return { name: turn.label || 'Enemigos', class: 'soldado', color: '#ff1744' };
     }
-    const token = this.tokens.find((t) => t.sourceId === turn.sourceId);
+    const token = this.activeTurn.tokenId
+      ? this.tokens.find((t) => t.id === this.activeTurn.tokenId)
+      : this.tokens.find((t) => t.sourceId === turn.sourceId);
     if (token) {
       const meta = getClassMeta(token.class);
       return {
