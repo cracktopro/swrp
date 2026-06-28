@@ -14,6 +14,7 @@ import { saveCharacterProgressFromBoard } from './party-members.js';
 import {
   getEnemyTokens,
   normalizeBoardToken,
+  normalizeTokenSide,
   inferBoardTokenKind,
   updateAlertedStates,
   computeEnemyStatusIcons,
@@ -208,6 +209,8 @@ export class TacticalBoard {
     this.onChestEditClick = options.onChestEditClick || (() => {});
     this.onBoardMetaChange = options.onBoardMetaChange || (() => {});
     this.showEnemyVisionCones = options.showEnemyVisionCones ?? readShowEnemyVisionConesPreference();
+    this._dialogueIndexByToken = {};
+    this._activeDialogueBubble = null;
     this.boardStage = options.boardStage || this.canvas?.closest('.board-stage') || null;
     if (this.chestLayer) {
       this.chestLayer.addEventListener('contextmenu', (ev) => {
@@ -1111,7 +1114,7 @@ export class TacticalBoard {
     }
 
     return tokenMatchesPlayerTurn(token, this.activeTurn)
-      && token.side !== 'enemy';
+      && normalizeTokenSide(token.side) === 'ally';
   }
 
   canUseAttackActions() {
@@ -1214,8 +1217,9 @@ export class TacticalBoard {
       initials: nameInitials(template.name),
       col,
       row,
-      side: side === 'enemy' ? 'enemy' : 'ally',
-      portraitUrl: template.portraitUrl || template.characterSnapshot?.portraitUrl || ''
+      side: normalizeTokenSide(side),
+      portraitUrl: template.portraitUrl || template.characterSnapshot?.portraitUrl || '',
+      dialogues: Array.isArray(template.dialogues) ? [...template.dialogues] : []
     });
 
     if (tokenData.side === 'enemy') {
@@ -1226,6 +1230,11 @@ export class TacticalBoard {
       delete tokenData.facing;
       delete tokenData.alerted;
       delete tokenData.visionSuppressed;
+    }
+    if (tokenData.side !== 'neutral') {
+      delete tokenData.dialogues;
+    } else if (!tokenData.dialogues?.length) {
+      tokenData.dialogues = [];
     }
 
     const token = normalizeBoardToken(stripUndefinedDeep(tokenData));
@@ -1244,13 +1253,43 @@ export class TacticalBoard {
     return token;
   }
 
+  async updateTokenDialogues(tokenId, dialogues) {
+    if (!this.isGM) return;
+    const token = this.tokens.find((t) => t.id === tokenId);
+    if (!token || token.side !== 'neutral') return;
+    token.dialogues = (dialogues || []).map((line) => String(line).trim()).filter(Boolean);
+    await this.saveState({});
+    this.render();
+    this.onTokensChange(this.tokens);
+  }
+
+  canShowNeutralTalkButton(token) {
+    if (!token || token.side !== 'neutral' || isTokenDefeated(token)) return false;
+    if (!(token.dialogues || []).length) return false;
+    if (this.isGM) return true;
+    return this.isCellAdjacentToUser(token.col, token.row);
+  }
+
+  speakNeutralDialogue(tokenId) {
+    const token = this.tokens.find((t) => t.id === tokenId);
+    const lines = token?.dialogues || [];
+    if (!token || token.side !== 'neutral' || !lines.length) return;
+    if (!this.canShowNeutralTalkButton(token)) return;
+
+    const idx = this._dialogueIndexByToken[tokenId] ?? 0;
+    const text = lines[idx % lines.length];
+    this._dialogueIndexByToken[tokenId] = (idx + 1) % lines.length;
+    this._activeDialogueBubble = { tokenId, text };
+    this.renderTokenLayer();
+  }
+
   async updateTokenProperties(tokenId, { side, facing, inCover }) {
     if (!this.isGM) return;
     const token = this.tokens.find((t) => t.id === tokenId);
     if (!token) return;
 
     const prevFacing = token.facing;
-    token.side = side === 'enemy' ? 'enemy' : 'ally';
+    token.side = normalizeTokenSide(side);
     if (inCover !== undefined) {
       token.inCover = !!inCover;
     }
@@ -1259,7 +1298,14 @@ export class TacticalBoard {
       if (prevFacing !== token.facing) token.visionSuppressed = false;
     } else {
       delete token.facing;
+      delete token.alerted;
       delete token.visionSuppressed;
+    }
+    if (token.side !== 'neutral') {
+      token.dialogues = [];
+      if (this._activeDialogueBubble?.tokenId === tokenId) {
+        this._activeDialogueBubble = null;
+      }
     }
 
     updateAlertedStates(this.tokens, this.cols, this.rows);
@@ -1762,7 +1808,7 @@ export class TacticalBoard {
 
     this.tokens.forEach((token) => {
       const initials = token.initials || nameInitials(token.name);
-      const side = token.side === 'enemy' ? 'enemy' : 'ally';
+      const side = normalizeTokenSide(token.side);
       const defeated = isTokenDefeated(token);
       const portraitUrl = getTokenPortraitUrl(token);
       const statusHtml = !defeated
@@ -1789,7 +1835,9 @@ export class TacticalBoard {
 
       const badgeEl = document.createElement('div');
       badgeEl.className = 'swrp-board-token__side-badge';
-      badgeEl.textContent = defeated ? 'DERROTADO' : (side === 'enemy' ? 'ENEMIGO' : 'ALIADO');
+      badgeEl.textContent = defeated
+        ? 'DERROTADO'
+        : (side === 'enemy' ? 'ENEMIGO' : side === 'neutral' ? 'NEUTRAL' : 'ALIADO');
 
       const faceEl = document.createElement('div');
       faceEl.className = 'swrp-board-token__face';
@@ -1838,7 +1886,35 @@ export class TacticalBoard {
         if (side === 'enemy') this.clearHighlightToken('token');
         this.hideTooltip();
       });
+
       wrap.appendChild(chip);
+
+      if (this.canShowNeutralTalkButton(token)) {
+        const talkBtn = document.createElement('button');
+        talkBtn.type = 'button';
+        talkBtn.className = 'board-neutral-talk-btn';
+        talkBtn.textContent = 'Hablar';
+        talkBtn.addEventListener('mousedown', (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+        });
+        talkBtn.addEventListener('click', (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          this.speakNeutralDialogue(token.id);
+        });
+        wrap.appendChild(talkBtn);
+      }
+
+      if (this._activeDialogueBubble?.tokenId === token.id) {
+        const bubble = document.createElement('div');
+        bubble.className = 'board-neutral-dialogue';
+        bubble.innerHTML = `
+          <div class="board-neutral-dialogue__name">${escapeHtml(token.name)}</div>
+          <div class="board-neutral-dialogue__text">${escapeHtml(this._activeDialogueBubble.text)}</div>`;
+        wrap.appendChild(bubble);
+      }
+
       this.tokenLayer.appendChild(wrap);
     });
   }
@@ -1997,7 +2073,7 @@ export class TacticalBoard {
   getUserControlledTokens() {
     if (!this.userCharacterSourceId) return [];
     return this.tokens.filter(
-      (t) => t.side !== 'enemy' && t.sourceId === this.userCharacterSourceId
+      (t) => normalizeTokenSide(t.side) === 'ally' && t.sourceId === this.userCharacterSourceId
     );
   }
 
@@ -2522,9 +2598,9 @@ export function buildTokenTooltipHtml(token, allTokens = [], cols = 0, rows = 0)
   const classLabel = token.classLabel || meta.label;
   const level = Number(token.level) || 1;
   const portraitUrl = getTokenPortraitUrl(token);
-  const side = token.side === 'enemy' ? 'enemy' : 'ally';
+  const side = normalizeTokenSide(token.side);
   const defeated = isTokenDefeated(token);
-  const sideLabel = defeated ? 'Derrotado' : (side === 'enemy' ? 'Enemigo' : 'Aliado');
+  const sideLabelText = defeated ? 'Derrotado' : (side === 'enemy' ? 'Enemigo' : side === 'neutral' ? 'Neutral' : 'Aliado');
   const sideClass = defeated ? 'defeated' : side;
 
   const portraitBlock = portraitUrl
@@ -2559,7 +2635,7 @@ export function buildTokenTooltipHtml(token, allTokens = [], cols = 0, rows = 0)
         </div>
         <span class="board-token-tooltip__class" style="color:${escapeHtml(meta.color)}">${escapeHtml(classLabel)}</span>
         ${inferBoardTokenKind(token) === 'npc' ? '' : `<span class="board-token-tooltip__level" style="color:${escapeHtml(meta.color)}">Nv. ${level}</span>`}
-        <span class="board-token-tooltip__side board-token-tooltip__side--${sideClass}">${sideLabel}</span>
+        <span class="board-token-tooltip__side board-token-tooltip__side--${sideClass}">${sideLabelText}</span>
         ${enemyExtra}
         ${coverExtra}
       </div>

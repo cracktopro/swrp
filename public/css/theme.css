@@ -1936,6 +1936,92 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
   color: #fff;
 }
 
+.swrp-board-token--neutral {
+  border-color: rgba(255, 193, 7, 0.85) !important;
+  box-shadow:
+    0 0 8px rgba(255, 193, 7, 0.35),
+    0 0 14px rgba(255, 193, 7, 0.18);
+}
+
+.swrp-board-token--neutral .swrp-board-token__side-badge {
+  background: rgba(255, 193, 7, 0.95);
+  color: #1a1400;
+}
+
+.swrp-board-token-wrap--neutral.is-highlighted .swrp-board-token--neutral {
+  box-shadow:
+    0 0 12px rgba(255, 214, 0, 0.55),
+    0 0 22px rgba(255, 193, 7, 0.35);
+}
+
+.board-neutral-talk-btn {
+  position: absolute;
+  left: 50%;
+  top: -10px;
+  transform: translate(-50%, -100%);
+  z-index: 12;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff;
+  background: linear-gradient(180deg, #1e88e5 0%, #1565c0 100%);
+  border: 1px solid rgba(144, 202, 255, 0.65);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45), 0 0 10px rgba(30, 136, 229, 0.35);
+  cursor: pointer;
+  pointer-events: auto;
+  white-space: nowrap;
+}
+
+.board-neutral-talk-btn:hover {
+  filter: brightness(1.08);
+}
+
+.board-neutral-dialogue {
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 0;
+  z-index: 11;
+  min-width: 11rem;
+  max-width: 16rem;
+  padding: 0.55rem 0.7rem;
+  background: linear-gradient(145deg, rgba(8, 14, 28, 0.97) 0%, rgba(12, 22, 40, 0.95) 100%);
+  border: 1px solid rgba(0, 229, 255, 0.45);
+  border-left: 3px solid var(--swrp-gold-bright, #ffc107);
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.55), 0 0 12px rgba(0, 229, 255, 0.12);
+  pointer-events: none;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.board-neutral-dialogue__name {
+  font-family: var(--font-display);
+  color: var(--swrp-gold-bright, #ffc107);
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 0.35rem;
+}
+
+.board-neutral-dialogue__text {
+  color: var(--swrp-text-soft, #c8d6e5);
+}
+
+.swrp-active-token__side--neutral {
+  background: rgba(255, 193, 7, 0.92);
+  color: #1a1400;
+}
+
+.board-token-tooltip__side--neutral {
+  background: rgba(255, 193, 7, 0.2);
+  border-color: rgba(255, 193, 7, 0.55);
+  color: #ffe082;
+}
+
 .swrp-board-token__face {
   grid-row: 2;
   position: relative;

@@ -226,7 +226,7 @@ export function renderBoardMentionPickerItem(token, onSelect) {
 }
 
 function sideLabel(token) {
-  return token.side === 'enemy' ? 'Enemigo' : 'Aliado';
+  return normalizeTokenSide(token.side) === 'enemy' ? 'Enemigo' : normalizeTokenSide(token.side) === 'neutral' ? 'Neutral' : 'Aliado';
 }
 
 export function renderMentionPickerItem(character, onSelect) {

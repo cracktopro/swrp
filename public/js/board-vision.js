@@ -81,8 +81,18 @@ export function getVisionCells(col, row, facing, cols, rows, range = VISION_RANG
   return cells;
 }
 
+export function normalizeTokenSide(side) {
+  if (side === 'enemy') return 'enemy';
+  if (side === 'neutral') return 'neutral';
+  return 'ally';
+}
+
 export function getAllyTokens(tokens) {
-  return tokens.filter((t) => t.side !== 'enemy');
+  return tokens.filter((t) => normalizeTokenSide(t.side) === 'ally');
+}
+
+export function getNeutralTokens(tokens) {
+  return tokens.filter((t) => normalizeTokenSide(t.side) === 'neutral');
 }
 
 export function getEnemyTokens(tokens) {
@@ -115,7 +125,9 @@ export function inferBoardTokenKind(token) {
 export function normalizeBoardToken(token) {
   if (!token) return token;
   token.kind = inferBoardTokenKind(token);
+  token.side = normalizeTokenSide(token.side);
   if (token.inCover === undefined) token.inCover = false;
+  if (!Array.isArray(token.dialogues)) token.dialogues = [];
   if (token.side === 'enemy') {
     if (!FACING_DIRS.includes(token.facing)) token.facing = 'left';
     if (token.alerted === undefined) token.alerted = false;
@@ -309,5 +321,8 @@ export function facingLabel(facing) {
 }
 
 export function sideLabel(side) {
-  return side === 'enemy' ? 'Enemigo' : 'Aliado';
+  const s = normalizeTokenSide(side);
+  if (s === 'enemy') return 'Enemigo';
+  if (s === 'neutral') return 'Neutral';
+  return 'Aliado';
 }

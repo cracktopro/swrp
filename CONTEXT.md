@@ -214,7 +214,7 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 - Progreso: guardar/cargar snapshots completos del estado (`board-progress.js`), incluyendo cofres, botín resuelto, créditos pendientes y `token.loot` en curso.
 - Mapa URL, tamaño de cuadrícula (4–48 columnas/filas; celda fija 48 px).
 - Cargar tablero predefinido del compendio (opcional) o pegar URL manual.
-- Chapas en juego: añadir personajes/NPCs, control modal (stats, HP, facción, visión).
+- Chapas en juego: añadir personajes/NPCs, **NPC neutral** (pestaña con formulario completo de NPC), control modal (stats, HP, facción, visión, diálogos).
 - **Jugadores y spawns** (solo escaramuza sin `templateId`): mín/máx, lista de spawns, modal minitablero (`escaramuza-spawns-ui.js` → `savePartyEscaramuzaSlots`).
 - **Control de NPC aliados** (solo escaramuza, GM): panel en Opciones para asignar cada NPC aliado en mesa a un jugador unido (`npc-control.js` → `parties/{id}.npcControlAssignments`). En escaramuzas el jugador solo controla su personaje; el GM controla enemigos. Los NPC aliados asignados entran en el orden de turnos con `userId` del jugador asignado, que puede moverlos/atacarlos cuando sea su turno.
 
@@ -222,6 +222,7 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 - Fase narrativa con turnos (2 acciones: movimiento hasta 6 casillas / atacar) antes y durante combate.
 - Iniciativa D20, orden de turnos, log estructurado.
 - Visión enemiga: conos, estados alerta (`board-vision.js`). Cada jugador/GM puede mostrar u ocultar los conos con el interruptor junto al título del tablero (preferencia en `localStorage`). Con los conos ocultos, al pasar el cursor sobre un enemigo se muestra su cono en amarillo.
+- **NPC neutral** (`side: 'neutral'`): badge amarillo; el GM define diálogos en Control de chapa → pestaña Diálogos. Jugador adyacente (o GM) ve botón «Hablar» y cicla los textos estilo RPG junto a la chapa (`board-neutral-npc-form.js`).
 - Sincronización en tiempo real vía `parties/{id}/state/board`.
 
 **Spawns en partida:** `assignSpawnToMember` coloca token aliado en celda según orden de unión si `hasEscaramuzaSlotConfig`.
@@ -433,7 +434,8 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
     id, sourceId, kind: 'character' | 'npc',
     name, class, theme, color,
     level?,  // solo personajes jugador, no NPC
-    side: 'ally' | 'enemy',
+    side: 'ally' | 'enemy' | 'neutral',
+    dialogues?: string[],  // solo NPC neutral
     col, row, facing?, portraitUrl,
     hp, maxHp, defense, ...
     moveRange?,          // casillas/acción según peso del inventario (personajes)
@@ -505,6 +507,7 @@ Funciones auxiliares en reglas: `isAdmin`, `isPartyMember`, `isPartyGM`, `isEsca
 | `map-editor-page.js` | Vista editor de mapas |
 | `board.js` | `TacticalBoard`, grid, tokens, persistencia |
 | `board-page.js` | UI GM: añadir/controlar chapas, `MiniBoardPicker` |
+| `board-neutral-npc-form.js` | Formulario NPC neutral en modal «Añadir al tablero» |
 | `board-grid-panel.js` | Panel GM cuadrícula y carga de tableros del compendio |
 | `board-combat.js` | Turnos, iniciativa, dados en tablero |
 | `board-progress.js` | Guardados de progreso del tablero |

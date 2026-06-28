@@ -4,9 +4,16 @@ import {
   drawVisionConeOnCanvas,
   facingLabel,
   sideLabel,
+  normalizeTokenSide,
   computeEnemyStatusIcons,
   getIconLabel
 } from './board-vision.js';
+import {
+  initBoardNeutralNpcForm,
+  resetBoardNeutralNpcForm,
+  validateBoardNeutralNpcForm,
+  buildNeutralTokenTemplateFromForm
+} from './board-neutral-npc-form.js';
 import { getClassMeta } from './character-card.js';
 import { getClassList } from './game-data.js';
 import { swrpConfirm, swrpAlert } from './swrp-dialog.js';
@@ -199,9 +206,12 @@ class MiniBoardPicker {
       const y = token.row * ch + 4;
       const sizeW = cw - 8;
       const sizeH = ch - 8;
-      ctx.fillStyle = token.side === 'enemy'
+      const tokenSide = normalizeTokenSide(token.side);
+      ctx.fillStyle = tokenSide === 'enemy'
         ? 'rgba(255, 23, 68, 0.45)'
-        : 'rgba(57, 255, 20, 0.35)';
+        : tokenSide === 'neutral'
+          ? 'rgba(255, 199, 0, 0.38)'
+          : 'rgba(57, 255, 20, 0.35)';
       ctx.fillRect(x, y, sizeW, sizeH);
       ctx.strokeStyle = 'rgba(255,255,255,0.25)';
       ctx.strokeRect(x + 0.5, y + 0.5, sizeW - 1, sizeH - 1);
@@ -238,13 +248,19 @@ class MiniBoardPicker {
       const py = this.spawnRow * ch + 3;
       const szW = cw - 6;
       const szH = ch - 6;
-      ctx.strokeStyle = this.side === 'enemy' ? '#ff4569' : '#6dff6a';
+      const stroke = this.side === 'enemy' ? '#ff4569' : this.side === 'neutral' ? '#ffc107' : '#6dff6a';
+      ctx.strokeStyle = stroke;
       ctx.lineWidth = 2;
-      ctx.shadowColor = ctx.strokeStyle;
+      ctx.shadowColor = stroke;
       ctx.shadowBlur = 10;
       ctx.strokeRect(px, py, szW, szH);
       ctx.shadowBlur = 0;
-      ctx.fillStyle = this.side === 'enemy' ? 'rgba(255,23,68,0.35)' : 'rgba(57,255,20,0.3)';
+      const fill = this.side === 'enemy'
+        ? 'rgba(255,23,68,0.35)'
+        : this.side === 'neutral'
+          ? 'rgba(255,199,0,0.32)'
+          : 'rgba(57,255,20,0.3)';
+      ctx.fillStyle = fill;
       ctx.fillRect(px + 1, py + 1, szW - 2, szH - 2);
       }
     }
@@ -298,14 +314,71 @@ export function initBoardPage(ctx) {
     onItemsChanged: () => renderActiveLootList()
   });
 
+  initBoardNeutralNpcForm({ lootItemModalEl });
+
   function showCtrlTab(tabName) {
     ctrlActiveTab = tabName;
     document.getElementById('ctrl-tab-play')?.classList.toggle('d-none', tabName !== 'play');
     document.getElementById('ctrl-tab-stats')?.classList.toggle('d-none', tabName !== 'stats');
     document.getElementById('ctrl-tab-loot')?.classList.toggle('d-none', tabName !== 'loot');
+    document.getElementById('ctrl-tab-dialogues')?.classList.toggle('d-none', tabName !== 'dialogues');
     document.querySelectorAll('#ctrl-token-tabs [data-ctrl-tab]').forEach((btn) => {
       btn.classList.toggle('active', btn.dataset.ctrlTab === tabName);
     });
+  }
+
+  function readCtrlDialogues() {
+    return Array.from(document.querySelectorAll('.ctrl-dialogue-input'))
+      .map((ta) => ta.value.trim())
+      .filter(Boolean);
+  }
+
+  function renderCtrlDialogues(tokenOrLines) {
+    const list = document.getElementById('ctrl-dialogues-list');
+    if (!list) return;
+    const lines = Array.isArray(tokenOrLines)
+      ? tokenOrLines
+      : (tokenOrLines?.dialogues || []);
+    if (!lines.length) {
+      list.innerHTML = '<p class="small text-muted mb-0">Sin diálogos. Añade al menos uno.</p>';
+      return;
+    }
+    list.innerHTML = lines.map((text, i) => `
+      <div class="mb-2">
+        <label class="form-label small mb-1">Diálogo ${i + 1}</label>
+        <div class="d-flex gap-2 align-items-start">
+          <textarea class="form-control form-control-sm ctrl-dialogue-input" rows="2">${escapeHtml(text)}</textarea>
+          <button type="button" class="btn btn-sm btn-swrp btn-swrp-danger ctrl-dialogue-remove" title="Eliminar">×</button>
+        </div>
+      </div>`).join('');
+    list.querySelectorAll('.ctrl-dialogue-remove').forEach((btn, idx) => {
+      btn.addEventListener('click', () => {
+        const current = readCtrlDialogues();
+        current.splice(idx, 1);
+        renderCtrlDialogues(current);
+      });
+    });
+  }
+
+  function setupCtrlTabsForToken(token) {
+    const side = normalizeTokenSide(token.side);
+    const isEnemy = side === 'enemy';
+    const isNeutral = side === 'neutral';
+    document.getElementById('ctrl-token-tab-loot')?.classList.toggle('d-none', !isEnemy);
+    document.getElementById('ctrl-token-tab-dialogues')?.classList.toggle('d-none', !isNeutral);
+    if (isEnemy) {
+      lootContext = { kind: 'token', listId: 'ctrl-loot-list', creditsId: 'ctrl-loot-credits' };
+      lootDraft = normalizeLoot(token.loot);
+      const creditsInput = document.getElementById('ctrl-loot-credits');
+      if (creditsInput) creditsInput.value = String(lootDraft.credits || 0);
+      renderActiveLootList();
+    } else {
+      lootContext = null;
+      lootDraft = null;
+    }
+    if (isNeutral) {
+      renderCtrlDialogues(token);
+    }
   }
 
   function renderActiveLootList() {
@@ -354,6 +427,28 @@ export function initBoardPage(ctx) {
     updateHealthBarElement(document.getElementById('ctrl-token-hp-bar'), hp, maxHp);
   }
 
+  function getSelectedCtrlSide() {
+    return document.querySelector('input[name="ctrl-side"]:checked')?.value || 'ally';
+  }
+
+  function getSelectedAddSide() {
+    if (addTab === 'neutral') return 'neutral';
+    const checked = document.querySelector('input[name="add-side"]:checked');
+    return checked?.value || 'ally';
+  }
+
+  function syncAddTabLayout() {
+    const isNeutralTab = addTab === 'neutral';
+    document.getElementById('add-picker-panel')?.classList.toggle('d-none', isNeutralTab);
+    document.getElementById('add-neutral-panel')?.classList.toggle('d-none', !isNeutralTab);
+    document.getElementById('add-side-fieldset')?.classList.toggle('d-none', isNeutralTab);
+    if (isNeutralTab) {
+      addSelection = null;
+      resetBoardNeutralNpcForm();
+    }
+    syncAddForm();
+  }
+
   function setupAddFilters() {
     if (addFiltersReady) return;
     const classSel = document.getElementById('add-filter-class');
@@ -385,11 +480,12 @@ export function initBoardPage(ctx) {
     }
 
     activeListEl.innerHTML = tokens.map((token) => {
-      const side = token.side === 'enemy' ? 'enemy' : 'ally';
-      const facing = token.side === 'enemy' ? ` · ${facingLabel(token.facing || 'left')}` : '';
+      const side = normalizeTokenSide(token.side);
+      const sideBadge = side === 'enemy' ? 'EN' : side === 'neutral' ? 'NT' : 'AL';
+      const facing = side === 'enemy' ? ` · ${facingLabel(token.facing || 'left')}` : '';
       return `
         <button type="button" class="swrp-active-token theme-${token.theme || 'soldado'}" data-token-id="${escapeHtml(token.id)}">
-          <span class="swrp-active-token__side swrp-active-token__side--${side}">${side === 'enemy' ? 'EN' : 'AL'}</span>
+          <span class="swrp-active-token__side swrp-active-token__side--${side}">${sideBadge}</span>
           <span class="swrp-active-token__info">
             <strong>${escapeHtml(token.name)}</strong>
             <span class="swrp-active-token__meta">${sideLabel(side)}${escapeHtml(facing)} · ${cellLabel(token.col, token.row)}</span>
@@ -415,20 +511,22 @@ export function initBoardPage(ctx) {
 
   function syncControlModalForm(token) {
     if (!token) return;
+    const side = normalizeTokenSide(token.side);
     document.getElementById('ctrl-token-name').textContent = token.name;
     const cellEl = document.getElementById('ctrl-token-cell');
     if (cellEl) {
       cellEl.className = 'board-cell-badge';
       cellEl.textContent = cellLabel(token.col, token.row);
     }
-    document.getElementById('ctrl-side-ally').checked = token.side !== 'enemy';
-    document.getElementById('ctrl-side-enemy').checked = token.side === 'enemy';
+    document.getElementById('ctrl-side-ally').checked = side === 'ally';
+    document.getElementById('ctrl-side-neutral').checked = side === 'neutral';
+    document.getElementById('ctrl-side-enemy').checked = side === 'enemy';
 
     const facingWrap = document.getElementById('ctrl-facing-wrap');
     const visionWrap = document.getElementById('ctrl-vision-wrap');
     const visionStatus = document.getElementById('ctrl-vision-status');
     const resetBtn = document.getElementById('btn-ctrl-reset-alert');
-    const isEnemy = token.side === 'enemy';
+    const isEnemy = side === 'enemy';
     facingWrap?.classList.toggle('d-none', !isEnemy);
     visionWrap?.classList.toggle('d-none', !isEnemy);
 
@@ -473,18 +571,7 @@ export function initBoardPage(ctx) {
   }
 
   function setupLootTabForToken(token) {
-    const isEnemy = token.side === 'enemy';
-    document.getElementById('ctrl-token-tab-loot')?.classList.toggle('d-none', !isEnemy);
-    if (isEnemy) {
-      lootContext = { kind: 'token', listId: 'ctrl-loot-list', creditsId: 'ctrl-loot-credits' };
-      lootDraft = normalizeLoot(token.loot);
-      const creditsInput = document.getElementById('ctrl-loot-credits');
-      if (creditsInput) creditsInput.value = String(lootDraft.credits || 0);
-      renderActiveLootList();
-    } else {
-      lootContext = null;
-      lootDraft = null;
-    }
+    setupCtrlTabsForToken(token);
   }
 
   async function openTokenControlModal(token) {
@@ -520,11 +607,14 @@ export function initBoardPage(ctx) {
     }
 
     const updated = board.tokens.find((t) => t.id === controlTokenId) || token;
-    const side = document.getElementById('ctrl-side-enemy').checked ? 'enemy' : 'ally';
+    const side = getSelectedCtrlSide();
     const facingBtn = document.querySelector('#ctrl-facing-wrap [data-facing].active');
     const facing = facingBtn?.dataset.facing || updated.facing || 'left';
     const inCover = document.getElementById('ctrl-token-cover')?.checked === true;
     await board.updateTokenProperties(updated.id, { side, facing, inCover });
+    if (side === 'neutral') {
+      await board.updateTokenDialogues(updated.id, readCtrlDialogues());
+    }
     const hpVal = parseInt(document.getElementById('ctrl-token-hp')?.value, 10);
     if (!Number.isNaN(hpVal)) {
       await board.updateTokenHp(updated.id, hpVal);
@@ -674,17 +764,15 @@ export function initBoardPage(ctx) {
   }
 
   function syncAddForm() {
-    const sideEnemy = document.getElementById('add-side-enemy').checked;
+    const side = getSelectedAddSide();
     const facing = document.querySelector('#add-facing-wrap [data-facing].active')?.dataset.facing || 'left';
-    document.getElementById('add-facing-wrap')?.classList.toggle('d-none', !sideEnemy);
-    miniBoard?.setPreview({
-      side: sideEnemy ? 'enemy' : 'ally',
-      facing
-    });
+    document.getElementById('add-facing-wrap')?.classList.toggle('d-none', side !== 'enemy');
+    miniBoard?.setPreview({ side, facing });
     document.getElementById('add-spawn-label').textContent = miniBoard?.spawnCol != null
       ? cellLabel(miniBoard.spawnCol, miniBoard.spawnRow)
       : 'Clic en el mapa…';
-    document.getElementById('btn-confirm-add').disabled = !addSelection || miniBoard?.spawnCol == null;
+    const canPlace = miniBoard?.spawnCol != null && (addTab === 'neutral' || !!addSelection);
+    document.getElementById('btn-confirm-add').disabled = !canPlace;
   }
 
   function openAddTokenModal() {
@@ -698,6 +786,7 @@ export function initBoardPage(ctx) {
       el.classList.toggle('active', i === 0);
     });
     document.getElementById('add-side-ally').checked = true;
+    document.getElementById('add-side-neutral').checked = false;
     document.getElementById('add-side-enemy').checked = false;
     document.querySelectorAll('#add-facing-wrap [data-facing]').forEach((btn, i) => {
       btn.classList.toggle('active', btn.dataset.facing === 'left');
@@ -713,6 +802,7 @@ export function initBoardPage(ctx) {
     miniBoard.facing = 'left';
 
     renderAddList();
+    syncAddTabLayout();
     addModal?.show();
     requestAnimationFrame(() => {
       miniBoard.resize();
@@ -776,13 +866,14 @@ export function initBoardPage(ctx) {
     tab.classList.add('active');
     if (addTab === 'npcs') {
       document.getElementById('add-side-enemy').checked = true;
-    } else {
+    } else if (addTab === 'characters') {
       document.getElementById('add-side-ally').checked = true;
     }
     renderAddList();
+    syncAddTabLayout();
   });
 
-  ['add-side-ally', 'add-side-enemy'].forEach((id) => {
+  ['add-side-ally', 'add-side-neutral', 'add-side-enemy'].forEach((id) => {
     document.getElementById(id)?.addEventListener('change', syncAddForm);
   });
 
@@ -795,11 +886,25 @@ export function initBoardPage(ctx) {
   });
 
   document.getElementById('btn-confirm-add')?.addEventListener('click', async () => {
-    if (!addSelection || miniBoard?.spawnCol == null) return;
-    const side = document.getElementById('add-side-enemy').checked ? 'enemy' : 'ally';
+    if (miniBoard?.spawnCol == null) return;
+    let template;
+    let side;
+    if (addTab === 'neutral') {
+      const validation = validateBoardNeutralNpcForm();
+      if (!validation.ok) {
+        await swrpAlert({ title: 'Formulario incompleto', message: validation.message });
+        return;
+      }
+      template = buildNeutralTokenTemplateFromForm();
+      side = 'neutral';
+    } else {
+      if (!addSelection) return;
+      template = addSelection.template;
+      side = getSelectedAddSide();
+    }
     const facing = document.querySelector('#add-facing-wrap [data-facing].active')?.dataset.facing || 'left';
     try {
-      await board.placeTokenFromTemplate(addSelection.template, {
+      await board.placeTokenFromTemplate(template, {
         col: miniBoard.spawnCol,
         row: miniBoard.spawnRow,
         side,
@@ -821,14 +926,24 @@ export function initBoardPage(ctx) {
     btn.classList.add('active');
   });
 
-  ['ctrl-side-ally', 'ctrl-side-enemy'].forEach((id) => {
+  ['ctrl-side-ally', 'ctrl-side-neutral', 'ctrl-side-enemy'].forEach((id) => {
     document.getElementById(id)?.addEventListener('change', () => {
-      const token = board.tokens.find((t) => t.id === controlTokenId);
-      if (!token) return;
-      const isEnemy = document.getElementById('ctrl-side-enemy').checked;
-      document.getElementById('ctrl-facing-wrap')?.classList.toggle('d-none', !isEnemy);
-      document.getElementById('ctrl-vision-wrap')?.classList.toggle('d-none', !isEnemy);
+      const side = getSelectedCtrlSide();
+      document.getElementById('ctrl-facing-wrap')?.classList.toggle('d-none', side !== 'enemy');
+      document.getElementById('ctrl-vision-wrap')?.classList.toggle('d-none', side !== 'enemy');
+      document.getElementById('ctrl-token-tab-loot')?.classList.toggle('d-none', side !== 'enemy');
+      document.getElementById('ctrl-token-tab-dialogues')?.classList.toggle('d-none', side !== 'neutral');
+      if (side === 'neutral') {
+        const token = board.tokens.find((t) => t.id === controlTokenId);
+        renderCtrlDialogues(token || { dialogues: [] });
+      }
     });
+  });
+
+  document.getElementById('ctrl-dialogue-add')?.addEventListener('click', () => {
+    const lines = readCtrlDialogues();
+    lines.push('');
+    renderCtrlDialogues(lines);
   });
 
   document.getElementById('btn-ctrl-save')?.addEventListener('click', saveControlModal);

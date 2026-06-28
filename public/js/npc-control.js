@@ -25,7 +25,7 @@ export function findNpcController(npcSourceId, assignments) {
 
 export function allyNpcTokensOnBoard(tokens) {
   return (tokens || []).filter(
-    (t) => t.side !== 'enemy'
+    (t) => t.side === 'ally'
       && inferBoardTokenKind(t) === 'npc'
       && !isTokenDefeated(t)
   );

@@ -258,6 +258,46 @@ export function tokenFromCharacter(char, kind = 'character') {
   };
 }
 
+export function tokenFromNeutralBoardNpc(npc) {
+  const meta = getClassMeta(npc.class || npc.classKey);
+  const sourceId = npc.id || `neutral_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+  const snapshot = buildCharacterSnapshot({
+    ...npc,
+    id: sourceId,
+    name: npc.name,
+    class: npc.class || npc.classKey,
+    type: 'NPC',
+    species: npc.species || 'Humanos',
+    era: npc.era || null,
+    portraitUrl: npc.portraitUrl || npc.image || '',
+    skills: npc.skills || [],
+    hp: npc.hp,
+    maxHp: npc.maxHp,
+    defense: npc.defense,
+    attack: npc.attack,
+    damage: npc.damage,
+    force: npc.force
+  });
+  const token = {
+    id: `npc_${sourceId}`,
+    sourceId,
+    kind: 'npc',
+    name: npc.name,
+    class: npc.class || npc.classKey,
+    classLabel: meta.label,
+    theme: meta.theme,
+    color: meta.color,
+    portraitUrl: npc.portraitUrl || npc.image || '',
+    side: 'neutral',
+    dialogues: [],
+    characterSnapshot: snapshot
+  };
+  if (npc.loot && (npc.loot.credits || npc.loot.items?.length)) {
+    token.loot = normalizeNpcLoot(npc.loot);
+  }
+  return token;
+}
+
 export function tokenFromNpc(npc) {
   const meta = getClassMeta(npc.class);
   const token = {

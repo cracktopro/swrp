@@ -64,7 +64,7 @@ export function buildTurnOptions(members, tokens, npcControlAssignments = {}) {
     });
 
   tokens
-    .filter((t) => t.side !== 'enemy' && inferBoardTokenKind(t) === 'npc' && !isTokenDefeated(t))
+    .filter((t) => t.side === 'ally' && inferBoardTokenKind(t) === 'npc' && !isTokenDefeated(t))
     .forEach((token) => {
       if (addedTokenIds.has(token.id)) return;
       const userId = findNpcController(token.sourceId, npcControlAssignments);
@@ -215,7 +215,7 @@ function turnFromInitiativeEntry(entry, members, tokens, npcControlAssignments =
   const sourceId = entry.sourceId || token?.sourceId || null;
   const member = members.find((m) => m.characterId === sourceId || m.npcId === sourceId);
   const assignedUserId = member?.userId
-    || (token && token.side !== 'enemy' ? findNpcController(sourceId, npcControlAssignments) : null)
+    || (token && token.side === 'ally' ? findNpcController(sourceId, npcControlAssignments) : null)
     || entry.userId
     || null;
 
@@ -482,7 +482,7 @@ function resolveInitiativeActor(ctx, selectEl) {
       const resolved = actorFromToken(token);
       const member = members.find((m) => m.characterId === token.sourceId || m.npcId === token.sourceId);
       const userId = member?.userId
-        || (token.side !== 'enemy' ? findNpcController(token.sourceId, npcControlAssignments) : null);
+        || (token.side === 'ally' ? findNpcController(token.sourceId, npcControlAssignments) : null);
       const actorKey = token.kind === 'character'
         ? `player:${token.sourceId}`
         : `token:${token.id}`;
