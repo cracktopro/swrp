@@ -352,15 +352,6 @@
   color: var(--swrp-gold);
 }
 
-.swrp-card__skill .skill-type {
-  color: var(--card-accent);
-}
-
-.swrp-card__skill.skill-role .skill-type,
-.swrp-card__skill.skill-role strong:first-child {
-  color: var(--card-accent);
-}
-
 .swrp-card__portrait {
   flex: 1;
   display: flex;

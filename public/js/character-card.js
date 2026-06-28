@@ -323,11 +323,10 @@ function resolveSkillRef(skillRef, classKey) {
 
 function renderSkillItem(skill) {
   const badgeClass = skillBadgeClass(skill.type);
-  const prefix = skill.type === 'Pasiva' ? '<strong class="skill-type">Pasiva:</strong> ' : '';
   return `
     <div class="swrp-card__skill">
       <span class="swrp-skill-badge ${badgeClass}">${escapeHtml(skill.type)}</span>
-      <strong>${escapeHtml(skill.name)}:</strong> ${prefix}${escapeHtml(skill.description)}
+      <strong>${escapeHtml(skill.name)}:</strong> ${escapeHtml(skill.description)}
     </div>`;
 }
 
