@@ -1481,13 +1481,17 @@ export class TacticalBoard {
   showTokenTooltip(token, clientX, clientY) {
     if (!this.tooltipEl || !token) return;
     this.tooltipEl.innerHTML = buildTokenTooltipHtml(token, this.tokens, this.cols, this.rows);
+    const placeBelow = (token.facing || 'left') === 'up';
+    this.tooltipEl.classList.toggle('board-token-tooltip--below', placeBelow);
     this.tooltipEl.hidden = false;
     this.tooltipEl.style.left = `${clientX}px`;
-    this.tooltipEl.style.top = `${clientY}px`;
+    this.tooltipEl.style.top = `${placeBelow ? clientY + 12 : clientY - 12}px`;
   }
 
   hideTooltip() {
-    if (this.tooltipEl) this.tooltipEl.hidden = true;
+    if (!this.tooltipEl) return;
+    this.tooltipEl.hidden = true;
+    this.tooltipEl.classList.remove('board-token-tooltip--below');
   }
 
   async appendInitiativeRoll(actorMeta, roll) {
@@ -1824,11 +1828,11 @@ export class TacticalBoard {
       chip.addEventListener('mouseenter', (ev) => {
         if (this.pointer?.dragging) return;
         if (side === 'enemy' && !defeated) this.setHighlightToken(token.id, 'token');
-        this.showTokenTooltip(token, ev.clientX, ev.clientY - 12);
+        this.showTokenTooltip(token, ev.clientX, ev.clientY);
       });
       chip.addEventListener('mousemove', (ev) => {
         if (this.pointer?.dragging || this.tooltipEl?.hidden) return;
-        this.showTokenTooltip(token, ev.clientX, ev.clientY - 12);
+        this.showTokenTooltip(token, ev.clientX, ev.clientY);
       });
       chip.addEventListener('mouseleave', () => {
         if (side === 'enemy') this.clearHighlightToken('token');

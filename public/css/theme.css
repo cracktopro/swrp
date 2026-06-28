@@ -2121,6 +2121,10 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
   overflow: hidden;
 }
 
+.board-token-tooltip--below {
+  transform: translate(-50%, 8px);
+}
+
 .board-token-tooltip__layout {
   display: grid;
   grid-template-columns: 58px 1fr;
