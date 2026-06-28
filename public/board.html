@@ -55,6 +55,10 @@
         </ul>
 
         <div id="board-sidebar-combate">
+          <div class="form-check form-switch mb-2">
+            <input type="checkbox" class="form-check-input" id="board-toggle-enemy-vision" checked>
+            <label class="form-check-label small" for="board-toggle-enemy-vision">Mostrar conos de visión enemigos</label>
+          </div>
           <p id="board-narrative-hint" class="small text-muted mb-2">
             Fase narrativa: 2 acciones por turno. Puedes usar «Terminar turno» antes de gastarlas; al completarlas, «Siguiente turno».
           </p>
@@ -578,6 +582,7 @@
     import { getPartyIdFromUrl, partyPageUrl } from './js/party-url.js';
     import { appUrl } from './js/app-path.js';
     import { TacticalBoard, getTokenHp, getTokenMaxHp, getTokenEffectiveDefense, isTokenInCover, isTokenDefeated } from './js/board.js';
+    import { readShowEnemyVisionConesPreference } from './js/board-vision.js';
     import { openLootModal } from './js/loot-modal.js';
     import { lootHasRemaining, lootHasRemainingForCharacter } from './js/loot.js';
     import { loadAllNpcs, npcToCardData } from './js/npcs.js';
@@ -921,6 +926,7 @@
             userCharacterSourceId,
             userPlayTokenKind,
             roster,
+            showEnemyVisionCones: readShowEnemyVisionConesPreference(),
             chestLayer: document.getElementById('board-chest-layer'),
             colLabelsEl: document.getElementById('board-col-labels'),
             rowLabelsEl: document.getElementById('board-row-labels'),
@@ -962,6 +968,15 @@
 
         await board.loadState();
         board.watchState();
+
+        const enemyVisionToggle = document.getElementById('board-toggle-enemy-vision');
+        if (enemyVisionToggle) {
+          enemyVisionToggle.checked = board.showEnemyVisionCones;
+          enemyVisionToggle.addEventListener('change', () => {
+            board.setShowEnemyVisionCones(enemyVisionToggle.checked);
+          });
+        }
+
         syncCombatUi(board.combatStarted, isGM);
         boardSidebar.syncGmSidebar(board);
 

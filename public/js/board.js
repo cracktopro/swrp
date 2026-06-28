@@ -20,7 +20,9 @@ import {
   drawVisionConeOnCanvas,
   facingLabel,
   FACING_DIRS,
-  resetEnemyVisionToSpawn
+  resetEnemyVisionToSpawn,
+  readShowEnemyVisionConesPreference,
+  writeShowEnemyVisionConesPreference
 } from './board-vision.js';
 import { swrpConfirm } from './swrp-dialog.js';
 import { revertTemporaryEffectsOnTokens, grantCreditsToCharacter } from './inventory.js';
@@ -205,6 +207,7 @@ export class TacticalBoard {
     this.onChestClick = options.onChestClick || (() => {});
     this.onChestEditClick = options.onChestEditClick || (() => {});
     this.onBoardMetaChange = options.onBoardMetaChange || (() => {});
+    this.showEnemyVisionCones = options.showEnemyVisionCones ?? readShowEnemyVisionConesPreference();
     if (this.chestLayer) {
       this.chestLayer.addEventListener('contextmenu', (ev) => {
         if (ev.target.closest('.swrp-board-chest')) {
@@ -1716,7 +1719,14 @@ export class TacticalBoard {
     }
   }
 
+  setShowEnemyVisionCones(show) {
+    this.showEnemyVisionCones = !!show;
+    writeShowEnemyVisionConesPreference(this.showEnemyVisionCones);
+    this.render();
+  }
+
   drawVisionCones() {
+    if (!this.showEnemyVisionCones) return;
     const ctx = this.ctx;
     getEnemyTokens(this.tokens).forEach((enemy) => {
       if (isTokenDefeated(enemy)) return;

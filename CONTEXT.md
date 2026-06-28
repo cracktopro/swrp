@@ -116,7 +116,7 @@ SWRP/
 |------------|----------------|
 | `gm` | Control narrativo y tablero; puede actuar como cualquier personaje unido; un solo GM por partida |
 | `character` | Juega con personaje propio del jugador |
-| `npc` | Juega con un NPC del compendio (escaramuzas no predefinidas) |
+| `npc` | Juega con un NPC del compendio |
 
 El GM puede tener `characterId` (personaje propio) o `npcId` (NPC elegido como representación en tablero).
 
@@ -136,7 +136,7 @@ Encuentro táctico corto. Dos orígenes:
 - Cualquier usuario autenticado la crea desde Dashboard → **Partidas predefinidas**.
 - Se copian: nombre, era, dificultad, imagen, descripción, `minPlayers`, `maxSlots`, `allySpawns`, layout del tablero.
 - Creador entra como **GM** (figura en mesa opcional: personaje, NPC o ninguna); redirección directa al tablero en escaramuzas predefinidas.
-- Otros jugadores se unen solo con **personaje propio**; plazas limitadas por `maxSlots` si hay config de slots.
+- Otros jugadores se unen con **personaje propio** o **NPC del compendio** (no como GM); plazas limitadas por `maxSlots` si hay config de slots.
 - Spawns aliados colocan automáticamente el token al unirse.
 
 #### B) Personalizada admin (`templateId` ausente)
@@ -187,7 +187,7 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
   1. Título **Escaramuzas Predefinidas** + filtros nombre, era, dificultad (`filterEscaramuzaTemplates`).
   2. Lista de plantillas (`renderTemplatePickCard`) — clic para seleccionar.
   3. Botón **Crear escaramuza** → `createEscaramuzaFromTemplate` → tablero.
-- Quien se une después a una escaramuza predefinida solo puede hacerlo con **personaje propio** (no GM ni NPC).
+- Quien se une después a una escaramuza predefinida puede hacerlo con **personaje propio** o **NPC** (no como GM).
 
 **Modal Opciones de partida** (admin): editar metadatos incl. dificultad.
 
@@ -221,7 +221,7 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 **Combate:**
 - Fase narrativa con turnos (2 acciones: movimiento hasta 6 casillas / atacar) antes y durante combate.
 - Iniciativa D20, orden de turnos, log estructurado.
-- Visión enemiga: conos, estados alerta (`board-vision.js`).
+- Visión enemiga: conos, estados alerta (`board-vision.js`). Cada jugador/GM puede mostrar u ocultar los conos en su cliente con el interruptor del panel Combate (preferencia en `localStorage`, no sincronizada).
 - Sincronización en tiempo real vía `parties/{id}/state/board`.
 
 **Spawns en partida:** `assignSpawnToMember` coloca token aliado en celda según orden de unión si `hasEscaramuzaSlotConfig`.
@@ -229,7 +229,7 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 ### 8.4 Partida / Foro (`party.html` + `party-page.js`, `party.js`, `party-markup.js`)
 
 - Pantalla de unión si no es miembro (modos según tipo de partida).
-- Escaramuza predefinida: solo personaje propio al unirse.
+- Escaramuza predefinida: personaje propio o NPC al unirse.
 - Escaramuza custom: personaje, NPC o GM (si no hay GM).
 - Foro en tiempo real: posts narrativos y tiradas de dados.
 - Markup: `[img]`, `[C]color[/C]`, `@` menciones (solo personajes unidos).

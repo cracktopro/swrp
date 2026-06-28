@@ -408,7 +408,7 @@ export async function placeMemberTokenAtSpawn(partyId, member, col, row) {
 
 export function getCharacterMemberSpawnIndex(members, userId) {
   const chars = members.filter(
-    (m) => m.characterSnapshot?.id && (m.playMode === 'character' || m.playMode === 'gm')
+    (m) => m.characterSnapshot?.id && (m.playMode === 'character' || m.playMode === 'gm' || m.playMode === 'npc')
   );
   return chars.findIndex((m) => m.userId === userId);
 }

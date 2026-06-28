@@ -273,7 +273,7 @@ async function setupJoinFlow(partyId, user, profile, party, ui, onJoined) {
   const isPredefined = !!party.templateId;
   joinPartyName.textContent = party.name;
   const characters = await loadUserCharacters(user.uid);
-  const allNpcs = isEscaramuza && !isPredefined
+  const allNpcs = isEscaramuza
     ? (await loadAllNpcs()).map(npcToCardData)
     : [];
 
@@ -287,7 +287,9 @@ async function setupJoinFlow(partyId, user, profile, party, ui, onJoined) {
   }
 
   if (isPredefined) {
-    joinMode.innerHTML = '<option value="character">Con uno de mis personajes</option>';
+    joinMode.innerHTML = `
+    <option value="character">Con uno de mis personajes</option>
+    <option value="npc">Con un personaje NPC</option>`;
   } else {
     joinMode.innerHTML = `
     <option value="character">Con uno de mis personajes</option>

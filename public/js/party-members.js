@@ -110,7 +110,7 @@ export async function joinParty(partyId, user, profile, { playMode, character })
       const gm = getPartyGM(members);
       if (gm) throw new Error('Esta partida ya tiene un GM asignado');
     } else if (playMode === 'npc') {
-      throw new Error('En escaramuzas predefinidas solo puedes unirte con un personaje propio');
+      if (!character?.id) throw new Error('Selecciona un NPC para unirte');
     } else if (!character?.id) {
       throw new Error('Selecciona un personaje para unirte');
     }

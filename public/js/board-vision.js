@@ -9,6 +9,27 @@ export const ALARM_RADIUS = 4;
 
 export const FACING_DIRS = ['up', 'down', 'left', 'right'];
 
+const ENEMY_VISION_PREF_KEY = 'swrp.board.showEnemyVisionCones';
+
+/** Preferencia local: mostrar conos de visión enemigos en el tablero (por usuario/dispositivo). */
+export function readShowEnemyVisionConesPreference() {
+  try {
+    const v = localStorage.getItem(ENEMY_VISION_PREF_KEY);
+    if (v === null) return true;
+    return v === '1' || v === 'true';
+  } catch {
+    return true;
+  }
+}
+
+export function writeShowEnemyVisionConesPreference(show) {
+  try {
+    localStorage.setItem(ENEMY_VISION_PREF_KEY, show ? '1' : '0');
+  } catch {
+    /* ignore */
+  }
+}
+
 const ICON_LABELS = {
   out_of_range: 'Fuera de alcance cuerpo a cuerpo',
   no_vision: 'Sin visión ni alerta',
