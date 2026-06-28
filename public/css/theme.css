@@ -1354,6 +1354,42 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
   white-space: nowrap;
 }
 
+.board-page-header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.75rem 1rem;
+}
+
+.board-page-header h1 {
+  justify-self: start;
+}
+
+.board-page-header .board-vision-toggle {
+  justify-self: center;
+  grid-column: 2;
+}
+
+.board-page-header #party-link {
+  justify-self: end;
+  grid-column: 3;
+}
+
+@media (max-width: 575.98px) {
+  .board-page-header {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .board-page-header h1,
+  .board-page-header .board-vision-toggle,
+  .board-page-header #party-link {
+    grid-column: 1;
+    justify-self: center;
+  }
+}
+
 .board-grid-frame {
   display: grid;
   grid-template-columns: 28px auto;
