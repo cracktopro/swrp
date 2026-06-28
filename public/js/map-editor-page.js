@@ -7,6 +7,7 @@ import { loadAllNpcs, npcToCardData, buildNpcEraFormOptions, DEFAULT_NPC_ERA } f
 import { loadCompendiumData } from './compendium-store.js';
 import { renderCharacterCard, normalizeCharacter } from './character-card.js';
 import { initBoardPage, MiniBoardPicker } from './board-page.js';
+import { importNeutralNpcLibrary, exportNeutralNpcLibrary } from './board-neutral-npc-form.js';
 import { initBoardCombatUi } from './board-combat.js';
 import { swrpConfirm, swrpAlert } from './swrp-dialog.js';
 import { loadUserCharacters } from './characters.js';
@@ -153,6 +154,7 @@ async function openEditorWorkspace(user, profile, { templateId = null, forkId = 
     }
     allySpawns = [...(tpl.allySpawns || [])];
     await initBoardEditor(user, profile, buildFreshBoardState(tpl.boardLayout));
+    importNeutralNpcLibrary(tpl.boardLayout?.neutralNpcPresets);
 
     if (isForkMode) {
       forkHint?.classList.remove('d-none');
@@ -277,6 +279,7 @@ function wireSaveButton(user, profile) {
     btn.disabled = true;
     try {
       const boardLayout = buildLayoutFromBoard(board, { enemyOnly: false });
+      boardLayout.neutralNpcPresets = exportNeutralNpcLibrary();
       const data = {
         name: document.getElementById('editor-name').value,
         era: document.getElementById('editor-era').value,

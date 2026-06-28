@@ -14,7 +14,9 @@ import { buildNpcEraFormOptions, DEFAULT_NPC_ERA, normalizeNpcLoot, serializeNpc
 import { normalizeLootTemplate } from './loot.js';
 import { renderLootList, createLootItemPicker } from './loot-editor-ui.js';
 import { tokenFromNeutralBoardNpc } from './party-members.js';
+import { getClassMeta } from './character-card.js';
 
+const NEUTRAL_NPC_LIBRARY_KEY = 'swrp.neutralNpcLibrary';
 const NPC_SKILL_LEVEL = 20;
 let selectedSkills = [];
 let pendingCustomSkills = [];
@@ -23,6 +25,7 @@ let statsOverride = null;
 let lootDraft = normalizeLootTemplate({});
 let lootPicker = null;
 let npcEditorTab = 'general';
+let selectedPresetId = null;
 let bound = false;
 
 function el(id) {
@@ -96,13 +99,162 @@ function syncLootList() {
   });
 }
 
+function nameInitials(name) {
+  return String(name || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() || '').join('') || '?';
+}
+
+function generatePresetId() {
+  return `npreset_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function loadNeutralNpcLibrary() {
+  try {
+    const raw = localStorage.getItem(NEUTRAL_NPC_LIBRARY_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveNeutralNpcLibrary(list) {
+  try {
+    localStorage.setItem(NEUTRAL_NPC_LIBRARY_KEY, JSON.stringify(list));
+  } catch {
+    /* quota or private mode */
+  }
+}
+
+function presetThumbHtml(preset) {
+  const meta = getClassMeta(preset.classKey || preset.class);
+  const themeClass = meta?.theme ? ` theme-${meta.theme}` : '';
+  const url = preset.portraitUrl || '';
+  if (url) {
+    return `<span class="swrp-add-token-item__thumb${themeClass}"><img src="${escapeAttr(url)}" alt="" loading="lazy"></span>`;
+  }
+  return `<span class="swrp-add-token-item__thumb swrp-add-token-item__thumb--empty${themeClass}">${escapeHtml(nameInitials(preset.name))}</span>`;
+}
+
+function buildPresetFromFormNpc(npc) {
+  return {
+    presetId: selectedPresetId || generatePresetId(),
+    name: npc.name,
+    classKey: npc.classKey || npc.class,
+    species: npc.species,
+    era: npc.era,
+    portraitUrl: npc.portraitUrl || '',
+    hp: npc.hp,
+    maxHp: npc.maxHp,
+    defense: npc.defense,
+    attack: npc.attack,
+    damage: npc.damage,
+    force: npc.force,
+    skills: (npc.skills || []).map((s) => ({ ...s })),
+    pendingCustomSkills: pendingCustomSkills.map((s) => ({ ...s })),
+    loot: npc.loot,
+    savedAt: new Date().toISOString()
+  };
+}
+
+export function exportNeutralNpcLibrary() {
+  return loadNeutralNpcLibrary();
+}
+
+export function importNeutralNpcLibrary(presets) {
+  if (!Array.isArray(presets) || !presets.length) return;
+  const library = loadNeutralNpcLibrary();
+  const byId = new Map(library.map((p) => [p.presetId, p]));
+  presets.forEach((preset) => {
+    if (!preset?.presetId) return;
+    byId.set(preset.presetId, { ...preset });
+  });
+  const merged = [...byId.values()].sort((a, b) => (b.savedAt || '').localeCompare(a.savedAt || ''));
+  saveNeutralNpcLibrary(merged);
+  renderNeutralNpcLibraryList();
+}
+
+export function registerNeutralNpcPresetAfterPlace() {
+  const npc = readFormNpc();
+  const preset = buildPresetFromFormNpc(npc);
+  const library = loadNeutralNpcLibrary();
+  const idx = library.findIndex((p) => p.presetId === preset.presetId);
+  if (idx >= 0) library[idx] = preset;
+  else library.unshift(preset);
+  saveNeutralNpcLibrary(library);
+  selectedPresetId = preset.presetId;
+  renderNeutralNpcLibraryList();
+}
+
+function applyPresetToForm(preset) {
+  if (!preset) return;
+  selectedPresetId = preset.presetId;
+  pendingCustomSkills = (preset.pendingCustomSkills || []).map((s) => normalizeCustomSkill(s));
+  selectedSkills = (preset.skills || []).map((s) => s.id).filter(Boolean);
+  statsOverride = {
+    hp: preset.hp ?? 0,
+    maxHp: preset.maxHp ?? preset.hp ?? 0,
+    currentHp: preset.hp ?? 0,
+    defense: preset.defense ?? 0,
+    attack: preset.attack ?? 0,
+    damage: preset.damage ?? 0,
+    force: preset.force ?? null
+  };
+  lootDraft = normalizeLootTemplate(preset.loot || {});
+
+  el('bn-char-name').value = preset.name || '';
+  if (el('bn-char-class')) el('bn-char-class').value = preset.classKey || preset.class || '';
+  if (el('bn-char-species')) el('bn-char-species').value = preset.species || '';
+  if (el('bn-char-era')) el('bn-char-era').value = preset.era || DEFAULT_NPC_ERA;
+  el('bn-portrait-url').value = preset.portraitUrl || '';
+  el('bn-loot-credits').value = String(lootDraft.credits ?? 0);
+
+  syncStatsFieldsFromBase();
+  syncLootList();
+  updatePortraitPreview();
+  updateSkillPicker();
+  showNpcEditorTab('general');
+  renderNeutralNpcLibraryList();
+}
+
+export function renderNeutralNpcLibraryList() {
+  const listEl = el('bn-neutral-library-list');
+  if (!listEl) return;
+  const library = loadNeutralNpcLibrary();
+  if (!library.length) {
+    listEl.innerHTML = '<p class="small text-muted mb-0">Aún no hay NPCs neutrales guardados. Coloca uno en el tablero para añadirlo aquí.</p>';
+    return;
+  }
+
+  listEl.innerHTML = library.map((preset) => {
+    const meta = getClassMeta(preset.classKey || preset.class);
+    const selected = preset.presetId === selectedPresetId;
+    return `
+      <button type="button" class="swrp-add-token-item${selected ? ' is-selected' : ''}" data-preset-id="${escapeAttr(preset.presetId)}">
+        ${presetThumbHtml(preset)}
+        <span class="swrp-add-token-item__body">
+          <strong>${escapeHtml(preset.name || 'Sin nombre')}</strong>
+          <span class="small text-muted d-block">${escapeHtml(meta?.label || preset.classKey || '')} · ${escapeHtml(preset.species || '')}</span>
+        </span>
+      </button>`;
+  }).join('');
+
+  listEl.querySelectorAll('[data-preset-id]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const preset = library.find((p) => p.presetId === btn.dataset.presetId);
+      applyPresetToForm(preset);
+    });
+  });
+}
+
 function showNpcEditorTab(tabName) {
   npcEditorTab = tabName;
   el('bn-tab-general')?.classList.toggle('d-none', tabName !== 'general');
   el('bn-tab-loot')?.classList.toggle('d-none', tabName !== 'loot');
+  el('bn-tab-library')?.classList.toggle('d-none', tabName !== 'library');
   document.querySelectorAll('#bn-editor-tabs [data-bn-tab]').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.bnTab === tabName);
   });
+  if (tabName === 'library') renderNeutralNpcLibraryList();
 }
 
 function updatePortraitPreview() {
@@ -264,6 +416,7 @@ export function resetBoardNeutralNpcForm() {
   pendingCustomSkills = [];
   npcSkillSource = 'class';
   statsOverride = null;
+  selectedPresetId = null;
   lootDraft = normalizeLootTemplate({});
   el('bn-char-name').value = '';
   el('bn-portrait-url').value = '';
@@ -326,6 +479,7 @@ export function initBoardNeutralNpcForm({ lootItemModalEl } = {}) {
 
   if (bound) {
     resetBoardNeutralNpcForm();
+    renderNeutralNpcLibraryList();
     return;
   }
   bound = true;
@@ -384,4 +538,5 @@ export function initBoardNeutralNpcForm({ lootItemModalEl } = {}) {
   });
 
   resetBoardNeutralNpcForm();
+  renderNeutralNpcLibraryList();
 }

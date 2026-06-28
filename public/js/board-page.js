@@ -12,7 +12,9 @@ import {
   initBoardNeutralNpcForm,
   resetBoardNeutralNpcForm,
   validateBoardNeutralNpcForm,
-  buildNeutralTokenTemplateFromForm
+  buildNeutralTokenTemplateFromForm,
+  registerNeutralNpcPresetAfterPlace,
+  renderNeutralNpcLibraryList
 } from './board-neutral-npc-form.js';
 import { getClassMeta } from './character-card.js';
 import { getClassList } from './game-data.js';
@@ -450,6 +452,7 @@ export function initBoardPage(ctx) {
     if (isNeutralTab) {
       addSelection = null;
       resetBoardNeutralNpcForm();
+      renderNeutralNpcLibraryList();
     }
     syncAddForm();
   }
@@ -915,6 +918,7 @@ export function initBoardPage(ctx) {
         side,
         facing
       });
+      if (addTab === 'neutral') registerNeutralNpcPresetAfterPlace();
       miniBoard.setSpawn(null, null);
       miniBoard.render();
       renderActiveTokensList();
