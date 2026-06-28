@@ -21,7 +21,7 @@ import {
   loadPartyMembers
 } from './party-members.js';
 import { normalizeBoardToken } from './board-vision.js';
-import { DEFAULT_CELL_WIDTH, DEFAULT_CELL_HEIGHT, DEFAULT_COLS, DEFAULT_ROWS } from './board.js';
+import { DEFAULT_CELL_WIDTH, DEFAULT_CELL_HEIGHT, DEFAULT_COLS, DEFAULT_ROWS, normalizeNeutralNpcPresets } from './board.js';
 import { normalizeLootTemplate, normalizeChestTemplate } from './loot.js';
 import { normalizeObjectiveList } from './board-objectives.js';
 import { appUrl } from './app-path.js';
@@ -236,6 +236,7 @@ export function buildLayoutFromBoard(board, { enemyOnly = false } = {}) {
     })),
     mapUrl: board._mapUrl ?? null,
     grid: board.gridPayload(),
+    neutralNpcPresets: normalizeNeutralNpcPresets(board.neutralNpcPresets),
   });
 }
 
@@ -256,6 +257,7 @@ export function buildFreshBoardState(boardLayout) {
       cellWidth: DEFAULT_CELL_WIDTH,
       cellHeight: DEFAULT_CELL_HEIGHT
     },
+    neutralNpcPresets: normalizeNeutralNpcPresets(layout.neutralNpcPresets),
     combatStarted: false,
     log: [],
     initiativeLog: [],

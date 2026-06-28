@@ -85,6 +85,13 @@ function stripUndefinedDeep(value) {
   return out;
 }
 
+export function normalizeNeutralNpcPresets(list) {
+  if (!Array.isArray(list)) return [];
+  return list
+    .filter((p) => p && typeof p.presetId === 'string' && p.presetId)
+    .map((p) => stripUndefinedDeep({ ...p }));
+}
+
 const MOVE_RANGE = 6;
 const MAX_TURN_ACTIONS = 2;
 const MAX_ATTACKS_PER_TURN = 1;
@@ -182,6 +189,7 @@ export class TacticalBoard {
     this.tokens = [];
     this.chests = [];
     this.objectives = [];
+    this.neutralNpcPresets = [];
     this.chestLayer = options.chestLayer || null;
     this._logEntries = [];
     this.mapImage = null;
@@ -285,6 +293,7 @@ export class TacticalBoard {
     this.tokens = (data.tokens || []).map((t) => normalizeBoardToken({ ...t }));
     this.chests = normalizeChestList(data.chests);
     this.objectives = normalizeObjectiveList(data.objectives);
+    this.neutralNpcPresets = normalizeNeutralNpcPresets(data.neutralNpcPresets);
     this.shopEnabled = data.shopEnabled !== false;
     this.combatStarted = !!data.combatStarted;
     this.activeTurn = data.activeTurn ?? null;
@@ -351,7 +360,8 @@ export class TacticalBoard {
       initiativeOpen: this.initiativeOpen,
       turnOrder: this.turnOrder,
       turnOrderIndex: this.turnOrderIndex,
-      turnActions: normalizeTurnActions(this.turnActions)
+      turnActions: normalizeTurnActions(this.turnActions),
+      neutralNpcPresets: normalizeNeutralNpcPresets(this.neutralNpcPresets)
     });
   }
 
@@ -370,6 +380,7 @@ export class TacticalBoard {
       this.tokens = [];
       this.chests = [];
       this.objectives = [];
+      this.neutralNpcPresets = [];
       this.shopEnabled = true;
       this.combatStarted = false;
       this.activeTurn = null;
@@ -411,7 +422,8 @@ export class TacticalBoard {
       initiativeOpen: this.initiativeOpen,
       turnOrder: this.turnOrder,
       turnOrderIndex: this.turnOrderIndex,
-      turnActions: normalizeTurnActions(this.turnActions)
+      turnActions: normalizeTurnActions(this.turnActions),
+      neutralNpcPresets: normalizeNeutralNpcPresets(this.neutralNpcPresets)
     });
   }
 
@@ -484,7 +496,8 @@ export class TacticalBoard {
       initiativeOpen: boardData.initiativeOpen,
       turnOrder: boardData.turnOrder || [],
       turnOrderIndex: boardData.turnOrderIndex ?? 0,
-      turnActions: normalizeTurnActions(boardData.turnActions)
+      turnActions: normalizeTurnActions(boardData.turnActions),
+      neutralNpcPresets: normalizeNeutralNpcPresets(boardData.neutralNpcPresets)
     });
   }
 
@@ -496,6 +509,7 @@ export class TacticalBoard {
       this.tokens = (data.tokens || []).map((t) => normalizeBoardToken({ ...t }));
       this.chests = normalizeChestList(data.chests);
       this.objectives = normalizeObjectiveList(data.objectives);
+      this.neutralNpcPresets = normalizeNeutralNpcPresets(data.neutralNpcPresets);
       this.shopEnabled = data.shopEnabled !== false;
       this.combatStarted = !!data.combatStarted;
       this.activeTurn = data.activeTurn ?? null;
@@ -1649,8 +1663,14 @@ export class TacticalBoard {
           : (this.turnOrderIndex ?? current.turnOrderIndex ?? 0),
         turnActions: partial.turnActions !== undefined
           ? partial.turnActions
-          : normalizeTurnActions(this.turnActions ?? current.turnActions)
+          : normalizeTurnActions(this.turnActions ?? current.turnActions),
+        neutralNpcPresets: partial.neutralNpcPresets !== undefined
+          ? normalizeNeutralNpcPresets(partial.neutralNpcPresets)
+          : normalizeNeutralNpcPresets(this.neutralNpcPresets ?? current.neutralNpcPresets)
       });
+      if (partial.neutralNpcPresets !== undefined) {
+        this.neutralNpcPresets = normalizeNeutralNpcPresets(partial.neutralNpcPresets);
+      }
       if (partial.log !== undefined) {
         this.renderLog(partial.log);
       }
@@ -1689,12 +1709,18 @@ export class TacticalBoard {
           : (this.turnOrderIndex ?? current.turnOrderIndex ?? 0),
         turnActions: partial.turnActions !== undefined
           ? partial.turnActions
-          : normalizeTurnActions(this.turnActions ?? current.turnActions)
+          : normalizeTurnActions(this.turnActions ?? current.turnActions),
+        neutralNpcPresets: partial.neutralNpcPresets !== undefined
+          ? normalizeNeutralNpcPresets(partial.neutralNpcPresets)
+          : normalizeNeutralNpcPresets(this.neutralNpcPresets ?? current.neutralNpcPresets)
       }),
       updatedAt: serverTimestamp()
     };
     try {
       await setDoc(refDoc, payload, { merge: true });
+      if (partial.neutralNpcPresets !== undefined) {
+        this.neutralNpcPresets = normalizeNeutralNpcPresets(partial.neutralNpcPresets);
+      }
       if (partial.log !== undefined) {
         this._logEntries = partial.log;
       }

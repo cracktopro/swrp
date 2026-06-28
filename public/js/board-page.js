@@ -321,7 +321,22 @@ export function initBoardPage(ctx) {
     onItemsChanged: () => renderActiveLootList()
   });
 
-  initBoardNeutralNpcForm({ lootItemModalEl });
+  initBoardNeutralNpcForm({
+    lootItemModalEl,
+    libraryApi: {
+      getPresets: () => board.neutralNpcPresets || [],
+      savePresets: async (list) => {
+        board.neutralNpcPresets = list;
+        await board.saveState({ neutralNpcPresets: list });
+      }
+    }
+  });
+
+  const priorBoardMetaChange = board.onBoardMetaChange;
+  board.onBoardMetaChange = () => {
+    priorBoardMetaChange?.();
+    renderNeutralNpcLibraryList();
+  };
 
   function showCtrlTab(tabName) {
     ctrlActiveTab = tabName;
@@ -918,7 +933,7 @@ export function initBoardPage(ctx) {
         side,
         facing
       });
-      if (addTab === 'neutral') registerNeutralNpcPresetAfterPlace();
+      if (addTab === 'neutral') await registerNeutralNpcPresetAfterPlace();
       miniBoard.setSpawn(null, null);
       miniBoard.render();
       renderActiveTokensList();

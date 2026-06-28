@@ -16,7 +16,7 @@ import { renderLootList, createLootItemPicker } from './loot-editor-ui.js';
 import { tokenFromNeutralBoardNpc } from './party-members.js';
 import { getClassMeta } from './character-card.js';
 
-const NEUTRAL_NPC_LIBRARY_KEY = 'swrp.neutralNpcLibrary';
+const LEGACY_NEUTRAL_NPC_LIBRARY_KEY = 'swrp.neutralNpcLibrary';
 const NPC_SKILL_LEVEL = 20;
 let selectedSkills = [];
 let pendingCustomSkills = [];
@@ -27,6 +27,10 @@ let lootPicker = null;
 let npcEditorTab = 'general';
 let selectedPresetId = null;
 let bound = false;
+let libraryApi = {
+  getPresets: () => [],
+  savePresets: async () => {}
+};
 
 function el(id) {
   return document.getElementById(id);
@@ -108,21 +112,32 @@ function generatePresetId() {
 }
 
 function loadNeutralNpcLibrary() {
+  return libraryApi.getPresets();
+}
+
+async function saveNeutralNpcLibrary(list) {
+  await libraryApi.savePresets(list);
+}
+
+function readLegacyLocalLibrary() {
   try {
-    const raw = localStorage.getItem(NEUTRAL_NPC_LIBRARY_KEY);
+    const raw = localStorage.getItem(LEGACY_NEUTRAL_NPC_LIBRARY_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed) ? parsed.filter((p) => p?.presetId) : [];
   } catch {
     return [];
   }
 }
 
-function saveNeutralNpcLibrary(list) {
+async function migrateLegacyLocalLibraryIfNeeded() {
+  const current = loadNeutralNpcLibrary();
+  if (current.length) return;
+  const legacy = readLegacyLocalLibrary();
+  if (!legacy.length) return;
+  await saveNeutralNpcLibrary(legacy);
   try {
-    localStorage.setItem(NEUTRAL_NPC_LIBRARY_KEY, JSON.stringify(list));
-  } catch {
-    /* quota or private mode */
-  }
+    localStorage.removeItem(LEGACY_NEUTRAL_NPC_LIBRARY_KEY);
+  } catch { /* ignore */ }
 }
 
 function presetThumbHtml(preset) {
@@ -160,7 +175,7 @@ export function exportNeutralNpcLibrary() {
   return loadNeutralNpcLibrary();
 }
 
-export function importNeutralNpcLibrary(presets) {
+export async function importNeutralNpcLibrary(presets) {
   if (!Array.isArray(presets) || !presets.length) return;
   const library = loadNeutralNpcLibrary();
   const byId = new Map(library.map((p) => [p.presetId, p]));
@@ -169,18 +184,18 @@ export function importNeutralNpcLibrary(presets) {
     byId.set(preset.presetId, { ...preset });
   });
   const merged = [...byId.values()].sort((a, b) => (b.savedAt || '').localeCompare(a.savedAt || ''));
-  saveNeutralNpcLibrary(merged);
+  await saveNeutralNpcLibrary(merged);
   renderNeutralNpcLibraryList();
 }
 
-export function registerNeutralNpcPresetAfterPlace() {
+export async function registerNeutralNpcPresetAfterPlace() {
   const npc = readFormNpc();
   const preset = buildPresetFromFormNpc(npc);
   const library = loadNeutralNpcLibrary();
   const idx = library.findIndex((p) => p.presetId === preset.presetId);
   if (idx >= 0) library[idx] = preset;
   else library.unshift(preset);
-  saveNeutralNpcLibrary(library);
+  await saveNeutralNpcLibrary(library);
   selectedPresetId = preset.presetId;
   renderNeutralNpcLibraryList();
 }
@@ -456,8 +471,9 @@ export function buildNeutralTokenTemplateFromForm() {
   return tokenFromNeutralBoardNpc(npc);
 }
 
-export function initBoardNeutralNpcForm({ lootItemModalEl } = {}) {
+export function initBoardNeutralNpcForm({ lootItemModalEl, libraryApi: api } = {}) {
   if (!el('bn-char-class')) return;
+  if (api) libraryApi = api;
 
   el('bn-char-class').innerHTML = getClassList()
     .map((c) => `<option value="${escapeAttr(c.key)}">${escapeHtml(c.label)}</option>`)
@@ -479,7 +495,7 @@ export function initBoardNeutralNpcForm({ lootItemModalEl } = {}) {
 
   if (bound) {
     resetBoardNeutralNpcForm();
-    renderNeutralNpcLibraryList();
+    migrateLegacyLocalLibraryIfNeeded().then(() => renderNeutralNpcLibraryList());
     return;
   }
   bound = true;
@@ -538,5 +554,5 @@ export function initBoardNeutralNpcForm({ lootItemModalEl } = {}) {
   });
 
   resetBoardNeutralNpcForm();
-  renderNeutralNpcLibraryList();
+  migrateLegacyLocalLibraryIfNeeded().then(() => renderNeutralNpcLibraryList());
 }

@@ -214,7 +214,7 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 - Progreso: guardar/cargar snapshots completos del estado (`board-progress.js`), incluyendo cofres, botín resuelto, créditos pendientes y `token.loot` en curso.
 - Mapa URL, tamaño de cuadrícula (4–48 columnas/filas; celda fija 48 px).
 - Cargar tablero predefinido del compendio (opcional) o pegar URL manual.
-- Chapas en juego: añadir personajes/NPCs, **NPC neutral** (pestaña con formulario General/Objetos y biblioteca **NPCs Neutrales** que guarda presets al colocar en tablero), control modal (stats, HP, facción, visión, diálogos).
+- Chapas en juego: añadir personajes/NPCs, **NPC neutral** (pestaña con formulario General/Objetos y biblioteca **NPCs Neutrales** guardada en el estado del tablero al colocar), control modal (stats, HP, facción, visión, diálogos).
 - **Jugadores y spawns** (solo escaramuza sin `templateId`): mín/máx, lista de spawns, modal minitablero (`escaramuza-spawns-ui.js` → `savePartyEscaramuzaSlots`).
 - **Control de NPC aliados** (solo escaramuza, GM): panel en Opciones para asignar cada NPC aliado en mesa a un jugador unido (`npc-control.js` → `parties/{id}.npcControlAssignments`). En escaramuzas el jugador solo controla su personaje; el GM controla enemigos. Los NPC aliados asignados entran en el orden de turnos con `userId` del jugador asignado, que puede moverlos/atacarlos cuando sea su turno.
 
@@ -381,7 +381,7 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
     objectives: [{ id, title?, text }],  // reglas / misiones / pistas
     mapUrl,
     grid: { cols, rows, cellWidth, cellHeight },
-    neutralNpcPresets: [...]  // biblioteca NPC neutral (editor de mapas)
+    neutralNpcPresets: [...]  // biblioteca NPC neutral (tablero y plantillas)
   },
   createdAt, updatedAt
 }
@@ -449,6 +449,7 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
     loot: { credits, items, creditShares, creditsClaimedBy, resolved }
   }],
   objectives: [{ id, title?, text }],  // reglas / misiones / pistas (GM edita)
+  neutralNpcPresets: [{ presetId, name, classKey, species, era, portraitUrl, hp, skills, loot, ... }],
   combatStarted: boolean,
   log: [...],
   initiativeLog: [...],
@@ -508,7 +509,7 @@ Funciones auxiliares en reglas: `isAdmin`, `isPartyMember`, `isPartyGM`, `isEsca
 | `map-editor-page.js` | Vista editor de mapas |
 | `board.js` | `TacticalBoard`, grid, tokens, persistencia |
 | `board-page.js` | UI GM: añadir/controlar chapas, `MiniBoardPicker` |
-| `board-neutral-npc-form.js` | Formulario NPC neutral en modal «Añadir al tablero»; biblioteca local `swrp.neutralNpcLibrary` |
+| `board-neutral-npc-form.js` | Formulario NPC neutral en modal «Añadir al tablero»; biblioteca en `state/board.neutralNpcPresets` |
 | `board-grid-panel.js` | Panel GM cuadrícula y carga de tableros del compendio |
 | `board-combat.js` | Turnos, iniciativa, dados en tablero |
 | `board-progress.js` | Guardados de progreso del tablero |
