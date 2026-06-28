@@ -1350,6 +1350,10 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
   max-width: 100%;
 }
 
+.board-vision-toggle .form-check-label {
+  white-space: nowrap;
+}
+
 .board-grid-frame {
   display: grid;
   grid-template-columns: 28px auto;
@@ -1447,6 +1451,8 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
   cursor: pointer;
   padding: 2px;
   transition: transform 0.12s ease, filter 0.12s ease;
+  -webkit-touch-callout: none;
+  user-select: none;
 }
 
 .swrp-board-chest:hover {

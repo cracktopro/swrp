@@ -221,7 +221,7 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 **Combate:**
 - Fase narrativa con turnos (2 acciones: movimiento hasta 6 casillas / atacar) antes y durante combate.
 - Iniciativa D20, orden de turnos, log estructurado.
-- Visión enemiga: conos, estados alerta (`board-vision.js`). Cada jugador/GM puede mostrar u ocultar los conos en su cliente con el interruptor del panel Combate (preferencia en `localStorage`, no sincronizada).
+- Visión enemiga: conos, estados alerta (`board-vision.js`). Cada jugador/GM puede mostrar u ocultar los conos con el interruptor junto al título del tablero (preferencia en `localStorage`). Con los conos ocultos, al pasar el cursor sobre un enemigo se muestra su cono en amarillo.
 - Sincronización en tiempo real vía `parties/{id}/state/board`.
 
 **Spawns en partida:** `assignSpawnToMember` coloca token aliado en celda según orden de unión si `hasEscaramuzaSlotConfig`.

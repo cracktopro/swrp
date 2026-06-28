@@ -208,8 +208,17 @@ export class TacticalBoard {
     this.onChestEditClick = options.onChestEditClick || (() => {});
     this.onBoardMetaChange = options.onBoardMetaChange || (() => {});
     this.showEnemyVisionCones = options.showEnemyVisionCones ?? readShowEnemyVisionConesPreference();
+    this.boardStage = options.boardStage || this.canvas?.closest('.board-stage') || null;
     if (this.chestLayer) {
       this.chestLayer.addEventListener('contextmenu', (ev) => {
+        if (ev.target.closest('.swrp-board-chest')) {
+          ev.preventDefault();
+          ev.stopPropagation();
+        }
+      }, true);
+    }
+    if (this.boardStage) {
+      this.boardStage.addEventListener('contextmenu', (ev) => {
         if (ev.target.closest('.swrp-board-chest')) {
           ev.preventDefault();
           ev.stopPropagation();
@@ -1726,12 +1735,16 @@ export class TacticalBoard {
   }
 
   drawVisionCones() {
-    if (!this.showEnemyVisionCones) return;
     const ctx = this.ctx;
+    const cellSize = Math.max(this.cellWidth, this.cellHeight);
+    const showAll = this.showEnemyVisionCones;
+    const hoveredId = this.highlightedTokenId;
+
     getEnemyTokens(this.tokens).forEach((enemy) => {
       if (isTokenDefeated(enemy)) return;
-      const hovered = enemy.id === this.highlightedTokenId;
-      drawVisionConeOnCanvas(ctx, enemy.col, enemy.row, enemy.facing || 'left', Math.max(this.cellWidth, this.cellHeight), {
+      const hovered = enemy.id === hoveredId;
+      if (!showAll && !hovered) return;
+      drawVisionConeOnCanvas(ctx, enemy.col, enemy.row, enemy.facing || 'left', cellSize, {
         tint: hovered ? '255, 214, 0' : '0, 229, 255',
         preview: hovered
       });
@@ -1850,14 +1863,22 @@ export class TacticalBoard {
       img.src = CHEST_ICONS[visual];
       img.alt = titles[visual] || 'Caja';
       img.loading = 'lazy';
+      img.draggable = false;
       wrap.appendChild(img);
 
-      wrap.oncontextmenu = () => false;
-      wrap.addEventListener('contextmenu', (ev) => {
+      const blockContextMenu = (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
-      });
-      img.oncontextmenu = () => false;
+        return false;
+      };
+      wrap.addEventListener('contextmenu', blockContextMenu, true);
+      img.addEventListener('contextmenu', blockContextMenu, true);
+      wrap.addEventListener('mousedown', (ev) => {
+        if (ev.button === 2) {
+          ev.preventDefault();
+          ev.stopPropagation();
+        }
+      }, true);
       wrap.addEventListener('mousedown', (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
