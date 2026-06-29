@@ -208,12 +208,12 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 
 **Sidebar:** pestañas Combate | Log | **Objetivos** (todos los jugadores) | Opciones (solo GM).
 
-**Escenarios** (`board-scenarios.js`): barra de pestañas sobre el tablero (Escenario 1 por defecto, botón **+** solo GM). Cada escenario es un tablero independiente (mapa, grid, tokens, cofres, objetivos, biblioteca NPC neutral, combate). El escenario activo se sincroniza en tiempo real vía `state/board`; el resto se guarda en `state/{scenarioId}`. Índice en `state/scenarios` (`activeScenarioId`, `items[]` con `name`, `visibleToPlayers`). El GM puede ocultar escenarios a jugadores; los jugadores solo ven y pueden cambiar a pestañas marcadas como visibles. Misma UI en **Editor de mapas**; las plantillas guardan `scenarios[]` + `activeScenarioId` (y `boardLayout` del escenario activo por compatibilidad).
+**Escenarios** (`board-scenarios.js`): barra de pestañas sobre el tablero (Escenario 1 por defecto, botón **+** solo GM). Cada escenario es un tablero independiente (mapa, grid, tokens, cofres, objetivos, biblioteca NPC neutral, combate). El escenario activo se sincroniza en tiempo real vía `state/board`; el resto se guarda en `state/{scenarioId}`. Índice en `state/scenarios` (`activeScenarioId`, `items[]` con `name`, `visibleToPlayers`). El GM puede ocultar escenarios a jugadores; los jugadores solo ven y pueden cambiar a pestañas marcadas como visibles. En **Control de chapa → En juego**, el GM puede **mover una chapa a otro escenario** conservando HP, stats, diálogos, botín, etc. Misma UI en **Editor de mapas**; las plantillas guardan `scenarios[]` + `activeScenarioId` (y `boardLayout` del escenario activo por compatibilidad).
 
 **Objetivos** (`board-objectives.js`): lista de entradas con título opcional y texto (reglas, misiones, pistas). Visible para jugadores y GM; solo el GM puede agregar, editar y eliminar. Sincronización en tiempo real vía `state/board.objectives`. En plantillas de escaramuza se guardan en `boardLayout.objectives` y se importan al crear una partida desde la plantilla.
 
 **Opciones GM:**
-- Progreso: guardar/cargar snapshots completos del estado (`board-progress.js`), incluyendo cofres, botín resuelto, créditos pendientes y `token.loot` en curso.
+- Progreso: guardar/cargar snapshots completos del estado (`board-progress.js`), incluyendo cofres, botín resuelto, créditos pendientes, `token.loot`, `neutralNpcPresets` y **todos los escenarios** (`scenarioBoards` + índice `scenarios` en cada guardado `state/progress_*`).
 - Mapa URL, tamaño de cuadrícula (4–48 columnas/filas; celda fija 48 px).
 - Cargar tablero predefinido del compendio (opcional) o pegar URL manual.
 - Chapas en juego: añadir personajes/NPCs, **NPC neutral** (pestaña con formulario General/Objetos y biblioteca **NPCs Neutrales** guardada en el estado del tablero al colocar), control modal (stats, HP, facción, visión, diálogos).

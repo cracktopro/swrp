@@ -456,16 +456,27 @@ export class TacticalBoard {
     if (!this.partyId) return null;
     const trimmed = String(name || '').trim();
     if (!trimmed) throw new Error('Introduce un nombre para el guardado.');
-    const board = await this.captureBoardSnapshot();
+    const boardSnapshot = this.getLocalBoardData();
+    let scenariosBundle = null;
+    try {
+      const { captureScenariosProgressBundle } = await import('./board-scenarios.js');
+      scenariosBundle = await captureScenariosProgressBundle(this.partyId, this);
+    } catch {
+      /* sin escenarios o error no bloqueante */
+    }
     const savedAtMs = Date.now();
     const id = `progress_${savedAtMs.toString(36)}_${Math.random().toString(36).slice(2, 9)}`;
-    await setDoc(doc(db, 'parties', this.partyId, 'state', id), {
+    await setDoc(doc(db, 'parties', this.partyId, 'state', id), stripUndefinedDeep({
       type: 'boardSave',
       name: trimmed,
       savedAt: serverTimestamp(),
       savedAtMs,
-      board: stripUndefinedDeep(board)
-    });
+      board: boardSnapshot,
+      scenarios: scenariosBundle
+        ? { activeScenarioId: scenariosBundle.activeScenarioId, items: scenariosBundle.items }
+        : undefined,
+      scenarioBoards: scenariosBundle?.scenarioBoards
+    }));
     return { id, savedAtMs };
   }
 
@@ -483,8 +494,26 @@ export class TacticalBoard {
     if (!this.partyId || !saveId) return;
     const snap = await getDoc(doc(db, 'parties', this.partyId, 'state', saveId));
     if (!snap.exists()) throw new Error('Partida guardada no encontrada.');
-    const { board: boardData } = snap.data();
+    const saveData = snap.data();
+    const activeScenarioId = saveData.scenarios?.activeScenarioId;
+    const boardData = activeScenarioId && saveData.scenarioBoards?.[activeScenarioId]
+      ? saveData.scenarioBoards[activeScenarioId]
+      : saveData.board;
     if (!boardData) throw new Error('El guardado no contiene datos del tablero.');
+
+    if (saveData.scenarioBoards) {
+      try {
+        const { restoreScenariosProgressBundle } = await import('./board-scenarios.js');
+        await restoreScenariosProgressBundle(this.partyId, {
+          activeScenarioId: saveData.scenarios?.activeScenarioId,
+          items: saveData.scenarios?.items,
+          scenarioBoards: saveData.scenarioBoards
+        });
+      } catch {
+        /* continuar con tablero activo */
+      }
+    }
+
     await this.applyBoardData(boardData);
     await this.saveState({
       mapUrl: boardData.mapUrl ?? null,

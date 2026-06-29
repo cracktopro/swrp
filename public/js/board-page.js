@@ -16,6 +16,7 @@ import {
   registerNeutralNpcPresetAfterPlace,
   renderNeutralNpcLibraryList
 } from './board-neutral-npc-form.js';
+import { moveTokenToScenario } from './board-scenarios.js';
 import { getClassMeta } from './character-card.js';
 import { getClassList } from './game-data.js';
 import { swrpConfirm, swrpAlert } from './swrp-dialog.js';
@@ -287,7 +288,8 @@ export function initBoardPage(ctx) {
     openCharacterCard,
     charModalBootstrap,
     editorMode = false,
-    allUserCharacters = null
+    allUserCharacters = null,
+    getScenariosApi = null
   } = ctx;
 
   const activeListEl = document.getElementById('active-tokens-list');
@@ -591,6 +593,28 @@ export function initBoardPage(ctx) {
     if (coverInput) {
       coverInput.checked = token.inCover === true;
     }
+    syncMoveScenarioSelect();
+  }
+
+  function syncMoveScenarioSelect() {
+    const wrap = document.getElementById('ctrl-move-scenario-wrap');
+    const sel = document.getElementById('ctrl-move-scenario');
+    if (!wrap || !sel) return;
+    const api = getScenariosApi?.();
+    if (!isGM || editorMode || !api || !board.partyId) {
+      wrap.classList.add('d-none');
+      return;
+    }
+    const activeId = api.getActiveScenarioId?.();
+    const items = (api.getScenarioItems?.() || []).filter((item) => item.id !== activeId);
+    if (!items.length) {
+      wrap.classList.add('d-none');
+      return;
+    }
+    wrap.classList.remove('d-none');
+    sel.innerHTML = items.map((item) => (
+      `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name)}</option>`
+    )).join('');
   }
 
   function setupLootTabForToken(token) {
@@ -609,23 +633,23 @@ export function initBoardPage(ctx) {
     controlModal?.show();
   }
 
-  async function saveControlModal() {
+  async function applyControlModalChanges() {
     const token = board.tokens.find((t) => t.id === controlTokenId);
-    if (!token) return;
+    if (!token) return false;
 
     if (statsEditorReady) {
       const statsEntity = readTokenStatsEditor();
       if (!statsEntity.name) {
         await swrpAlert({ title: 'Nombre requerido', message: 'Indica un nombre en la pestaña Stats.' });
         showCtrlTab('stats');
-        return;
+        return false;
       }
       try {
         await board.updateTokenFromStats(token.id, statsEntity);
       } catch (err) {
         await swrpAlert({ title: 'Error al guardar stats', message: err.message || 'No se pudieron guardar los cambios.' });
         showCtrlTab('stats');
-        return;
+        return false;
       }
     }
 
@@ -654,6 +678,12 @@ export function initBoardPage(ctx) {
       lootDraft.resolved = null;
       await board.updateTokenLoot(updated.id, lootDraft);
     }
+    return true;
+  }
+
+  async function saveControlModal() {
+    const ok = await applyControlModalChanges();
+    if (!ok) return;
     controlModal?.hide();
     renderActiveTokensList();
   }
@@ -971,6 +1001,44 @@ export function initBoardPage(ctx) {
   });
 
   document.getElementById('btn-ctrl-save')?.addEventListener('click', saveControlModal);
+
+  document.getElementById('btn-ctrl-move-scenario')?.addEventListener('click', async () => {
+    if (!controlTokenId || !board.partyId) return;
+    const targetScenarioId = document.getElementById('ctrl-move-scenario')?.value;
+    const api = getScenariosApi?.();
+    const activeScenarioId = api?.getActiveScenarioId?.();
+    if (!targetScenarioId || !activeScenarioId) return;
+    const token = board.tokens.find((t) => t.id === controlTokenId);
+    const targetName = api?.getScenarioItems?.().find((item) => item.id === targetScenarioId)?.name
+      || 'el escenario seleccionado';
+    const ok = await swrpConfirm({
+      title: 'Mover chapa',
+      message: `¿Mover a «${token?.name || 'esta chapa'}» a ${targetName}? Desaparecerá del escenario actual con todos sus datos actuales.`,
+      confirmText: 'Mover',
+      cancelText: 'Cancelar'
+    });
+    if (!ok) return;
+    const saved = await applyControlModalChanges();
+    if (!saved) return;
+    try {
+      await moveTokenToScenario(
+        board.partyId,
+        board,
+        controlTokenId,
+        targetScenarioId,
+        activeScenarioId
+      );
+      controlTokenId = null;
+      controlModal?.hide();
+      renderActiveTokensList();
+      await swrpAlert({
+        title: 'Chapa movida',
+        message: `La chapa se ha trasladado a ${targetName}.`
+      });
+    } catch (err) {
+      await swrpAlert({ title: 'No se pudo mover', message: err.message });
+    }
+  });
 
   document.getElementById('btn-ctrl-remove')?.addEventListener('click', async () => {
     if (!controlTokenId) return;

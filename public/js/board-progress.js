@@ -15,7 +15,7 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
-export function initBoardProgressUi({ board }) {
+export function initBoardProgressUi({ board, onAfterLoad } = {}) {
   const nameInput = document.getElementById('board-save-name');
   const saveBtn = document.getElementById('board-save-progress');
   const loadSelect = document.getElementById('board-load-progress');
@@ -73,7 +73,7 @@ export function initBoardProgressUi({ board }) {
     const label = loadSelect.options[loadSelect.selectedIndex]?.textContent || 'esta partida';
     const ok = await swrpConfirm({
       title: 'Cargar partida',
-      message: `¿Restaurar el tablero desde «${label}»? Se sobrescribirá el estado actual del tablero para todos los jugadores.`,
+      message: `¿Restaurar el tablero desde «${label}»? Se sobrescribirá el estado actual del tablero y todos los escenarios para todos los jugadores.`,
       confirmText: 'Cargar',
       cancelText: 'Cancelar',
       danger: true
@@ -82,9 +82,10 @@ export function initBoardProgressUi({ board }) {
     loadBtn.disabled = true;
     try {
       await board.loadProgress(saveId);
+      await onAfterLoad?.();
       await swrpAlert({
         title: 'Partida cargada',
-        message: 'El tablero se ha restaurado desde el guardado seleccionado.'
+        message: 'El tablero y los escenarios se han restaurado desde el guardado seleccionado.'
       });
     } catch (err) {
       await swrpAlert({ title: 'Error al cargar', message: err.message });

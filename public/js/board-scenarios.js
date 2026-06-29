@@ -30,6 +30,150 @@ function scenarioDocId(scenarioId) {
   return scenarioId;
 }
 
+function stripUndefinedDeep(value) {
+  if (value === undefined) return undefined;
+  if (value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => stripUndefinedDeep(item))
+      .filter((item) => item !== undefined);
+  }
+  const out = {};
+  for (const [key, val] of Object.entries(value)) {
+    if (val === undefined) continue;
+    const cleaned = stripUndefinedDeep(val);
+    if (cleaned !== undefined) out[key] = cleaned;
+  }
+  return out;
+}
+
+function findFreeCell(tokens, cols, rows, preferCol, preferRow) {
+  const occupied = new Set((tokens || []).map((t) => `${t.col},${t.row}`));
+  const inBounds = (c, r) => c >= 0 && c < cols && r >= 0 && r < rows;
+  if (inBounds(preferCol, preferRow) && !occupied.has(`${preferCol},${preferRow}`)) {
+    return { col: preferCol, row: preferRow };
+  }
+  for (let r = 0; r < rows; r += 1) {
+    for (let c = 0; c < cols; c += 1) {
+      if (!occupied.has(`${c},${r}`)) return { col: c, row: r };
+    }
+  }
+  return null;
+}
+
+function removeTokenFromBoardData(boardData, tokenId) {
+  const tokens = (boardData.tokens || []).filter((t) => t.id !== tokenId);
+  let turnOrder = (boardData.turnOrder || []).filter((id) => id !== tokenId);
+  let activeTurn = boardData.activeTurn ?? null;
+  if (activeTurn === tokenId) {
+    activeTurn = turnOrder[boardData.turnOrderIndex ?? 0] ?? turnOrder[0] ?? null;
+  }
+  let turnOrderIndex = boardData.turnOrderIndex ?? 0;
+  if (turnOrderIndex >= turnOrder.length) {
+    turnOrderIndex = Math.max(0, turnOrder.length - 1);
+  }
+  return stripUndefinedDeep({
+    ...boardData,
+    tokens,
+    turnOrder,
+    turnOrderIndex,
+    activeTurn
+  });
+}
+
+export async function captureScenariosProgressBundle(partyId, board) {
+  const indexRef = doc(db, 'parties', partyId, 'state', 'scenarios');
+  const indexSnap = await getDoc(indexRef);
+  if (!indexSnap.exists()) return null;
+
+  const index = indexSnap.data();
+  const activeId = index.activeScenarioId || DEFAULT_SCENARIO_ID;
+  const snapshot = board.getLocalBoardData();
+  await setDoc(doc(db, 'parties', partyId, 'state', scenarioDocId(activeId)), {
+    ...snapshot,
+    updatedAt: serverTimestamp()
+  });
+
+  const scenarioBoards = {};
+  for (const item of index.items || []) {
+    if (item.id === activeId) {
+      scenarioBoards[item.id] = snapshot;
+      continue;
+    }
+    const snap = await getDoc(doc(db, 'parties', partyId, 'state', scenarioDocId(item.id)));
+    scenarioBoards[item.id] = snap.exists() ? snap.data() : buildFreshBoardState({});
+  }
+
+  return stripUndefinedDeep({
+    activeScenarioId: activeId,
+    items: index.items || [],
+    scenarioBoards
+  });
+}
+
+export async function restoreScenariosProgressBundle(partyId, bundle) {
+  if (!partyId || !bundle?.scenarioBoards) return;
+
+  const writes = Object.entries(bundle.scenarioBoards).map(([id, boardData]) => (
+    setDoc(doc(db, 'parties', partyId, 'state', scenarioDocId(id)), {
+      ...stripUndefinedDeep(boardData),
+      updatedAt: serverTimestamp()
+    })
+  ));
+  await Promise.all(writes);
+
+  if (bundle.items?.length) {
+    await setDoc(doc(db, 'parties', partyId, 'state', 'scenarios'), {
+      activeScenarioId: bundle.activeScenarioId || bundle.items[0].id,
+      items: bundle.items,
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+  }
+}
+
+export async function moveTokenToScenario(partyId, board, tokenId, targetScenarioId, activeScenarioId) {
+  if (!partyId || !tokenId || !targetScenarioId || targetScenarioId === activeScenarioId) {
+    throw new Error('Escenario de destino no válido.');
+  }
+
+  const token = board.tokens.find((t) => t.id === tokenId);
+  if (!token) throw new Error('La chapa ya no está en este escenario.');
+
+  const currentSnapshot = board.getLocalBoardData();
+  const updatedCurrent = removeTokenFromBoardData(currentSnapshot, tokenId);
+
+  const targetSnap = await getDoc(doc(db, 'parties', partyId, 'state', scenarioDocId(targetScenarioId)));
+  const targetData = targetSnap.exists() ? targetSnap.data() : buildFreshBoardState({});
+  const targetCols = targetData.grid?.cols || board.cols;
+  const targetRows = targetData.grid?.rows || board.rows;
+  const targetTokens = [...(targetData.tokens || [])];
+
+  const free = findFreeCell(targetTokens, targetCols, targetRows, token.col, token.row);
+  if (!free) throw new Error('No hay casilla libre en el escenario destino.');
+
+  const tokenCopy = stripUndefinedDeep({
+    ...token,
+    col: free.col,
+    row: free.row
+  });
+  const updatedTarget = stripUndefinedDeep({
+    ...targetData,
+    tokens: [...targetTokens, tokenCopy]
+  });
+
+  await setDoc(doc(db, 'parties', partyId, 'state', scenarioDocId(activeScenarioId)), {
+    ...updatedCurrent,
+    updatedAt: serverTimestamp()
+  });
+  await setDoc(doc(db, 'parties', partyId, 'state', scenarioDocId(targetScenarioId)), {
+    ...updatedTarget,
+    updatedAt: serverTimestamp()
+  });
+
+  await board.applyBoardData(updatedCurrent);
+  await board.saveState();
+}
+
 export async function ensurePartyScenariosInitialized(partyId, board) {
   const indexRef = doc(db, 'parties', partyId, 'state', 'scenarios');
   const indexSnap = await getDoc(indexRef);
@@ -312,6 +456,8 @@ export function initBoardScenarios({
     switchToScenario,
     saveCurrentScenarioBoard,
     refresh: renderTabs,
+    getActiveScenarioId: () => activeScenarioId,
+    getScenarioItems: () => [...items],
     destroy: () => { unsubscribe?.(); }
   };
 }

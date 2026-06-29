@@ -351,6 +351,12 @@
             <label class="form-label small mb-1" for="ctrl-token-force">Puntos de fuerza</label>
             <input type="number" class="form-control form-control-sm" id="ctrl-token-force" min="0" step="1">
           </div>
+          <div id="ctrl-move-scenario-wrap" class="mb-3 d-none">
+            <label class="form-label small mb-1" for="ctrl-move-scenario">Mover a escenario</label>
+            <select class="form-select form-select-sm" id="ctrl-move-scenario"></select>
+            <button type="button" id="btn-ctrl-move-scenario" class="btn btn-sm btn-swrp btn-swrp-primary mt-2">Mover chapa</button>
+            <p class="small text-muted mb-0 mt-1">Conserva HP, stats, diálogos, botín y demás datos actuales de la chapa.</p>
+          </div>
           <div class="d-flex flex-wrap gap-2">
             <button type="button" id="btn-ctrl-view-card" class="btn btn-sm btn-swrp btn-swrp-ghost">Ver carta</button>
             <button type="button" id="btn-ctrl-remove" class="btn btn-sm btn-swrp btn-swrp-danger ms-auto">Eliminar</button>
@@ -1080,6 +1086,7 @@
           boardPageApi?.renderActiveTokensList();
           objectivesPanel?.refresh();
           escaramuzaSpawnsEditor?.renderMarkers();
+          scenariosPanel?.refresh();
           syncCombatUi(board.combatStarted, isGM);
           boardSidebar.syncGmSidebar(board);
         }
@@ -1123,9 +1130,13 @@
             roster,
             npcs,
             isGM,
-            openCharacterCard: openTokenCard
+            openCharacterCard: openTokenCard,
+            getScenariosApi: () => scenariosPanel
           });
-          initBoardProgressUi({ board });
+          initBoardProgressUi({
+            board,
+            onAfterLoad: refreshBoardUiAfterScenarioSwitch
+          });
           await initBoardGridPanel({
             board,
             colsInput: gridColsInput,
