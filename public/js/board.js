@@ -567,10 +567,16 @@ export class TacticalBoard {
         );
         this.applyGridDimensions();
       }
-      if (data.mapUrl && data.mapUrl !== this._mapUrl) {
-        this._mapUrl = data.mapUrl;
-        this.onMapUrlChange(data.mapUrl);
-        this.loadMap(data.mapUrl).then(() => this.render());
+      if (data.mapUrl !== this._mapUrl) {
+        const nextMapUrl = data.mapUrl || null;
+        this._mapUrl = nextMapUrl;
+        this.onMapUrlChange(nextMapUrl || '');
+        if (nextMapUrl) {
+          this.loadMap(nextMapUrl).then(() => this.render());
+        } else {
+          this.mapImage = null;
+          if (!gridChanged) this.render();
+        }
       } else if (!gridChanged) {
         this.render();
       }
@@ -619,6 +625,7 @@ export class TacticalBoard {
       throw new Error('URL no válida');
     }
     await this.saveState({ mapUrl: trimmed });
+    await this._persistActiveScenarioLayout?.();
     this._mapUrl = trimmed;
     this.onMapUrlChange(trimmed);
     const ok = await this.loadMap(trimmed);
@@ -633,6 +640,7 @@ export class TacticalBoard {
     this._mapUrl = null;
     this.mapImage = null;
     await this.saveState({ mapUrl: null });
+    await this._persistActiveScenarioLayout?.();
     this.onMapUrlChange('');
     this.render();
     if (this.combatStarted) {
@@ -652,6 +660,7 @@ export class TacticalBoard {
     this.applyGridDimensions();
     this.render();
     await this.saveState({ grid: this.gridPayload() });
+    await this._persistActiveScenarioLayout?.();
     if (this.combatStarted) {
       await this.appendLog(logEntrySystem(`ajustó la cuadrícula a ${this.cols}×${this.rows}`));
     }
@@ -1673,7 +1682,7 @@ export class TacticalBoard {
         shopEnabled: this.shopEnabled !== false,
         mapUrl: partial.mapUrl !== undefined ? partial.mapUrl : (this._mapUrl ?? current.mapUrl ?? null),
         combatStarted: partial.combatStarted ?? this.combatStarted,
-        grid: partial.grid ?? current.grid ?? this.gridPayload(),
+        grid: partial.grid ?? this.gridPayload(),
         activeTurn: partial.activeTurn !== undefined
           ? partial.activeTurn
           : (this.activeTurn ?? current.activeTurn ?? null),
@@ -1717,9 +1726,9 @@ export class TacticalBoard {
         chests: this.chests.map((c) => stripUndefinedDeep(c)),
         objectives: this.objectives.map((o) => stripUndefinedDeep(o)),
         shopEnabled: this.shopEnabled !== false,
-        mapUrl: partial.mapUrl !== undefined ? partial.mapUrl : (current.mapUrl ?? null),
+        mapUrl: partial.mapUrl !== undefined ? partial.mapUrl : (this._mapUrl ?? current.mapUrl ?? null),
         combatStarted: partial.combatStarted ?? this.combatStarted,
-        grid: partial.grid ?? current.grid ?? this.gridPayload(),
+        grid: partial.grid ?? this.gridPayload(),
         activeTurn: partial.activeTurn !== undefined
           ? partial.activeTurn
           : (this.activeTurn ?? current.activeTurn ?? null),

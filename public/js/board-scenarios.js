@@ -450,6 +450,8 @@ export function initBoardScenarios({
 
   addBtn?.addEventListener('click', () => { addScenario(); });
 
+  board._persistActiveScenarioLayout = saveCurrentScenarioBoard;
+
   load();
 
   return {
@@ -458,6 +460,11 @@ export function initBoardScenarios({
     refresh: renderTabs,
     getActiveScenarioId: () => activeScenarioId,
     getScenarioItems: () => [...items],
-    destroy: () => { unsubscribe?.(); }
+    destroy: () => {
+      unsubscribe?.();
+      if (board._persistActiveScenarioLayout === saveCurrentScenarioBoard) {
+        board._persistActiveScenarioLayout = null;
+      }
+    }
   };
 }
