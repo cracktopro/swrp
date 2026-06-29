@@ -228,7 +228,7 @@
               </div>
               <div class="col-6">
                 <label class="form-label small" for="grid-rows">Alto (filas)</label>
-                <input type="number" class="form-control form-control-sm" id="grid-rows" min="4" max="48" value="16">
+                <input type="number" class="form-control form-control-sm" id="grid-rows" min="4" max="999" value="16">
               </div>
             </div>
             <button type="button" id="grid-apply" class="btn btn-sm btn-swrp btn-swrp-primary w-100 mb-3">Aplicar tamaño</button>
@@ -1164,7 +1164,8 @@
             board,
             party,
             partyId,
-            isGM
+            isGM,
+            getActiveScenarioId: () => scenariosPanel?.getActiveScenarioId?.()
           });
         }
 

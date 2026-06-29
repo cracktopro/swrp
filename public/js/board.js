@@ -151,7 +151,8 @@ const CELL = DEFAULT_CELL_WIDTH;
 const DEFAULT_COLS = 24;
 const DEFAULT_ROWS = 16;
 const MIN_GRID = 4;
-const MAX_GRID = 48;
+const MAX_GRID_COLS = 48;
+const MAX_GRID_ROWS = 999;
 const DRAG_THRESHOLD = 5;
 const LABEL_SIZE = 28;
 
@@ -303,8 +304,8 @@ export class TacticalBoard {
     this.turnOrder = data.turnOrder || [];
     this.turnOrderIndex = data.turnOrderIndex ?? 0;
     this.turnActions = normalizeTurnActions(data.turnActions);
-    if (data.grid?.cols) this.cols = clampGrid(data.grid.cols);
-    if (data.grid?.rows) this.rows = clampGrid(data.grid.rows);
+    if (data.grid?.cols) this.cols = clampGridCols(data.grid.cols);
+    if (data.grid?.rows) this.rows = clampGridRows(data.grid.rows);
     this.applyGridCellSizes(data.grid);
     this.tokens = this.tokens.filter(
       (t) => t.col >= 0 && t.col < this.cols && t.row >= 0 && t.row < this.rows
@@ -552,11 +553,11 @@ export class TacticalBoard {
       const prevCellW = this.cellWidth;
       const prevCellH = this.cellHeight;
       if (data.grid?.cols && data.grid.cols !== this.cols) {
-        this.cols = clampGrid(data.grid.cols);
+        this.cols = clampGridCols(data.grid.cols);
         gridChanged = true;
       }
       if (data.grid?.rows && data.grid.rows !== this.rows) {
-        this.rows = clampGrid(data.grid.rows);
+        this.rows = clampGridRows(data.grid.rows);
         gridChanged = true;
       }
       this.applyGridCellSizes(data.grid);
@@ -650,8 +651,8 @@ export class TacticalBoard {
 
   async setGridSize(cols, rows) {
     if (!this.isGM) return;
-    this.cols = clampGrid(cols);
-    this.rows = clampGrid(rows);
+    this.cols = clampGridCols(cols);
+    this.rows = clampGridRows(rows);
     this.cellWidth = DEFAULT_CELL_WIDTH;
     this.cellHeight = DEFAULT_CELL_HEIGHT;
     this.tokens = this.tokens.filter(
@@ -2742,8 +2743,16 @@ function clampCellSize(n, max = MAX_CELL_WIDTH) {
   return Math.min(max, Math.max(MIN_CELL_SIZE, Math.round(Number(n) || DEFAULT_CELL_WIDTH)));
 }
 
+function clampGridCols(n) {
+  return Math.min(MAX_GRID_COLS, Math.max(MIN_GRID, Math.round(Number(n) || MIN_GRID)));
+}
+
+function clampGridRows(n) {
+  return Math.min(MAX_GRID_ROWS, Math.max(MIN_GRID, Math.round(Number(n) || MIN_GRID)));
+}
+
 function clampGrid(n) {
-  return Math.min(MAX_GRID, Math.max(MIN_GRID, Math.round(Number(n) || MIN_GRID)));
+  return clampGridCols(n);
 }
 
 function timeLabel() {
@@ -2767,6 +2776,8 @@ export {
   DEFAULT_COLS,
   DEFAULT_ROWS,
   MIN_GRID,
-  MAX_GRID,
+  MAX_GRID_COLS,
+  MAX_GRID_ROWS,
+  MAX_GRID: MAX_GRID_COLS,
   LABEL_SIZE
 };

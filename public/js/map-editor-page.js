@@ -23,7 +23,8 @@ import {
   renderEscaramuzaListCard,
   scenariosFromTemplate,
   createDefaultScenarioStore,
-  buildTemplateSavePayload
+  buildTemplateSavePayload,
+  DEFAULT_SCENARIO_ID
 } from './escaramuza-templates.js';
 import { renderSpawnListUi, renderSpawnMarkersOnLayer } from './escaramuza-spawns-ui.js';
 import { initBoardObjectivesPanel } from './board-objectives.js';
@@ -213,10 +214,12 @@ function renderSpawnList() {
 }
 
 function renderEditorSpawnMarkersOnBoard() {
+  const activeId = scenariosPanel?.getActiveScenarioId?.() ?? DEFAULT_SCENARIO_ID;
+  const spawns = activeId === DEFAULT_SCENARIO_ID ? allySpawns : [];
   renderSpawnMarkersOnLayer(
     document.getElementById('board-spawn-layer'),
     board,
-    allySpawns
+    spawns
   );
 }
 

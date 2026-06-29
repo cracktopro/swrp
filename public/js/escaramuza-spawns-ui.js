@@ -1,7 +1,7 @@
 import { cellLabel } from './board.js';
 import { MiniBoardPicker } from './board-page.js';
 import { swrpAlert } from './swrp-dialog.js';
-import { savePartyEscaramuzaSlots } from './escaramuza-templates.js';
+import { savePartyEscaramuzaSlots, DEFAULT_SCENARIO_ID } from './escaramuza-templates.js';
 
 export function renderSpawnMarkersOnLayer(layerEl, board, spawns) {
   if (!layerEl || !board) return;
@@ -44,12 +44,14 @@ export function createAllySpawnsEditor({
   confirmBtnEl,
   canvasEl,
   getSpawns,
-  setSpawns
+  setSpawns,
+  shouldShowMarkersOnBoard = () => true
 }) {
   let spawnMiniBoard = null;
 
   function renderMarkers() {
-    renderSpawnMarkersOnLayer(spawnLayerEl, board, getSpawns());
+    const spawns = shouldShowMarkersOnBoard() ? getSpawns() : [];
+    renderSpawnMarkersOnLayer(spawnLayerEl, board, spawns);
   }
 
   function renderList() {
@@ -121,7 +123,14 @@ export function createAllySpawnsEditor({
   return { refresh, renderMarkers };
 }
 
-export function initPartyEscaramuzaSlotsPanel({ board, party, partyId, isGM, onSaved }) {
+export function initPartyEscaramuzaSlotsPanel({
+  board,
+  party,
+  partyId,
+  isGM,
+  onSaved,
+  getActiveScenarioId
+}) {
   const panel = document.getElementById('board-escaramuza-slots-panel');
   if (!panel) return null;
 
@@ -152,7 +161,11 @@ export function initPartyEscaramuzaSlotsPanel({ board, party, partyId, isGM, onS
     confirmBtnEl: document.getElementById('btn-confirm-ally-spawn'),
     canvasEl: document.getElementById('ally-spawn-canvas'),
     getSpawns: () => allySpawns,
-    setSpawns: (next) => { allySpawns = next; }
+    setSpawns: (next) => { allySpawns = next; },
+    shouldShowMarkersOnBoard: () => {
+      const activeId = getActiveScenarioId?.();
+      return !activeId || activeId === DEFAULT_SCENARIO_ID;
+    }
   });
 
   editor.refresh();

@@ -214,7 +214,7 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 
 **Opciones GM:**
 - Progreso: guardar/cargar snapshots completos del estado (`board-progress.js`), incluyendo cofres, botín resuelto, créditos pendientes, `token.loot`, `neutralNpcPresets` y **todos los escenarios** (`scenarioBoards` + índice `scenarios` en cada guardado `state/progress_*`).
-- Mapa URL, tamaño de cuadrícula (4–48 columnas/filas; celda fija 48 px).
+- Mapa URL, tamaño de cuadrícula (4–48 columnas, 4–999 filas; celda fija 48 px). Spawns de aliados solo visibles en **Escenario 1**.
 - Cargar tablero predefinido del compendio (opcional) o pegar URL manual.
 - Chapas en juego: añadir personajes/NPCs, **NPC neutral** (pestaña con formulario General/Objetos y biblioteca **NPCs Neutrales** guardada en el estado del tablero al colocar), control modal (stats, HP, facción, visión, diálogos).
 - **Jugadores y spawns** (solo escaramuza sin `templateId`): mín/máx, lista de spawns, modal minitablero (`escaramuza-spawns-ui.js` → `savePartyEscaramuzaSlots`).
