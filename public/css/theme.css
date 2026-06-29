@@ -1390,6 +1390,54 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
   }
 }
 
+.board-scenarios-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.board-scenario-tabs {
+  flex: 1 1 auto;
+  min-width: 0;
+  border-bottom: none;
+  flex-wrap: wrap;
+}
+
+.board-scenario-tab-item {
+  margin-bottom: 0;
+}
+
+.board-scenario-tab {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 0.15rem;
+}
+
+.board-scenario-tab .nav-link {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.board-scenario-visibility {
+  align-self: center;
+  font-size: 0.65rem;
+  line-height: 1;
+  padding: 0.2rem 0.35rem;
+  opacity: 0.75;
+  white-space: nowrap;
+}
+
+.board-scenario-visibility.is-visible {
+  opacity: 1;
+  color: var(--swrp-gold, #c9a227);
+}
+
+.board-scenarios-bar > #btn-add-scenario {
+  flex-shrink: 0;
+  margin-bottom: 0.15rem;
+}
+
 .board-grid-frame {
   display: grid;
   grid-template-columns: 28px auto;

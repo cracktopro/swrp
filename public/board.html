@@ -21,6 +21,10 @@
       </div>
       <a id="party-link" href="#" class="btn btn-sm btn-swrp btn-swrp-ghost">Foro Narrativo</a>
     </div>
+    <div class="board-scenarios-bar px-2 mb-2">
+      <ul class="nav nav-tabs swrp-board-tabs board-scenario-tabs mb-0" id="board-scenario-tabs" role="tablist"></ul>
+      <button type="button" id="btn-add-scenario" class="btn btn-sm btn-swrp btn-swrp-primary d-none" title="Nuevo escenario">+</button>
+    </div>
     <div class="row g-3 px-2">
       <div class="col-lg-9">
         <div class="board-grid-frame">
@@ -695,6 +699,7 @@
     import { initBoardGrantPanel } from './js/board-grant-panel.js';
     import { initBoardObjectivesPanel } from './js/board-objectives.js';
     import { initNpcControlPanel, normalizeNpcControlAssignments } from './js/npc-control.js';
+    import { initBoardScenarios } from './js/board-scenarios.js';
 
     const charModal = new bootstrap.Modal(document.getElementById('charModal'));
     const mentionModal = new bootstrap.Modal(document.getElementById('boardMentionModal'));
@@ -703,6 +708,7 @@
     let npcs = [];
     let escaramuzaSpawnsEditor = null;
     let npcControlPanel = null;
+    let scenariosPanel = null;
     let npcControlAssignments = {};
     let invCtx = null;
 
@@ -1065,6 +1071,19 @@
         await board.loadState();
         board.watchState();
 
+        function refreshBoardUiAfterScenarioSwitch() {
+          syncBoardGridInputs({ cols: board.cols, rows: board.rows }, {
+            colsInput: gridColsInput,
+            rowsInput: gridRowsInput
+          });
+          mapUrlInput.value = board._mapUrl || '';
+          boardPageApi?.renderActiveTokensList();
+          objectivesPanel?.refresh();
+          escaramuzaSpawnsEditor?.renderMarkers();
+          syncCombatUi(board.combatStarted, isGM);
+          boardSidebar.syncGmSidebar(board);
+        }
+
         const enemyVisionToggle = document.getElementById('board-toggle-enemy-vision');
         if (enemyVisionToggle) {
           enemyVisionToggle.checked = board.showEnemyVisionCones;
@@ -1137,6 +1156,13 @@
             isGM
           });
         }
+
+        scenariosPanel = initBoardScenarios({
+          board,
+          isGM,
+          partyId,
+          onAfterSwitch: refreshBoardUiAfterScenarioSwitch
+        });
 
         initBoardCombatUi({
           board,

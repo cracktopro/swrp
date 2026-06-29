@@ -33,6 +33,60 @@ import {
 
 const COLLECTION = 'escaramuzaTemplates';
 
+export const DEFAULT_SCENARIO_ID = 'scenario_1';
+
+export function createDefaultScenarioStore(boardLayout = null) {
+  return {
+    activeScenarioId: DEFAULT_SCENARIO_ID,
+    scenarios: [{
+      id: DEFAULT_SCENARIO_ID,
+      name: 'Escenario 1',
+      visibleToPlayers: true,
+      order: 0,
+      boardLayout: boardLayout || {}
+    }]
+  };
+}
+
+export function scenariosFromTemplate(template = {}) {
+  if (Array.isArray(template.scenarios) && template.scenarios.length) {
+    const scenarios = template.scenarios.map((s, index) => ({
+      id: s.id || `scenario_${index + 1}`,
+      name: s.name || `Escenario ${index + 1}`,
+      visibleToPlayers: s.visibleToPlayers !== false,
+      order: Number.isFinite(s.order) ? s.order : index,
+      boardLayout: s.boardLayout || {}
+    }));
+    const activeScenarioId = template.activeScenarioId
+      && scenarios.some((s) => s.id === template.activeScenarioId)
+      ? template.activeScenarioId
+      : scenarios[0].id;
+    return { activeScenarioId, scenarios };
+  }
+  return createDefaultScenarioStore(template.boardLayout || {});
+}
+
+export function buildTemplateSavePayload(scenarioStore, board) {
+  const activeId = scenarioStore.activeScenarioId;
+  const scenarios = scenarioStore.scenarios.map((s) => (
+    s.id === activeId
+      ? { ...s, boardLayout: buildLayoutFromBoard(board, { enemyOnly: false }) }
+      : s
+  ));
+  const active = scenarios.find((s) => s.id === activeId) || scenarios[0];
+  return {
+    boardLayout: active?.boardLayout || {},
+    scenarios: scenarios.map(({ id, name, visibleToPlayers, order, boardLayout }) => ({
+      id,
+      name,
+      visibleToPlayers: visibleToPlayers !== false,
+      order,
+      boardLayout
+    })),
+    activeScenarioId: activeId
+  };
+}
+
 export const ESCARAMUZA_DIFFICULTIES = [
   { id: 'padawan', label: 'Padawan', subtitle: 'Fácil', color: '#39ff14' },
   { id: 'jedi', label: 'Jedi', subtitle: 'Normal', color: '#00e5ff' },
@@ -184,6 +238,7 @@ function uniqueTokenId(template) {
 export function validateEscaramuzaTemplate({
   name,
   boardLayout,
+  scenarios,
   minPlayers,
   maxSlots,
   allySpawns,
@@ -205,9 +260,12 @@ export function validateEscaramuzaTemplate({
     throw new Error('El máximo de plazas debe ser mayor o igual al mínimo de jugadores');
   }
 
-  const enemies = (boardLayout?.tokens || []).filter((t) => t.side === 'enemy');
+  const primaryLayout = Array.isArray(scenarios) && scenarios.length
+    ? (scenarios[0]?.boardLayout || {})
+    : (boardLayout || {});
+  const enemies = (primaryLayout.tokens || []).filter((t) => t.side === 'enemy');
   if (!enemies.length) {
-    throw new Error('Debes colocar al menos un enemigo en el tablero');
+    throw new Error('Debes colocar al menos un enemigo en el Escenario 1');
   }
 
   const spawns = Array.isArray(allySpawns) ? allySpawns : [];
@@ -344,12 +402,15 @@ export async function saveEscaramuzaTemplate(userId, username, data, templateId 
     maxSlots: Number(data.maxSlots) || 1,
     allySpawns: (data.allySpawns || []).map((s) => ({ col: s.col, row: s.row })),
     boardLayout: data.boardLayout,
+    scenarios: data.scenarios,
+    activeScenarioId: data.activeScenarioId,
     updatedAt: serverTimestamp()
   });
 
   validateEscaramuzaTemplate({
     name: payload.name,
     boardLayout: payload.boardLayout,
+    scenarios: payload.scenarios,
     minPlayers: payload.minPlayers,
     maxSlots: payload.maxSlots,
     allySpawns: payload.allySpawns,
@@ -460,7 +521,31 @@ export async function createEscaramuzaFromTemplate(user, profile, templateId, ch
 
     await joinParty(ref.id, user, profile, { playMode: 'gm', character: character || null });
 
-    const boardState = buildFreshBoardState(template.boardLayout);
+    const scenarioStore = scenariosFromTemplate(template);
+    const activeId = scenarioStore.activeScenarioId;
+    const scenarioIndexItems = [];
+
+    for (const scenario of scenarioStore.scenarios) {
+      const boardState = buildFreshBoardState(scenario.boardLayout);
+      boardState.tokens = cloneTokensForInstance(boardState.tokens);
+      boardState.chests = cloneChestsForInstance(boardState.chests);
+      scenarioIndexItems.push({
+        id: scenario.id,
+        name: scenario.name,
+        visibleToPlayers: scenario.visibleToPlayers !== false,
+        order: scenario.order
+      });
+      if (scenario.id !== activeId) {
+        await setDoc(doc(db, 'parties', ref.id, 'state', scenario.id), {
+          ...boardState,
+          updatedAt: serverTimestamp()
+        });
+      }
+    }
+
+    const activeScenario = scenarioStore.scenarios.find((s) => s.id === activeId)
+      || scenarioStore.scenarios[0];
+    const boardState = buildFreshBoardState(activeScenario.boardLayout);
     boardState.tokens = cloneTokensForInstance(boardState.tokens);
     boardState.chests = cloneChestsForInstance(boardState.chests);
 
@@ -489,6 +574,17 @@ export async function createEscaramuzaFromTemplate(user, profile, templateId, ch
 
     await setDoc(doc(db, 'parties', ref.id, 'state', 'board'), {
       ...boardState,
+      updatedAt: serverTimestamp()
+    });
+
+    await setDoc(doc(db, 'parties', ref.id, 'state', activeScenario.id), {
+      ...boardState,
+      updatedAt: serverTimestamp()
+    });
+
+    await setDoc(doc(db, 'parties', ref.id, 'state', 'scenarios'), {
+      activeScenarioId: activeScenario.id,
+      items: scenarioIndexItems,
       updatedAt: serverTimestamp()
     });
 

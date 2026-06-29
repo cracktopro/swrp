@@ -208,6 +208,8 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 
 **Sidebar:** pestañas Combate | Log | **Objetivos** (todos los jugadores) | Opciones (solo GM).
 
+**Escenarios** (`board-scenarios.js`): barra de pestañas sobre el tablero (Escenario 1 por defecto, botón **+** solo GM). Cada escenario es un tablero independiente (mapa, grid, tokens, cofres, objetivos, biblioteca NPC neutral, combate). El escenario activo se sincroniza en tiempo real vía `state/board`; el resto se guarda en `state/{scenarioId}`. Índice en `state/scenarios` (`activeScenarioId`, `items[]` con `name`, `visibleToPlayers`). El GM puede ocultar escenarios a jugadores; los jugadores solo ven y pueden cambiar a pestañas marcadas como visibles. Misma UI en **Editor de mapas**; las plantillas guardan `scenarios[]` + `activeScenarioId` (y `boardLayout` del escenario activo por compatibilidad).
+
 **Objetivos** (`board-objectives.js`): lista de entradas con título opcional y texto (reglas, misiones, pistas). Visible para jugadores y GM; solo el GM puede agregar, editar y eliminar. Sincronización en tiempo real vía `state/board.objectives`. En plantillas de escaramuza se guardan en `boardLayout.objectives` y se importan al crear una partida desde la plantilla.
 
 **Opciones GM:**
@@ -375,17 +377,27 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
   name, imageUrl, description, era, difficulty,
   minPlayers, maxSlots,
   allySpawns: [{ col, row }, ...],
-  boardLayout: {
-    tokens: [...],           // enemigos, aliados y neutrales; token.loot en enemigos
-    chests: [{ id, col, row, imageUrl, loot }],  // cajas de loot
-    objectives: [{ id, title?, text }],  // reglas / misiones / pistas
-    mapUrl,
-    grid: { cols, rows, cellWidth, cellHeight },
-    neutralNpcPresets: [...]  // biblioteca NPC neutral (tablero y plantillas)
-  },
+  boardLayout: { ... },      // escenario activo (compatibilidad)
+  activeScenarioId?: string,
+  scenarios?: [{
+    id, name, visibleToPlayers, order,
+    boardLayout: { tokens, chests, objectives, mapUrl, grid, neutralNpcPresets }
+  }],
   createdAt, updatedAt
 }
 ```
+
+### `parties/{partyId}/state/scenarios`
+```js
+{
+  activeScenarioId: 'scenario_1',
+  items: [{ id, name, visibleToPlayers, order }],
+  updatedAt
+}
+```
+
+### `parties/{partyId}/state/{scenarioId}`
+Misma forma que `state/board` (snapshot del escenario cuando no está activo).
 
 ### `parties/{partyId}`
 ```js
@@ -513,6 +525,7 @@ Funciones auxiliares en reglas: `isAdmin`, `isPartyMember`, `isPartyGM`, `isEsca
 | `board-grid-panel.js` | Panel GM cuadrícula y carga de tableros del compendio |
 | `board-combat.js` | Turnos, iniciativa, dados en tablero |
 | `board-progress.js` | Guardados de progreso del tablero |
+| `board-scenarios.js` | Pestañas de escenarios (tablero y editor de mapas) |
 | `board-objectives.js` | Pestaña Objetivos: reglas/misiones/pistas (lectura jugadores, edición GM) |
 | `board-vision.js` | Conos visión, normalización tokens |
 | `compendium-store.js` | Carga/merge compendio, stats, clases, objetos |

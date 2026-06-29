@@ -20,13 +20,19 @@ import {
   buildFreshBoardState,
   buildDifficultyFormOptions,
   DEFAULT_ESCARAMUZA_DIFFICULTY,
-  renderEscaramuzaListCard
+  renderEscaramuzaListCard,
+  scenariosFromTemplate,
+  createDefaultScenarioStore,
+  buildTemplateSavePayload
 } from './escaramuza-templates.js';
 import { renderSpawnListUi, renderSpawnMarkersOnLayer } from './escaramuza-spawns-ui.js';
 import { initBoardObjectivesPanel } from './board-objectives.js';
+import { initBoardScenarios } from './board-scenarios.js';
 
 let board = null;
 let boardPageApi = null;
+let scenariosPanel = null;
+let scenarioStore = null;
 let allySpawns = [];
 let editingTemplateId = null;
 let isForkMode = false;
@@ -152,7 +158,10 @@ async function openEditorWorkspace(user, profile, { templateId = null, forkId = 
       }
     }
     allySpawns = [...(tpl.allySpawns || [])];
-    await initBoardEditor(user, profile, buildFreshBoardState(tpl.boardLayout));
+    scenarioStore = scenariosFromTemplate(tpl);
+    const activeScenario = scenarioStore.scenarios.find((s) => s.id === scenarioStore.activeScenarioId)
+      || scenarioStore.scenarios[0];
+    await initBoardEditor(user, profile, buildFreshBoardState(activeScenario.boardLayout));
 
     if (isForkMode) {
       forkHint?.classList.remove('d-none');
@@ -167,6 +176,7 @@ async function openEditorWorkspace(user, profile, { templateId = null, forkId = 
     forkHint?.classList.add('d-none');
     fillMetaForm({});
     if (saveBtn) saveBtn.textContent = 'Guardar plantilla';
+    scenarioStore = createDefaultScenarioStore(null);
     await initBoardEditor(user, profile, null);
   }
 
@@ -276,7 +286,8 @@ function wireSaveButton(user, profile) {
     const btn = document.getElementById('btn-save-template');
     btn.disabled = true;
     try {
-      const boardLayout = buildLayoutFromBoard(board, { enemyOnly: false });
+      await scenariosPanel?.saveCurrentScenarioBoard();
+      const scenarioPayload = buildTemplateSavePayload(scenarioStore, board);
       const data = {
         name: document.getElementById('editor-name').value,
         era: document.getElementById('editor-era').value,
@@ -286,7 +297,7 @@ function wireSaveButton(user, profile) {
         minPlayers: document.getElementById('editor-min-players').value,
         maxSlots: document.getElementById('editor-max-slots').value,
         allySpawns,
-        boardLayout
+        ...scenarioPayload
       };
       const wasFork = isForkMode;
       const saveAsNew = isForkMode || !editingTemplateId;
@@ -407,6 +418,28 @@ async function initBoardEditor(user, profile, initialState) {
     editorMode: true,
     allUserCharacters: userCharacters,
     openCharacterCard: (token) => openTokenCard(token, { roster, npcs, charModal, charModalBody })
+  });
+
+  const onScenarioSwitch = () => {
+    syncBoardGridInputs({ cols: board.cols, rows: board.rows }, {
+      colsInput: gridColsInput,
+      rowsInput: gridRowsInput
+    });
+    mapUrlInput.value = board._mapUrl || '';
+    boardPageApi?.renderActiveTokensList();
+    objectivesPanel?.refresh();
+    renderEditorSpawnMarkersOnBoard();
+    boardSidebar.syncGmSidebar(board);
+  };
+
+  scenariosPanel?.destroy();
+  scenariosPanel = initBoardScenarios({
+    board,
+    isGM: true,
+    editorMode: true,
+    getStore: () => scenarioStore,
+    setStore: (next) => { scenarioStore = next; },
+    onAfterSwitch: onScenarioSwitch
   });
 
   const fakeMember = {
