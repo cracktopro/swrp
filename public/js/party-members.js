@@ -12,7 +12,7 @@ import {
 import { normalizeCharacter, getClassMeta } from './character-card.js';
 import { docToCharacter } from './characters.js';
 import { getStats } from './compendium-store.js';
-import { npcToMembershipCharacter, normalizeNpcLoot, npcHasDefaultLoot } from './npcs.js';
+import { npcToMembershipCharacter, normalizeNpcLoot, npcHasDefaultLoot, isVehicleNpc } from './npcs.js';
 import { loadParty } from './party.js';
 import { hasEscaramuzaSlotConfig } from './escaramuza-templates.js';
 import { applyPermanentModifiers, computeMoveRange, normalizeInventory } from './inventory.js';
@@ -69,6 +69,12 @@ export function buildCharacterSnapshot(character) {
     hp: c.currentHp ?? c.hp,
     maxHp: c.maxHp,
     force: c.force,
+    shields: c.shields ?? null,
+    maxShields: c.maxShields ?? null,
+    npcCategory: c.npcCategory || null,
+    spanCols: c.spanCols ?? null,
+    spanRows: c.spanRows ?? null,
+    moveRange: c.moveRange ?? null,
     ...(c.type !== 'NPC' ? {
       equippedItemId: inv.equippedItemId || null,
       statBonuses: inv.statBonuses
@@ -299,6 +305,7 @@ export function tokenFromNeutralBoardNpc(npc) {
 }
 
 export function tokenFromNpc(npc) {
+  if (isVehicleNpc(npc)) return tokenFromVehicle(npc);
   const meta = getClassMeta(npc.class);
   const token = {
     id: `npc_${npc.id}`,
@@ -326,6 +333,57 @@ export function tokenFromNpc(npc) {
       attack: npc.attack,
       damage: npc.damage,
       force: npc.force
+    })
+  };
+  if (npcHasDefaultLoot(npc)) {
+    token.loot = normalizeNpcLoot(npc.loot);
+  }
+  return token;
+}
+
+export function tokenFromVehicle(npc) {
+  const meta = getClassMeta(npc.class);
+  const spanCols = Math.max(1, Number(npc.spanCols) || 1);
+  const spanRows = Math.max(1, Number(npc.spanRows) || 1);
+  const moveRange = Math.max(1, Number(npc.moveRange) || 6);
+  const maxShields = Number(npc.maxShields ?? npc.shields) || 0;
+  const shields = Number(npc.shields ?? npc.maxShields) ?? maxShields;
+  const token = {
+    id: `vehicle_${npc.id}`,
+    sourceId: npc.id,
+    kind: 'vehicle',
+    npcCategory: 'vehicle',
+    name: npc.name,
+    class: npc.class,
+    classLabel: meta.label,
+    theme: meta.theme,
+    color: meta.color,
+    portraitUrl: npc.image || npc.portraitUrl || '',
+    side: 'enemy',
+    spanCols,
+    spanRows,
+    moveRange,
+    characterSnapshot: buildCharacterSnapshot({
+      ...npc,
+      id: npc.id,
+      name: npc.name,
+      class: npc.class,
+      type: 'NPC',
+      npcCategory: 'vehicle',
+      species: 'Vehículo',
+      portraitUrl: npc.image || npc.portraitUrl || '',
+      skills: npc.skills || [],
+      hp: npc.hp,
+      maxHp: npc.maxHp,
+      defense: npc.defense,
+      attack: npc.attack,
+      damage: npc.damage,
+      force: null,
+      shields,
+      maxShields,
+      spanCols,
+      spanRows,
+      moveRange
     })
   };
   if (npcHasDefaultLoot(npc)) {

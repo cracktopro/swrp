@@ -117,6 +117,8 @@ export function enemySeesAlly(enemy, allies, cols, rows) {
 
 export function inferBoardTokenKind(token) {
   if (!token) return 'character';
+  if (token.kind === 'vehicle') return 'vehicle';
+  if (token.npcCategory === 'vehicle' || token.characterSnapshot?.npcCategory === 'vehicle') return 'vehicle';
   if (token.kind === 'npc' || token.kind === 'character') return token.kind;
   if (token.characterSnapshot?.type === 'NPC') return 'npc';
   return 'character';
@@ -128,6 +130,12 @@ export function normalizeBoardToken(token) {
   token.side = normalizeTokenSide(token.side);
   if (token.inCover === undefined) token.inCover = false;
   if (!Array.isArray(token.dialogues)) token.dialogues = [];
+  if (token.kind === 'vehicle') {
+    token.spanCols = Math.max(1, Number(token.spanCols ?? token.characterSnapshot?.spanCols) || 1);
+    token.spanRows = Math.max(1, Number(token.spanRows ?? token.characterSnapshot?.spanRows) || 1);
+    const moveRange = Number(token.moveRange ?? token.characterSnapshot?.moveRange);
+    if (Number.isFinite(moveRange) && moveRange > 0) token.moveRange = moveRange;
+  }
   if (token.side === 'enemy') {
     if (!FACING_DIRS.includes(token.facing)) token.facing = 'left';
     if (token.alerted === undefined) token.alerted = false;

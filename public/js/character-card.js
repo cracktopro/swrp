@@ -37,6 +37,12 @@ export function normalizeCharacter(data, id = null) {
     attack: data.attack,
     damage: data.damage,
     force: data.force ?? null,
+    shields: data.shields ?? null,
+    maxShields: data.maxShields ?? null,
+    spanCols: data.spanCols ?? null,
+    spanRows: data.spanRows ?? null,
+    moveRange: data.moveRange ?? null,
+    npcCategory: data.npcCategory || null,
     credits: Math.max(0, Math.round(Number(data.credits) || 0)),
     inventory: Array.isArray(data.inventory) ? data.inventory : [],
     equippedItemId: data.equippedItemId || null,
@@ -76,7 +82,9 @@ export function resolveCharacterStats(character) {
       defense: char.defense ?? base.defense ?? 0,
       attack: char.attack ?? base.attack ?? 0,
       damage: char.damage ?? base.damage ?? 0,
-      force: char.force ?? base.force ?? null
+      force: char.force ?? base.force ?? null,
+      shields: char.shields ?? char.maxShields ?? null,
+      maxShields: char.maxShields ?? char.shields ?? null
     };
   }
 
@@ -108,7 +116,7 @@ function statHexClass(statKey, { boardContext, equipBoosted }) {
 }
 
 export function renderCharacterCard(character, options = {}) {
-  const { mini = false, showSkills = true, isNpc = false, copyMentionId = null, boardContext = null, inventory = null, loot = null } = options;
+  const { mini = false, showSkills = true, isNpc = false, isVehicle = false, copyMentionId = null, boardContext = null, inventory = null, loot = null } = options;
   const char = normalizeCharacter(character, character?.id);
   const meta = getClassMeta(char.class);
   const stats = resolveCharacterStats(char);
@@ -133,17 +141,23 @@ export function renderCharacterCard(character, options = {}) {
 
   const equipBoosted = getEquipmentBoostedStatKeys(char);
   const attackFmt = formatAttack(displayStats.attack ?? stats.attack);
-  const forceBlock = meta.hasForce && stats.force != null
+  const forceBlock = !isVehicle && meta.hasForce && stats.force != null
     ? `<p class="swrp-card__force"><em>Fuerza: ${stats.force}</em></p>`
+    : '';
+  const shieldsBlock = isVehicle && (stats.shields != null || stats.maxShields != null)
+    ? `<p class="swrp-card__force swrp-card__shields"><em>Escudos: ${stats.shields ?? stats.maxShields ?? 0}</em></p>`
+    : '';
+  const vehicleSizeBlock = isVehicle
+    ? `<p class="swrp-card__vehicle-meta small text-muted mb-0">${Number(char.spanCols) || 1}×${Number(char.spanRows) || 1} celdas · Mov. ${Number(char.moveRange) || 6}</p>`
     : '';
 
   const skillItems = showSkills
     ? [...rolSkills, ...skills].map(renderSkillItem).join('')
     : '';
 
-  const npcBadge = isNpc
-    ? '<span class="swrp-card__badge-npc">NPC</span>'
-    : '';
+  const npcBadge = isVehicle
+    ? '<span class="swrp-card__badge-npc swrp-card__badge-vehicle">VEHÍCULO</span>'
+    : (isNpc ? '<span class="swrp-card__badge-npc">NPC</span>' : '');
 
   const copyIdBtn = copyMentionId
     ? `<button type="button" class="btn btn-sm btn-swrp btn-swrp-ghost swrp-card__copy-id" data-copy-mention="@{${escapeHtml(copyMentionId)}}">Copiar ID</button>`
@@ -163,7 +177,8 @@ export function renderCharacterCard(character, options = {}) {
           <span class="swrp-card__name-text">${escapeHtml(char.name)}</span>${npcBadge}
         </h2>
         <p class="swrp-card__class">${escapeHtml(meta.label)}</p>
-        <p class="swrp-card__species">${escapeHtml(char.species)}${char.era ? ` · <span class="swrp-card__era-label">Era:</span> ${escapeHtml(char.era)}` : ''}</p>
+        <p class="swrp-card__species">${escapeHtml(isVehicle ? 'Vehículo' : char.species)}${char.era ? ` · <span class="swrp-card__era-label">Era:</span> ${escapeHtml(char.era)}` : ''}</p>
+        ${vehicleSizeBlock}
       </div>
       <div class="swrp-card__header-actions">
         ${copyIdBtn}
@@ -186,6 +201,7 @@ export function renderCharacterCard(character, options = {}) {
       <div class="swrp-card__skills-panel">
         <h3 class="swrp-card__skills-title">HABILIDADES</h3>
         ${forceBlock}
+        ${shieldsBlock}
         <div class="swrp-card__skills-list">${skillItems || '<p class="text-muted small">Sin habilidades seleccionadas</p>'}</div>
       </div>
     </div>

@@ -349,6 +349,14 @@
             <label class="form-label small mb-1" for="ctrl-token-force">Puntos de fuerza</label>
             <input type="number" class="form-control form-control-sm" id="ctrl-token-force" min="0" step="1">
           </div>
+          <div id="ctrl-shields-wrap" class="mb-3 d-none">
+            <label class="form-label small mb-1" for="ctrl-token-shields">Escudos</label>
+            <div class="input-group input-group-sm swrp-hp-input-group">
+              <input type="number" class="form-control" id="ctrl-token-shields" min="0" step="1">
+              <span class="input-group-text swrp-hp-input-group__suffix">/ <span id="ctrl-token-max-shields">0</span></span>
+            </div>
+            <div id="ctrl-token-shields-bar" class="swrp-hp-bar swrp-hp-bar--modal swrp-shield-bar mt-2" aria-hidden="true"></div>
+          </div>
           <div id="ctrl-move-scenario-wrap" class="mb-3 d-none">
             <label class="form-label small mb-1" for="ctrl-move-scenario">Mover a escenario</label>
             <select class="form-select form-select-sm" id="ctrl-move-scenario"></select>
@@ -400,6 +408,7 @@
               <ul class="nav nav-tabs swrp-board-tabs mb-2" id="add-token-tabs">
                 <li class="nav-item"><button type="button" class="nav-link active" data-add-tab="characters">Personajes</button></li>
                 <li class="nav-item"><button type="button" class="nav-link" data-add-tab="npcs">NPCs</button></li>
+                <li class="nav-item"><button type="button" class="nav-link" data-add-tab="vehicles">Vehículos</button></li>
                 <li class="nav-item"><button type="button" class="nav-link" data-add-tab="neutral">Neutral</button></li>
               </ul>
               <div class="row g-2 mb-2">

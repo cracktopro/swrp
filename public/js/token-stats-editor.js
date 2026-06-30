@@ -5,14 +5,18 @@ import {
   getUnlockableSkillLevels,
   getSpeciesList,
   loadCompendiumData,
+  getCustomSkills,
+  findCustomSkillById,
+  CUSTOM_SKILLS_CLASS,
   GAME_DATA
 } from './compendium-store.js';
 import { normalizeCharacter } from './character-card.js';
+import { inferBoardTokenKind } from './board-vision.js';
 
 let selectedSkills = [];
 let statsOverride = null;
 let mounted = false;
-/** @type {'character' | 'npc'} */
+/** @type {'character' | 'npc' | 'vehicle'} */
 let tokenKind = 'npc';
 
 function escapeHtml(str) {
@@ -34,6 +38,10 @@ function isPartyCharacter() {
   return tokenKind === 'character';
 }
 
+function isVehicleToken() {
+  return tokenKind === 'vehicle';
+}
+
 function populateClassSelect() {
   const sel = document.getElementById('ctrl-stat-class');
   if (!sel) return;
@@ -50,18 +58,37 @@ function populateSpeciesSelect() {
     .join('');
 }
 
+function syncVehicleFieldsVisibility() {
+  const isVehicle = isVehicleToken();
+  document.getElementById('ctrl-stat-species-wrap')?.classList.toggle('d-none', isVehicle);
+  document.getElementById('ctrl-stat-force-wrap')?.classList.toggle('d-none', isVehicle);
+  document.getElementById('ctrl-stat-shields-wrap')?.classList.toggle('d-none', !isVehicle);
+  document.getElementById('ctrl-stat-vehicle-size-wrap')?.classList.toggle('d-none', !isVehicle);
+  document.getElementById('ctrl-stat-vehicle-move-wrap')?.classList.toggle('d-none', !isVehicle);
+  document.getElementById('ctrl-stat-skills-wrap')?.classList.toggle('d-none', isVehicle);
+  document.getElementById('ctrl-stat-vehicle-skills-wrap')?.classList.toggle('d-none', !isVehicle);
+}
+
 function setStatsFieldsEditable(editable) {
-  ['ctrl-stat-hp', 'ctrl-stat-defense', 'ctrl-stat-attack', 'ctrl-stat-damage', 'ctrl-stat-force']
+  ['ctrl-stat-hp', 'ctrl-stat-defense', 'ctrl-stat-attack', 'ctrl-stat-damage', 'ctrl-stat-force', 'ctrl-stat-shields']
     .forEach((id) => {
       const el = document.getElementById(id);
       if (el) el.disabled = !editable;
     });
-  document.getElementById('ctrl-stat-restore-base')?.classList.toggle('d-none', !editable);
+  ['ctrl-stat-span-cols', 'ctrl-stat-span-rows', 'ctrl-stat-move-range'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = !editable;
+  });
+  document.getElementById('ctrl-stat-restore-base')?.classList.toggle('d-none', !editable || isVehicleToken());
 }
 
 function updateStatsHint() {
   const hint = document.getElementById('ctrl-stat-hint');
   if (!hint) return;
+  if (isVehicleToken()) {
+    hint.textContent = 'Los cambios solo afectan a esta chapa en la partida actual.';
+    return;
+  }
   hint.textContent = isPartyCharacter()
     ? 'Las estadísticas escalan con la clase y el nivel. Los cambios se guardan en el personaje del jugador (progreso global).'
     : 'Los cambios solo afectan a esta chapa en la partida actual. Puedes ajustar las stats manualmente.';
@@ -79,18 +106,35 @@ function syncStatsFieldsFromBase() {
   document.getElementById('ctrl-stat-attack').value = statsOverride.attack ?? 0;
   document.getElementById('ctrl-stat-damage').value = statsOverride.damage ?? 0;
   document.getElementById('ctrl-stat-force').value = statsOverride.force ?? '';
+  const shieldsEl = document.getElementById('ctrl-stat-shields');
+  if (shieldsEl) shieldsEl.value = statsOverride.shields ?? statsOverride.maxShields ?? 0;
 }
 
 function readStatsFromFields() {
   const forceVal = document.getElementById('ctrl-stat-force')?.value;
-  const hp = parseInt(document.getElementById('ctrl-stat-hp')?.value, 10) || 0;
-  return {
-    hp,
-    maxHp: hp,
+  const shieldsVal = document.getElementById('ctrl-stat-shields')?.value;
+  const base = {
+    hp: parseInt(document.getElementById('ctrl-stat-hp')?.value, 10) || 0,
+    maxHp: parseInt(document.getElementById('ctrl-stat-hp')?.value, 10) || 0,
     defense: parseInt(document.getElementById('ctrl-stat-defense')?.value, 10) || 0,
     attack: parseInt(document.getElementById('ctrl-stat-attack')?.value, 10) || 0,
     damage: parseInt(document.getElementById('ctrl-stat-damage')?.value, 10) || 0,
     force: forceVal === '' ? null : parseInt(forceVal, 10)
+  };
+  if (isVehicleToken()) {
+    const shields = parseInt(shieldsVal, 10) || 0;
+    base.shields = shields;
+    base.maxShields = shields;
+    base.force = null;
+  }
+  return base;
+}
+
+function readVehicleFieldsFromUi() {
+  return {
+    spanCols: Math.max(1, parseInt(document.getElementById('ctrl-stat-span-cols')?.value, 10) || 1),
+    spanRows: Math.max(1, parseInt(document.getElementById('ctrl-stat-span-rows')?.value, 10) || 1),
+    moveRange: Math.max(1, parseInt(document.getElementById('ctrl-stat-move-range')?.value, 10) || 6)
   };
 }
 
@@ -131,6 +175,11 @@ function updateSkillPicker() {
   const classKey = document.getElementById('ctrl-stat-class')?.value;
   const level = parseInt(document.getElementById('ctrl-stat-level')?.value, 10) || 1;
   const container = document.getElementById('ctrl-stat-skills');
+  const vehicleContainer = document.getElementById('ctrl-stat-vehicle-skills');
+  if (isVehicleToken()) {
+    renderVehicleSkillPicker(vehicleContainer);
+    return;
+  }
   if (!container || !classKey) return;
 
   const available = getSkillsForClass(classKey, level)
@@ -178,12 +227,40 @@ function updateSkillPicker() {
   });
 }
 
+function renderVehicleSkillPicker(container) {
+  if (!container) return;
+  const customSkills = getCustomSkills().sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es'));
+  if (!customSkills.length) {
+    container.innerHTML = '<p class="small text-muted mb-0">Sin habilidades custom asignadas.</p>';
+    return;
+  }
+  container.innerHTML = '';
+  customSkills.forEach((skill) => {
+    const checked = selectedSkills.includes(skill.id);
+    const label = document.createElement('label');
+    label.className = 'd-block small mb-1';
+    label.innerHTML = `
+      <input type="checkbox" value="${escapeHtml(skill.id)}" ${checked ? 'checked' : ''}>
+      <span class="swrp-skill-badge ${skillTypeClass(skill.type)}">${escapeHtml(skill.type)}</span>
+      <strong>${escapeHtml(skill.name)}</strong> — ${escapeHtml(skill.description)}`;
+    label.querySelector('input').addEventListener('change', (e) => {
+      if (e.target.checked) {
+        if (!selectedSkills.includes(skill.id)) selectedSkills.push(skill.id);
+      } else {
+        selectedSkills = selectedSkills.filter((sid) => sid !== skill.id);
+      }
+      updateSkillPicker();
+    });
+    container.appendChild(label);
+  });
+}
+
 function onFormChange(e) {
   if (['ctrl-stat-class', 'ctrl-stat-level'].includes(e.target.id)) {
     if (isPartyCharacter() || (tokenKind === 'npc' && !statsOverride)) {
       syncStatsFieldsFromBase();
     }
-    selectedSkills = [];
+    if (!isVehicleToken()) selectedSkills = [];
   }
   if (e.target.id === 'ctrl-stat-portrait') {
     updatePortraitPreview(e.target.value.trim());
@@ -199,7 +276,7 @@ function bindEvents() {
       el?.addEventListener('input', onFormChange);
     });
 
-  ['ctrl-stat-hp', 'ctrl-stat-defense', 'ctrl-stat-attack', 'ctrl-stat-damage', 'ctrl-stat-force']
+  ['ctrl-stat-hp', 'ctrl-stat-defense', 'ctrl-stat-attack', 'ctrl-stat-damage', 'ctrl-stat-force', 'ctrl-stat-shields']
     .forEach((id) => {
       document.getElementById(id)?.addEventListener('input', () => {
         if (!isPartyCharacter()) {
@@ -232,7 +309,7 @@ export async function ensureTokenStatsEditor(container) {
         <label class="form-label small" for="ctrl-stat-level">Nivel</label>
         <input type="number" class="form-control form-control-sm" id="ctrl-stat-level" min="1" max="20" value="1">
       </div>
-      <div class="col-md-3">
+      <div class="col-md-3" id="ctrl-stat-species-wrap">
         <label class="form-label small" for="ctrl-stat-species">Especie</label>
         <select class="form-select form-select-sm" id="ctrl-stat-species"></select>
       </div>
@@ -244,9 +321,21 @@ export async function ensureTokenStatsEditor(container) {
         <div class="col-4 col-md"><label class="form-label small">Defensa</label><input type="number" class="form-control form-control-sm" id="ctrl-stat-defense" min="0"></div>
         <div class="col-4 col-md"><label class="form-label small">Ataque</label><input type="number" class="form-control form-control-sm" id="ctrl-stat-attack"></div>
         <div class="col-4 col-md"><label class="form-label small">Daño</label><input type="number" class="form-control form-control-sm" id="ctrl-stat-damage" min="0"></div>
-        <div class="col-4 col-md"><label class="form-label small">Fuerza</label><input type="number" class="form-control form-control-sm" id="ctrl-stat-force" placeholder="—"></div>
+        <div class="col-4 col-md" id="ctrl-stat-force-wrap"><label class="form-label small">Fuerza</label><input type="number" class="form-control form-control-sm" id="ctrl-stat-force" placeholder="—"></div>
+        <div class="col-4 col-md d-none" id="ctrl-stat-shields-wrap"><label class="form-label small">Escudos</label><input type="number" class="form-control form-control-sm" id="ctrl-stat-shields" min="0"></div>
       </div>
       <button type="button" class="btn btn-sm btn-swrp btn-swrp-ghost mt-2" id="ctrl-stat-restore-base">Aplicar stats del nivel actual</button>
+    </div>
+    <div class="mb-3 d-none" id="ctrl-stat-vehicle-size-wrap">
+      <label class="form-label small">Tamaño (celdas)</label>
+      <div class="row g-2">
+        <div class="col-6"><label class="form-label small" for="ctrl-stat-span-cols">Ancho</label><input type="number" class="form-control form-control-sm" id="ctrl-stat-span-cols" min="1" max="12" value="1"></div>
+        <div class="col-6"><label class="form-label small" for="ctrl-stat-span-rows">Alto</label><input type="number" class="form-control form-control-sm" id="ctrl-stat-span-rows" min="1" max="12" value="1"></div>
+      </div>
+    </div>
+    <div class="mb-3 d-none" id="ctrl-stat-vehicle-move-wrap">
+      <label class="form-label small" for="ctrl-stat-move-range">Movimiento (celdas/acción)</label>
+      <input type="number" class="form-control form-control-sm" id="ctrl-stat-move-range" min="1" max="99" value="6">
     </div>
     <div class="mb-3">
       <label class="form-label small" for="ctrl-stat-portrait">URL del retrato</label>
@@ -254,9 +343,13 @@ export async function ensureTokenStatsEditor(container) {
       <img id="ctrl-stat-portrait-preview" class="d-none mt-2" style="max-width:100px;border:1px solid #444" alt="">
       <p id="ctrl-stat-portrait-error" class="small text-warning d-none mb-0 mt-1">No se pudo cargar la imagen.</p>
     </div>
-    <div class="mb-2">
+    <div class="mb-2" id="ctrl-stat-skills-wrap">
       <label class="form-label small">Habilidades de combate</label>
       <div id="ctrl-stat-skills" class="swrp-scrollbar-thin" style="max-height:12rem;overflow-y:auto"></div>
+    </div>
+    <div class="mb-2 d-none" id="ctrl-stat-vehicle-skills-wrap">
+      <label class="form-label small">Habilidades custom (${escapeHtml(CUSTOM_SKILLS_CLASS)})</label>
+      <div id="ctrl-stat-vehicle-skills" class="swrp-scrollbar-thin" style="max-height:12rem;overflow-y:auto"></div>
     </div>
     <p id="ctrl-stat-hint" class="small text-muted mb-0"></p>`;
 
@@ -267,8 +360,9 @@ export async function ensureTokenStatsEditor(container) {
 }
 
 export function loadTokenStatsEditor(token) {
-  tokenKind = token.kind === 'npc' ? 'npc' : 'character';
-  document.getElementById('ctrl-stat-level-wrap')?.classList.toggle('d-none', tokenKind === 'npc');
+  tokenKind = inferBoardTokenKind(token);
+  document.getElementById('ctrl-stat-level-wrap')?.classList.toggle('d-none', tokenKind !== 'character');
+  syncVehicleFieldsVisibility();
   setStatsFieldsEditable(!isPartyCharacter());
   updateStatsHint();
 
@@ -278,19 +372,30 @@ export function loadTokenStatsEditor(token) {
       ...snap,
       name: token.name || snap.name,
       class: token.class || snap.class,
-      ...(tokenKind === 'npc' ? {} : { level: token.level ?? snap.level }),
-      portraitUrl: token.portraitUrl || snap.portraitUrl || ''
+      ...(tokenKind === 'character' ? { level: token.level ?? snap.level } : {}),
+      portraitUrl: token.portraitUrl || snap.portraitUrl || '',
+      spanCols: token.spanCols ?? snap.spanCols,
+      spanRows: token.spanRows ?? snap.spanRows,
+      moveRange: token.moveRange ?? snap.moveRange,
+      shields: token.shields ?? snap.shields,
+      maxShields: token.maxShields ?? snap.maxShields
     },
     snap.id || token.sourceId
   );
 
   document.getElementById('ctrl-stat-name').value = entity.name || '';
   document.getElementById('ctrl-stat-class').value = entity.class || entity.classKey;
-  if (tokenKind !== 'npc') {
+  if (tokenKind === 'character') {
     document.getElementById('ctrl-stat-level').value = String(entity.level || 1);
   }
   document.getElementById('ctrl-stat-species').value = entity.species || getSpeciesList()[0];
   document.getElementById('ctrl-stat-portrait').value = entity.portraitUrl || '';
+
+  if (isVehicleToken()) {
+    document.getElementById('ctrl-stat-span-cols').value = String(Math.max(1, Number(entity.spanCols ?? token.spanCols) || 1));
+    document.getElementById('ctrl-stat-span-rows').value = String(Math.max(1, Number(entity.spanRows ?? token.spanRows) || 1));
+    document.getElementById('ctrl-stat-move-range').value = String(Math.max(1, Number(entity.moveRange ?? token.moveRange) || 6));
+  }
 
   selectedSkills = (entity.skills || [])
     .map((s) => (typeof s === 'string' ? s : s?.id))
@@ -304,7 +409,9 @@ export function loadTokenStatsEditor(token) {
       defense: entity.defense ?? 0,
       attack: entity.attack ?? 0,
       damage: entity.damage ?? 0,
-      force: entity.force ?? null
+      force: entity.force ?? null,
+      shields: entity.shields ?? entity.maxShields ?? 0,
+      maxShields: entity.maxShields ?? entity.shields ?? 0
     };
   }
   syncStatsFieldsFromBase();
@@ -314,15 +421,15 @@ export function loadTokenStatsEditor(token) {
 
 export function readTokenStatsEditor() {
   const classKey = document.getElementById('ctrl-stat-class')?.value;
-  const level = tokenKind === 'npc'
-    ? 20
-    : (parseInt(document.getElementById('ctrl-stat-level')?.value, 10) || 1);
+  const level = tokenKind === 'character'
+    ? (parseInt(document.getElementById('ctrl-stat-level')?.value, 10) || 1)
+    : 20;
   const stats = resolveStatsForSave();
   const payload = {
     name: document.getElementById('ctrl-stat-name')?.value.trim() || 'Sin nombre',
     class: classKey,
     classKey,
-    species: document.getElementById('ctrl-stat-species')?.value,
+    species: isVehicleToken() ? 'Vehículo' : document.getElementById('ctrl-stat-species')?.value,
     portraitUrl: document.getElementById('ctrl-stat-portrait')?.value.trim() || '',
     skills: [...selectedSkills],
     hp: stats.hp,
@@ -332,6 +439,12 @@ export function readTokenStatsEditor() {
     damage: stats.damage,
     force: stats.force
   };
-  if (tokenKind !== 'npc') payload.level = level;
+  if (tokenKind === 'character') payload.level = level;
+  if (isVehicleToken()) {
+    Object.assign(payload, readVehicleFieldsFromUi());
+    payload.shields = stats.shields;
+    payload.maxShields = stats.maxShields;
+    payload.force = null;
+  }
   return payload;
 }

@@ -86,6 +86,14 @@
       </div>
 
       <div class="tab-pane fade" id="tab-npcs">
+        <ul class="nav nav-tabs swrp-board-tabs mb-3" id="npc-category-tabs" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button type="button" class="nav-link active" data-npc-category="character" role="tab">Personajes</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button type="button" class="nav-link" data-npc-category="vehicle" role="tab">Vehículos</button>
+          </li>
+        </ul>
         <div class="row g-3 mb-3 align-items-end">
           <div class="col-md-4">
             <label class="form-label" for="npc-filter-name">Nombre</label>
@@ -100,7 +108,10 @@
             <select class="form-select" id="npc-filter-era"></select>
           </div>
           <div class="col-md-2 d-none" id="admin-npcs-actions">
-            <a href="character-create?mode=npc" id="btn-new-npc" class="btn btn-sm btn-swrp btn-swrp-primary">+ Crear NPC</a>
+            <div class="d-flex flex-column gap-2">
+              <a href="character-create?mode=npc" id="btn-new-npc" class="btn btn-sm btn-swrp btn-swrp-primary">+ Crear NPC</a>
+              <a href="character-create?mode=vehicle" id="btn-new-vehicle" class="btn btn-sm btn-swrp btn-swrp-primary d-none">+ Crear Vehículo</a>
+            </div>
           </div>
         </div>
         <div id="npcs-list" class="npcs-grid"></div>

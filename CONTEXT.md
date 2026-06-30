@@ -216,7 +216,7 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 - Progreso: guardar/cargar snapshots completos del estado (`board-progress.js`), incluyendo cofres, botín resuelto, créditos pendientes, `token.loot`, `neutralNpcPresets` y **todos los escenarios** (`scenarioBoards` + índice `scenarios` en cada guardado `state/progress_*`).
 - Mapa URL, tamaño de cuadrícula (4–48 columnas, 4–999 filas; celda fija 48 px). Spawns de aliados solo visibles en **Escenario 1**.
 - Cargar tablero predefinido del compendio (opcional) o pegar URL manual.
-- Chapas en juego: añadir personajes/NPCs, **NPC neutral** (pestaña con formulario General/Objetos y biblioteca **NPCs Neutrales** guardada en el estado del tablero al colocar), control modal (stats, HP, facción, visión, diálogos).
+- Chapas en juego: añadir personajes/NPCs/**vehículos**, **NPC neutral** (pestaña con formulario General/Objetos y biblioteca **NPCs Neutrales** guardada en el estado del tablero al colocar), control modal (stats, HP, escudos en vehículos, facción, visión, diálogos).
 - **Jugadores y spawns** (solo escaramuza sin `templateId`): mín/máx, lista de spawns, modal minitablero (`escaramuza-spawns-ui.js` → `savePartyEscaramuzaSlots`).
 - **Control de NPC aliados** (solo escaramuza, GM): panel en Opciones para asignar cada NPC aliado en mesa a un jugador unido (`npc-control.js` → `parties/{id}.npcControlAssignments`). En escaramuzas el jugador solo controla su personaje; el GM controla enemigos. Los NPC aliados asignados entran en el orden de turnos con `userId` del jugador asignado, que puede moverlos/atacarlos cuando sea su turno.
 
@@ -238,12 +238,22 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 - Markup: `[img]`, `[C]color[/C]`, `@` menciones (solo personajes unidos).
 - Panel «Mi participación»: cambiar rol/personaje.
 
-### 8.5 Personajes y NPCs
+### 8.5 Personajes, NPCs y Vehículos
 
-- **Personajes** (`characters/`): héroes del jugador; creador en `character-create.html`.
-- **NPCs** (`npcs/`): solo admin; sin campo nivel; stats editables; usados en tablero, compendio y escaramuzas.
-- Cartas: `character-card.js` + `character-card.css` (temas por clase).
+- **Personajes** (`characters/`): héroes del jugador; creador en `character-create.html` (pestaña Personajes).
+- **NPCs** (`npcs/`, `npcCategory: 'character'`): solo admin; sin campo nivel; stats editables; usados en tablero, compendio y escaramuzas. Creador: pestaña **NPCs** en `character-create.html`.
+- **Vehículos** (`npcs/`, `npcCategory: 'vehicle'`): mismo almacén Firestore que los NPCs, pero con campos y comportamiento distintos (ver §8.5.2). Creador: pestaña **Vehículos** en `character-create.html`.
+- Cartas: `character-card.js` + `character-card.css` (temas por clase; badge **VEHÍCULO** en vehículos).
 - Selector reutilizable: `npc-picker.js` (`initCharacterPicker`, `initNpcPicker`) — filas estilo tarjeta con thumb, clase, especie, nivel.
+
+### 8.5.2 Vehículos (`npcCategory: 'vehicle'`)
+
+- **Compendio → NPCs:** subpestañas **Personajes | Vehículos**; botones **+ Crear NPC** / **+ Crear Vehículo** (admin).
+- **Creador** (`character-creator.js`): copia del formulario NPC (General + Objetos) sin especie ni habilidades de combate de clase; solo **habilidades custom** (Otros). Campos extra:
+  - **Tamaño:** `spanCols` × `spanRows` (celdas que ocupa en el tablero, ancla esquina superior izquierda).
+  - **Movimiento:** `moveRange` (celdas por acción de movimiento).
+  - **Escudos** en lugar de Fuerza (`shields` / `maxShields`); barra azul en la chapa.
+- **Tablero:** pestaña **Vehículos** en «Añadir al tablero» (partida y editor de mapas). Badge siempre **VEHÍCULO** con color de facción (verde/rojo/amarillo). `kind: 'vehicle'` en el token. Control de chapa: HP + escudos, stats editables (tamaño, movimiento, escudos).
 
 ### 8.6 Compendio (`compendium.html` + `compendium-page.js`, `compendium-store.js`)
 
@@ -254,7 +264,7 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
   - **Equipo:** ocupa la ranura especial del inventario (solo uno equipado). Sube una estadística (HP/Defensa/Ataque/Daño/Fuerza) en `statBonus` mientras esté equipado. Define además **`equipClass`** (clase que puede equiparlo; `'all'` = todas, sin contar «Otros») y **`equipLevel`** (nivel mínimo 1–20); el inventario solo permite equiparlo si el personaje cumple ambos requisitos.
   - **Consumible:** se usa en partida, desaparece y aplica un efecto (estadística + aumento). `temporary: true` → el efecto se revierte al **Finalizar combate**; `false` → permanente. Una cura (HP) nunca supera el máximo del personaje. **Estadística «Ninguna» (`stat: 'none'`):** consumible sin efecto mecánico (llaves, piezas, etc.); solo se gasta y se registra (uso narrativo/rol).
   - **Sin utilidad:** solo se puede vender.
-- Galería NPC con filtros.
+- Galería NPC con filtros y subpestañas Personajes/Vehículos.
 - Admin: CRUD completo; no admin: solo lectura.
 
 ### 8.6.1 Sistema de inventario (`inventory.js`, `inventory-modal.js`)
@@ -337,11 +347,16 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 ### `npcs/{id}`
 ```js
 {
-  name, species, class, classKey, type: 'NPC', era?,
-  hp, maxHp, defense, attack, damage, force,
+  name, species, class, classKey, type: 'NPC',
+  npcCategory?: 'character' | 'vehicle',  // ausente = character
+  era?, hp, maxHp, defense, attack, damage,
+  force?,                    // solo NPC personaje
+  shields?, maxShields?,     // solo vehículo
+  spanCols?, spanRows?,      // solo vehículo (tamaño en celdas)
+  moveRange?,                // solo vehículo (celdas por acción de movimiento)
   skills: [skillId, ...],
   portraitUrl / image,
-  loot?: { credits, items: [{ itemId, prob }] },  // botín por defecto (plantilla)
+  loot?: { credits, items: [{ itemId, prob }] },
   createdBy, createdAt, updatedAt
 }
 ```
@@ -444,14 +459,16 @@ Misma forma que `state/board` (snapshot del escenario cuando no está activo).
   mapUrl,
   grid: { cols, rows, cellWidth, cellHeight },
   tokens: [{
-    id, sourceId, kind: 'character' | 'npc',
+    id, sourceId, kind: 'character' | 'npc' | 'vehicle',
     name, class, theme, color,
     level?,  // solo personajes jugador, no NPC
     side: 'ally' | 'enemy' | 'neutral',
     dialogues?: string[],  // solo NPC neutral
     col, row, facing?, portraitUrl,
-    hp, maxHp, defense, ...
-    moveRange?,          // casillas/acción según peso del inventario (personajes)
+    spanCols?, spanRows?,  // vehículos (multi-celda)
+    hp, maxHp, defense, ...,
+    shields?, maxShields?,  // vehículos
+    moveRange?,          // personajes (peso inventario) o vehículos (definido en compendio)
     tempEffects?,        // [{ stat, amount }] efectos temporales de consumibles
     loot?,               // botín: { credits, items, creditShares, creditsClaimedBy, resolved }
     alerted?, spawnCol?, spawnRow?

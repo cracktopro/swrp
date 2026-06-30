@@ -20,6 +20,9 @@
       <li class="nav-item">
         <button type="button" class="nav-link" id="tab-npc" data-creator-mode="npc">NPCs</button>
       </li>
+      <li class="nav-item">
+        <button type="button" class="nav-link" id="tab-vehicle" data-creator-mode="vehicle">Vehículos</button>
+      </li>
     </ul>
     <div class="row g-4">
       <div class="col-lg-6">
@@ -49,7 +52,7 @@
                 <label class="form-label" for="char-level">Nivel</label>
                 <input type="number" class="form-control" id="char-level" min="1" max="20" value="1">
               </div>
-              <div class="col-md-3">
+              <div class="col-md-3" id="char-species-wrap">
                 <label class="form-label" for="char-species">Especie</label>
                 <select class="form-select" id="char-species"></select>
               </div>
@@ -66,7 +69,8 @@
                 <div class="col-4 col-md"><label class="form-label small">Defensa</label><input type="number" class="form-control form-control-sm" id="stat-defense" min="0"></div>
                 <div class="col-4 col-md"><label class="form-label small">Ataque</label><input type="number" class="form-control form-control-sm" id="stat-attack"></div>
                 <div class="col-4 col-md"><label class="form-label small">Daño</label><input type="number" class="form-control form-control-sm" id="stat-damage" min="0"></div>
-                <div class="col-4 col-md"><label class="form-label small">Fuerza</label><input type="number" class="form-control form-control-sm" id="stat-force" placeholder="—"></div>
+                <div class="col-4 col-md" id="stat-force-wrap"><label class="form-label small">Fuerza</label><input type="number" class="form-control form-control-sm" id="stat-force" placeholder="—"></div>
+                <div class="col-4 col-md d-none" id="stat-shields-wrap"><label class="form-label small">Escudos</label><input type="number" class="form-control form-control-sm" id="stat-shields" min="0"></div>
               </div>
               <button type="button" class="btn btn-sm btn-swrp btn-swrp-ghost mt-2" id="btn-load-base-stats">Restaurar stats de clase</button>
             </div>
@@ -82,7 +86,26 @@
                 No se pudo cargar la imagen.
               </p>
             </div>
-            <div class="mb-3">
+            <div class="mb-3 d-none" id="vehicle-size-wrap">
+              <label class="form-label">Tamaño del vehículo (celdas)</label>
+              <div class="row g-2">
+                <div class="col-6">
+                  <label class="form-label small" for="vehicle-span-cols">Ancho</label>
+                  <input type="number" class="form-control form-control-sm" id="vehicle-span-cols" min="1" max="12" value="1">
+                </div>
+                <div class="col-6">
+                  <label class="form-label small" for="vehicle-span-rows">Alto</label>
+                  <input type="number" class="form-control form-control-sm" id="vehicle-span-rows" min="1" max="12" value="1">
+                </div>
+              </div>
+              <p class="form-text small text-muted mb-0">Cuántas celdas ocupa el vehículo en el tablero (esquina superior izquierda).</p>
+            </div>
+            <div class="mb-3 d-none" id="vehicle-move-wrap">
+              <label class="form-label" for="vehicle-move-range">Movimiento</label>
+              <input type="number" class="form-control form-control-sm" id="vehicle-move-range" min="1" max="99" value="6">
+              <p class="form-text small text-muted mb-0">Número de celdas que puede moverse en cada acción de movimiento.</p>
+            </div>
+            <div class="mb-3" id="skills-picker-wrap">
               <label class="form-label">Habilidades de combate</label>
               <div id="skills-picker"></div>
             </div>
@@ -188,6 +211,7 @@
     const params = new URLSearchParams(window.location.search);
     const characterId = getCharacterIdFromQuery() || null;
     const npcId = params.get('npc') || null;
+    const creatorMode = params.get('mode') || null;
     const userIsAdmin = isAdmin(profile);
 
     if (npcId && !userIsAdmin) {
@@ -199,12 +223,16 @@
       } else if (npcId) {
         document.getElementById('form-title').textContent = 'Editar NPC';
         document.getElementById('save-btn').textContent = 'Guardar cambios';
+      } else if (creatorMode === 'vehicle') {
+        document.getElementById('form-title').textContent = 'Crear Vehículo';
+        document.getElementById('save-btn').textContent = 'Guardar Vehículo';
       }
 
       await initCharacterCreator(user.uid, {
         characterId,
         npcId,
-        isAdmin: userIsAdmin
+        isAdmin: userIsAdmin,
+        creatorMode
       });
     }
   </script>

@@ -1,5 +1,5 @@
-import { tokenFromCharacter, tokenFromNpc } from './party-members.js';
-import { cellLabel, getTokenHp, getTokenMaxHp, getTokenForce, tokenHasForceStat, updateHealthBarElement } from './board.js';
+import { tokenFromCharacter, tokenFromNpc, tokenFromVehicle } from './party-members.js';
+import { cellLabel, getTokenHp, getTokenMaxHp, getTokenForce, tokenHasForceStat, updateHealthBarElement, getTokenShields, getTokenMaxShields, updateShieldBarElement, isTokenVehicle } from './board.js';
 import {
   drawVisionConeOnCanvas,
   facingLabel,
@@ -24,7 +24,10 @@ import {
   buildNpcEraSelectOptions,
   filterNpcs,
   readNpcClassKey,
-  readNpcEra
+  readNpcEra,
+  filterNpcsByCategory,
+  NPC_CATEGORY_CHARACTER,
+  NPC_CATEGORY_VEHICLE
 } from './npcs.js';
 import {
   ensureTokenStatsEditor,
@@ -444,6 +447,14 @@ export function initBoardPage(ctx) {
       if (Number.isNaN(hp)) hp = 0;
       updateHealthBarElement(document.getElementById('ctrl-token-hp-bar'), hp, maxHp);
     });
+    const shieldsInput = document.getElementById('ctrl-token-shields');
+    const maxShieldsEl = document.getElementById('ctrl-token-max-shields');
+    shieldsInput?.addEventListener('input', () => {
+      const maxShields = parseInt(maxShieldsEl?.textContent, 10) || 1;
+      let shields = parseInt(shieldsInput.value, 10);
+      if (Number.isNaN(shields)) shields = 0;
+      updateShieldBarElement(document.getElementById('ctrl-token-shields-bar'), shields, maxShields);
+    });
     ctrlHpInputReady = true;
   }
 
@@ -506,7 +517,9 @@ export function initBoardPage(ctx) {
 
     activeListEl.innerHTML = tokens.map((token) => {
       const side = normalizeTokenSide(token.side);
-      const sideBadge = side === 'enemy' ? 'EN' : side === 'neutral' ? 'NT' : 'AL';
+      const sideBadge = isTokenVehicle(token)
+        ? 'VH'
+        : (side === 'enemy' ? 'EN' : side === 'neutral' ? 'NT' : 'AL');
       const facing = side === 'enemy' ? ` · ${facingLabel(token.facing || 'left')}` : '';
       return `
         <button type="button" class="swrp-active-token theme-${token.theme || 'soldado'}" data-token-id="${escapeHtml(token.id)}">
@@ -582,11 +595,24 @@ export function initBoardPage(ctx) {
 
     const forceWrap = document.getElementById('ctrl-force-wrap');
     const forceInput = document.getElementById('ctrl-token-force');
-    const hasForce = tokenHasForceStat(token);
+    const hasForce = !isTokenVehicle(token) && tokenHasForceStat(token);
     forceWrap?.classList.toggle('d-none', !hasForce);
     if (hasForce && forceInput) {
       const currentForce = getTokenForce(token);
       forceInput.value = currentForce == null ? '0' : String(currentForce);
+    }
+
+    const shieldsWrap = document.getElementById('ctrl-shields-wrap');
+    const shieldsInput = document.getElementById('ctrl-token-shields');
+    const maxShieldsEl = document.getElementById('ctrl-token-max-shields');
+    const isVehicle = isTokenVehicle(token);
+    shieldsWrap?.classList.toggle('d-none', !isVehicle || getTokenMaxShields(token) <= 0);
+    if (isVehicle && shieldsInput && maxShieldsEl) {
+      const maxShields = getTokenMaxShields(token);
+      maxShieldsEl.textContent = String(maxShields);
+      shieldsInput.max = String(maxShields);
+      shieldsInput.value = String(getTokenShields(token));
+      updateShieldBarElement(document.getElementById('ctrl-token-shields-bar'), getTokenShields(token), maxShields);
     }
 
     const coverInput = document.getElementById('ctrl-token-cover');
@@ -673,6 +699,13 @@ export function initBoardPage(ctx) {
         await board.updateTokenForce(updated.id, forceVal);
       }
     }
+    const shieldsInput = document.getElementById('ctrl-token-shields');
+    if (isTokenVehicle(updated) && shieldsInput) {
+      const shieldsVal = parseInt(shieldsInput.value, 10);
+      if (!Number.isNaN(shieldsVal)) {
+        await board.updateTokenShields(updated.id, shieldsVal);
+      }
+    }
     if (side === 'enemy' && lootContext?.kind === 'token' && lootDraft) {
       lootDraft.credits = Math.max(0, parseInt(document.getElementById('ctrl-loot-credits')?.value, 10) || 0);
       lootDraft.resolved = null;
@@ -721,17 +754,22 @@ export function initBoardPage(ctx) {
   }
 
   function getAddCandidates() {
+    if (addTab === 'neutral') return [];
     const list = addTab === 'characters'
       ? (allUserCharacters ?? roster)
-      : npcs;
+      : addTab === 'vehicles'
+        ? filterNpcsByCategory(npcs, NPC_CATEGORY_VEHICLE)
+        : filterNpcsByCategory(npcs, NPC_CATEGORY_CHARACTER);
     const mapped = list.map((item) => {
       const template = addTab === 'characters'
         ? tokenFromCharacter(item)
-        : tokenFromNpc(item);
+        : addTab === 'vehicles'
+          ? tokenFromVehicle(item)
+          : tokenFromNpc(item);
       return { item, template };
     });
 
-    if (addTab === 'npcs' || editorMode) return mapped;
+    if (addTab === 'npcs' || addTab === 'vehicles' || editorMode) return mapped;
 
     return mapped.filter(({ template }) => !board.tokenOnBoard(template.sourceId, template.kind));
   }
@@ -741,10 +779,10 @@ export function initBoardPage(ctx) {
     const classQ = document.getElementById('add-filter-class')?.value || '';
     const eraQ = document.getElementById('add-filter-era')?.value || '';
     const eraWrap = document.getElementById('add-filter-era-wrap');
-    eraWrap?.classList.toggle('d-none', addTab !== 'npcs');
+    eraWrap?.classList.toggle('d-none', addTab !== 'npcs' && addTab !== 'vehicles');
 
     const base = getAddCandidates();
-    if (addTab !== 'npcs') {
+    if (addTab !== 'npcs' && addTab !== 'vehicles') {
       return base.filter(({ item }) => {
         if (nameQ && !(item.name || '').toLowerCase().includes(nameQ)) return false;
         if (classQ && itemClassKey(item) !== classQ) return false;
@@ -767,7 +805,9 @@ export function initBoardPage(ctx) {
     if (!allCandidates.length) {
       const msg = addTab === 'npcs'
         ? 'No hay NPCs disponibles.'
-        : 'Todos los personajes ya están en el tablero.';
+        : addTab === 'vehicles'
+          ? 'No hay vehículos disponibles.'
+          : 'Todos los personajes ya están en el tablero.';
       listEl.innerHTML = `<p class="small text-muted mb-0">${msg}</p>`;
       addSelection = null;
       document.getElementById('btn-confirm-add').disabled = true;
@@ -789,16 +829,19 @@ export function initBoardPage(ctx) {
     listEl.innerHTML = candidates.map(({ item, template }) => {
       const selected = addSelection?.template.sourceId === template.sourceId;
       const classMeta = getClassMeta(itemClassKey(item));
-      const defaultSide = addTab === 'npcs' ? 'enemy' : 'ally';
-      const eraLine = addTab === 'npcs'
+      const defaultSide = (addTab === 'npcs' || addTab === 'vehicles') ? 'enemy' : 'ally';
+      const eraLine = (addTab === 'npcs' || addTab === 'vehicles')
         ? ` · ${escapeHtml(readNpcEra(item))}`
+        : '';
+      const sizeLine = addTab === 'vehicles'
+        ? ` · ${Number(item.spanCols) || 1}×${Number(item.spanRows) || 1}`
         : '';
       return `
         <button type="button" class="swrp-add-token-item${selected ? ' is-selected' : ''}" data-source="${escapeHtml(template.sourceId)}" data-kind="${escapeHtml(template.kind)}">
           ${renderAddTokenThumb(item, classMeta.theme || item.theme || 'soldado')}
           <span class="swrp-add-token-item__body">
             <strong>${escapeHtml(item.name)}</strong>
-            <span class="small text-muted d-block">${escapeHtml(classMeta.label || itemClassKey(item) || '—')} · ${sideLabel(defaultSide)}${eraLine}</span>
+            <span class="small text-muted d-block">${escapeHtml(classMeta.label || itemClassKey(item) || '—')} · ${sideLabel(defaultSide)}${eraLine}${sizeLine}</span>
           </span>
         </button>`;
     }).join('');
@@ -917,7 +960,7 @@ export function initBoardPage(ctx) {
     addTab = tab.dataset.addTab;
     document.querySelectorAll('#add-token-tabs .nav-link').forEach((el) => el.classList.remove('active'));
     tab.classList.add('active');
-    if (addTab === 'npcs') {
+    if (addTab === 'npcs' || addTab === 'vehicles') {
       setInputChecked('add-side-enemy', true);
     } else if (addTab === 'characters') {
       setInputChecked('add-side-ally', true);

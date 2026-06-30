@@ -107,9 +107,13 @@ function getTokenMoveRange(token) {
 }
 
 function computeOrthogonalReachable(fromCol, fromRow, token, tokens, cols, rows, maxRange) {
-  const blocked = new Set(
-    tokens.filter((t) => t.id !== token.id).map((t) => `${t.col},${t.row}`)
-  );
+  const blocked = new Set();
+  for (const t of tokens) {
+    if (t.id === token.id) continue;
+    for (const cell of getTokenFootprintCells(t)) {
+      blocked.add(`${cell.col},${cell.row}`);
+    }
+  }
   const reachable = new Set();
   const queue = [[fromCol, fromRow, 0]];
   const visited = new Set([`${fromCol},${fromRow}`]);
@@ -155,6 +159,43 @@ const MAX_GRID_COLS = 48;
 const MAX_GRID_ROWS = 999;
 const DRAG_THRESHOLD = 5;
 const LABEL_SIZE = 28;
+
+export function getTokenSpan(token) {
+  const spanCols = Math.max(1, Number(token?.spanCols ?? token?.characterSnapshot?.spanCols) || 1);
+  const spanRows = Math.max(1, Number(token?.spanRows ?? token?.characterSnapshot?.spanRows) || 1);
+  return { spanCols, spanRows };
+}
+
+export function getTokenFootprintCells(token, col = token?.col, row = token?.row) {
+  if (col == null || row == null) return [];
+  const { spanCols, spanRows } = getTokenSpan(token);
+  const cells = [];
+  for (let r = 0; r < spanRows; r++) {
+    for (let c = 0; c < spanCols; c++) {
+      cells.push({ col: col + c, row: row + r });
+    }
+  }
+  return cells;
+}
+
+export function isTokenVehicle(token) {
+  return inferBoardTokenKind(token) === 'vehicle';
+}
+
+function tokenOccupiesCell(token, col, row) {
+  return getTokenFootprintCells(token).some((cell) => cell.col === col && cell.row === row);
+}
+
+function canPlaceTokenFootprintAt(board, token, col, row, excludeTokenId = null) {
+  const { spanCols, spanRows } = getTokenSpan(token);
+  if (col < 0 || row < 0 || col + spanCols > board.cols || row + spanRows > board.rows) return false;
+  for (const cell of getTokenFootprintCells(token, col, row)) {
+    const occupant = board.tokens.find((t) => t.id !== excludeTokenId && tokenOccupiesCell(t, cell.col, cell.row));
+    if (occupant) return false;
+    if (board.chestAt(cell.col, cell.row)) return false;
+  }
+  return true;
+}
 
 function tokenMatchesPlayerTurn(token, turn) {
   if (!token || !turn || turn.kind !== 'player') return false;
@@ -904,6 +945,21 @@ export class TacticalBoard {
     this.onTokensChange(this.tokens);
   }
 
+  async updateTokenShields(tokenId, shields) {
+    if (!this.isGM) return;
+    const token = this.tokens.find((t) => t.id === tokenId);
+    if (!token || !isTokenVehicle(token)) return;
+    const maxShields = getTokenMaxShields(token);
+    const clamped = Math.max(0, Math.min(Number(shields) || 0, maxShields));
+    if (token.characterSnapshot) {
+      token.characterSnapshot.shields = clamped;
+    }
+    token.shields = clamped;
+    await this.saveState({});
+    this.render();
+    this.onTokensChange(this.tokens);
+  }
+
   async updateTokenFromStats(tokenId, entity) {
     if (!this.isGM || !entity) return;
     const token = this.tokens.find((t) => t.id === tokenId);
@@ -911,6 +967,7 @@ export class TacticalBoard {
 
     const tokenKind = inferBoardTokenKind(token);
     token.kind = tokenKind;
+    const isVehicle = tokenKind === 'vehicle';
 
     const meta = getClassMeta(entity.class || entity.classKey);
     const maxHp = Number(entity.maxHp ?? entity.hp) || 1;
@@ -921,11 +978,12 @@ export class TacticalBoard {
     const snapshot = stripUndefinedDeep({
       id: sourceId,
       name: entity.name,
-      species: entity.species || 'Humanos',
+      species: entity.species || (isVehicle ? 'Vehículo' : 'Humanos'),
       class: entity.class || entity.classKey,
       classKey: entity.classKey || entity.class,
       ...(isHero ? { level: Number(entity.level) || 1 } : {}),
       type: token.characterSnapshot?.type || (isHero ? 'Heroe' : 'NPC'),
+      npcCategory: isVehicle ? 'vehicle' : (token.characterSnapshot?.npcCategory || 'character'),
       portraitUrl: entity.portraitUrl || '',
       skills: entity.skills || [],
       attack: Number(entity.attack) || 0,
@@ -933,7 +991,12 @@ export class TacticalBoard {
       damage: Number(entity.damage) || 0,
       hp: currentHp,
       maxHp,
-      force: entity.force ?? null
+      force: isVehicle ? null : (entity.force ?? null),
+      shields: isVehicle ? Math.min(getTokenShields(token), Number(entity.maxShields ?? entity.shields) || 0) : null,
+      maxShields: isVehicle ? (Number(entity.maxShields ?? entity.shields) || 0) : null,
+      spanCols: isVehicle ? Math.max(1, Number(entity.spanCols) || 1) : null,
+      spanRows: isVehicle ? Math.max(1, Number(entity.spanRows) || 1) : null,
+      moveRange: isVehicle ? Math.max(1, Number(entity.moveRange) || 6) : null
     });
 
     token.name = entity.name;
@@ -944,6 +1007,13 @@ export class TacticalBoard {
     token.theme = meta.theme;
     token.color = meta.color;
     token.portraitUrl = snapshot.portraitUrl;
+    if (isVehicle) {
+      token.spanCols = snapshot.spanCols;
+      token.spanRows = snapshot.spanRows;
+      token.moveRange = snapshot.moveRange;
+      token.shields = snapshot.shields;
+      token.maxShields = snapshot.maxShields;
+    }
     token.characterSnapshot = cloneInstanceSnapshot(snapshot);
 
     if (isHero && sourceId) {
@@ -1257,8 +1327,10 @@ export class TacticalBoard {
 
   async placeTokenFromTemplate(template, { col, row, side, facing = 'left' }) {
     if (!this.isGM) throw new Error('Solo el GM puede colocar chapas');
-    if (this.tokenAt(col, row)) throw new Error('Celda ocupada');
-    if (this.chestAt(col, row)) throw new Error('Celda ocupada por una caja');
+    const probe = { ...template, col, row };
+    if (!canPlaceTokenFootprintAt(this, probe, col, row)) {
+      throw new Error('Celda ocupada o el vehículo no cabe en esa posición');
+    }
     if (template.kind === 'character' && this.tokenOnBoard(template.sourceId, template.kind)) {
       throw new Error('Este personaje ya está en el tablero');
     }
@@ -1450,7 +1522,7 @@ export class TacticalBoard {
   }
 
   tokenAt(col, row) {
-    return this.tokens.find((t) => t.col === col && t.row === row);
+    return this.tokens.find((t) => tokenOccupiesCell(t, col, row)) || null;
   }
 
   onCanvasMouseDown(e) {
@@ -1510,7 +1582,8 @@ export class TacticalBoard {
       const fromRow = this.pointer.fromRow;
       const inRange = this.usesRestrictedMovement()
         ? this.isCellReachableForMove(this.pointer.token, col, row, fromCol, fromRow)
-        : !this.tokens.find((t) => t.col === col && t.row === row && t.id !== this.pointer.token.id);
+          && canPlaceTokenFootprintAt(this, this.pointer.token, col, row, this.pointer.token.id)
+        : canPlaceTokenFootprintAt(this, this.pointer.token, col, row, this.pointer.token.id);
       if (inRange) {
         this.pointer.token.col = col;
         this.pointer.token.row = row;
@@ -1876,33 +1949,41 @@ export class TacticalBoard {
       const side = normalizeTokenSide(token.side);
       const defeated = isTokenDefeated(token);
       const portraitUrl = getTokenPortraitUrl(token);
+      const isVehicle = isTokenVehicle(token);
+      const { spanCols, spanRows } = getTokenSpan(token);
       const statusHtml = !defeated
         ? renderTokenStatusIcons(token, this.tokens, this.cols, this.rows)
         : '';
 
       const wrap = document.createElement('div');
       const highlighted = token.id === this.highlightedTokenId;
-      wrap.className = `swrp-board-token-wrap swrp-board-token-wrap--${side}${defeated ? ' is-defeated' : ''}${this.isTokenActiveTurn(token) ? ' is-active-turn' : ''}${highlighted ? ' is-highlighted' : ''}`;
+      wrap.className = `swrp-board-token-wrap swrp-board-token-wrap--${side}${defeated ? ' is-defeated' : ''}${this.isTokenActiveTurn(token) ? ' is-active-turn' : ''}${highlighted ? ' is-highlighted' : ''}${isVehicle ? ' swrp-board-token-wrap--vehicle' : ''}`;
       wrap.style.left = `${token.col * this.cellWidth + pad}px`;
       wrap.style.top = `${token.row * this.cellHeight + pad}px`;
-      wrap.style.width = `${this.cellWidth}px`;
-      wrap.style.height = `${this.cellHeight}px`;
+      wrap.style.width = `${this.cellWidth * spanCols}px`;
+      wrap.style.height = `${this.cellHeight * spanRows}px`;
 
       if (statusHtml) {
         wrap.insertAdjacentHTML('afterbegin', statusHtml);
       }
 
       const chip = document.createElement('div');
-      chip.className = `swrp-board-token swrp-board-token--${side} theme-${token.theme || 'soldado'}${defeated ? ' swrp-board-token--defeated' : ''}${this.selectedTokenId === token.id ? ' is-selected' : ''}${this.pointer?.token?.id === token.id && this.pointer.dragging ? ' is-dragging' : ''}`;
+      chip.className = `swrp-board-token swrp-board-token--${side} theme-${token.theme || 'soldado'}${defeated ? ' swrp-board-token--defeated' : ''}${isVehicle ? ' swrp-board-token--vehicle' : ''}${this.selectedTokenId === token.id ? ' is-selected' : ''}${this.pointer?.token?.id === token.id && this.pointer.dragging ? ' is-dragging' : ''}`;
       chip.setAttribute('role', 'button');
       chip.tabIndex = 0;
       chip.style.setProperty('--token-color', token.color || '#00e5ff');
+      if (isVehicle) {
+        chip.style.width = '100%';
+        chip.style.height = '100%';
+      }
 
       const badgeEl = document.createElement('div');
       badgeEl.className = 'swrp-board-token__side-badge';
       badgeEl.textContent = defeated
         ? 'DERROTADO'
-        : (side === 'enemy' ? 'ENEMIGO' : side === 'neutral' ? 'NEUTRAL' : 'ALIADO');
+        : (isVehicle
+          ? 'VEHÍCULO'
+          : (side === 'enemy' ? 'ENEMIGO' : side === 'neutral' ? 'NEUTRAL' : 'ALIADO'));
 
       const faceEl = document.createElement('div');
       faceEl.className = 'swrp-board-token__face';
@@ -1930,6 +2011,9 @@ export class TacticalBoard {
       chip.appendChild(badgeEl);
       chip.appendChild(faceEl);
       chip.insertAdjacentHTML('beforeend', renderTokenHealthBarHtml(token));
+      if (isVehicle && getTokenMaxShields(token) > 0) {
+        chip.insertAdjacentHTML('beforeend', renderTokenShieldBarHtml(token));
+      }
 
       chip.addEventListener('mousedown', (ev) => this.beginPointer(ev, token));
       if (this.isGM) {
@@ -2515,28 +2599,51 @@ export function getHealthBarSegments(hp, maxHp) {
   return ['red', 'empty', 'empty'];
 }
 
-export function renderHealthBarHtml(hp, maxHp, { variant = 'token' } = {}) {
-  const { color, glow } = getHealthBarFill(hp, maxHp);
-  const variantClass = variant === 'modal' ? 'swrp-hp-bar--modal' : 'swrp-hp-bar--token';
-  return `<div class="swrp-hp-bar ${variantClass}" aria-hidden="true">${buildHealthBarTrackHtml(hp, maxHp, color, glow)}</div>`;
+export function getTokenMaxShields(token) {
+  return Number(token.characterSnapshot?.maxShields ?? token.maxShields) || 0;
 }
 
-export function updateHealthBarElement(barEl, hp, maxHp) {
+export function getTokenShields(token) {
+  const max = getTokenMaxShields(token);
+  if (!max) return 0;
+  const shields = token.characterSnapshot?.shields ?? token.shields;
+  return shields == null ? max : Number(shields);
+}
+
+export function renderHealthBarHtml(hp, maxHp, { variant = 'token', color, glow } = {}) {
+  const fill = color && glow ? { color, glow } : getHealthBarFill(hp, maxHp);
+  const variantClass = variant === 'modal' ? 'swrp-hp-bar--modal' : 'swrp-hp-bar--token';
+  return `<div class="swrp-hp-bar ${variantClass}" aria-hidden="true">${buildHealthBarTrackHtml(hp, maxHp, fill.color, fill.glow)}</div>`;
+}
+
+export function renderTokenShieldBarHtml(token) {
+  return renderHealthBarHtml(getTokenShields(token), getTokenMaxShields(token), {
+    variant: 'token',
+    color: '#4da6ff',
+    glow: 'blue'
+  }).replace('swrp-hp-bar--token', 'swrp-hp-bar--token swrp-shield-bar');
+}
+
+export function updateShieldBarElement(barEl, shields, maxShields) {
+  updateHealthBarElement(barEl, shields, maxShields, { color: '#4da6ff', glow: 'blue' });
+}
+
+export function updateHealthBarElement(barEl, hp, maxHp, { color, glow } = {}) {
   if (!barEl) return;
-  const { color, glow } = getHealthBarFill(hp, maxHp);
+  const fill = color && glow ? { color, glow } : getHealthBarFill(hp, maxHp);
   const count = getHealthSegmentCount(maxHp);
   const track = barEl.querySelector('.swrp-hp-bar__track');
   if (!track || Number(track.dataset.segments) !== count) {
-    barEl.innerHTML = buildHealthBarTrackHtml(hp, maxHp, color, glow);
+    barEl.innerHTML = buildHealthBarTrackHtml(hp, maxHp, fill.color, fill.glow);
     return;
   }
   track.querySelectorAll('.swrp-hp-bar__segment').forEach((seg, i) => {
-    const fill = seg.querySelector('.swrp-hp-bar__fill');
-    if (!fill) return;
-    fill.style.width = `${getSegmentFillPercent(i, hp, maxHp).toFixed(2)}%`;
-    fill.style.backgroundColor = color;
-    fill.classList.remove('swrp-hp-bar__fill--green', 'swrp-hp-bar__fill--yellow', 'swrp-hp-bar__fill--red');
-    fill.classList.add(`swrp-hp-bar__fill--${glow}`);
+    const fillEl = seg.querySelector('.swrp-hp-bar__fill');
+    if (!fillEl) return;
+    fillEl.style.width = `${getSegmentFillPercent(i, hp, maxHp).toFixed(2)}%`;
+    fillEl.style.backgroundColor = fill.color;
+    fillEl.classList.remove('swrp-hp-bar__fill--green', 'swrp-hp-bar__fill--yellow', 'swrp-hp-bar__fill--red', 'swrp-hp-bar__fill--blue');
+    fillEl.classList.add(`swrp-hp-bar__fill--${fill.glow}`);
   });
 }
 

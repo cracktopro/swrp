@@ -20,6 +20,22 @@ export const NPC_ERAS = [
 
 export const DEFAULT_NPC_ERA = 'República';
 
+export const NPC_CATEGORY_CHARACTER = 'character';
+export const NPC_CATEGORY_VEHICLE = 'vehicle';
+
+export function readNpcCategory(npc) {
+  const cat = npc?.npcCategory;
+  return cat === NPC_CATEGORY_VEHICLE ? NPC_CATEGORY_VEHICLE : NPC_CATEGORY_CHARACTER;
+}
+
+export function isVehicleNpc(npc) {
+  return readNpcCategory(npc) === NPC_CATEGORY_VEHICLE;
+}
+
+export function filterNpcsByCategory(npcs, category = NPC_CATEGORY_CHARACTER) {
+  return (npcs || []).filter((npc) => readNpcCategory(npc) === category);
+}
+
 export function normalizeNpcLoot(raw) {
   return normalizeLootTemplate(raw || {});
 }
@@ -52,12 +68,13 @@ export function readNpcClassKey(npc) {
   return npc?.classKey || npc?.class || '';
 }
 
-export function filterNpcs(npcs, { nameQ = '', classQ = '', eraQ = '' } = {}) {
+export function filterNpcs(npcs, { nameQ = '', classQ = '', eraQ = '', categoryQ = '' } = {}) {
   const name = String(nameQ).trim().toLowerCase();
   return (npcs || []).filter((npc) => {
     if (name && !(npc.name || '').toLowerCase().includes(name)) return false;
     if (classQ && readNpcClassKey(npc) !== classQ) return false;
     if (eraQ && readNpcEra(npc) !== eraQ) return false;
+    if (categoryQ && readNpcCategory(npc) !== categoryQ) return false;
     return true;
   });
 }
@@ -97,6 +114,7 @@ export async function createNpc(data) {
   const ref = await addDoc(collection(db, 'npcs'), {
     ...data,
     era: readNpcEra(data),
+    npcCategory: readNpcCategory(data),
     type: 'NPC',
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
@@ -108,6 +126,7 @@ export async function updateNpc(npcId, data) {
   await updateDoc(doc(db, 'npcs', npcId), {
     ...data,
     era: readNpcEra(data),
+    npcCategory: readNpcCategory(data),
     updatedAt: serverTimestamp()
   });
 }
@@ -158,7 +177,11 @@ export function renderNpcPickerRow(npc, { selected = false, classMeta } = {}) {
   const classLabel = meta.label || readNpcClassKey(npc) || '—';
   const url = npc.portraitUrl || npc.image || '';
   const era = readNpcEra(npc);
-  const species = npc.species || 'Humanos';
+  const isVehicle = isVehicleNpc(npc);
+  const species = isVehicle ? 'Vehículo' : (npc.species || 'Humanos');
+  const sizeLine = isVehicle
+    ? `<span class="swrp-npc-picker-row__dot" aria-hidden="true">·</span><span>${Number(npc.spanCols) || 1}×${Number(npc.spanRows) || 1}</span>`
+    : '';
   const thumb = url
     ? `<img src="${escapeHtml(url)}" alt="" loading="lazy">`
     : `<span class="swrp-npc-picker-row__initials">${escapeHtml(nameInitials(npc.name))}</span>`;
@@ -174,7 +197,7 @@ export function renderNpcPickerRow(npc, { selected = false, classMeta } = {}) {
         <span class="swrp-npc-picker-row__meta">
           <span>${escapeHtml(classLabel)}</span>
           <span class="swrp-npc-picker-row__dot" aria-hidden="true">·</span>
-          <span>${escapeHtml(species)}</span>
+          <span>${escapeHtml(species)}</span>${sizeLine}
           <span class="swrp-npc-picker-row__dot" aria-hidden="true">·</span>
           <span><span class="swrp-card__era-label">Era:</span> ${escapeHtml(era)}</span>
         </span>

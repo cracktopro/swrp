@@ -1816,6 +1816,30 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
   box-shadow: 0 0 5px rgba(255, 23, 68, 0.45);
 }
 
+.swrp-hp-bar__fill--blue {
+  box-shadow: 0 0 5px rgba(77, 166, 255, 0.55);
+}
+
+.swrp-board-token--vehicle .swrp-board-token__side-badge {
+  font-size: 0.55rem;
+  letter-spacing: 0.02em;
+}
+
+.swrp-board-token-wrap--vehicle .swrp-board-token {
+  width: 100%;
+  height: 100%;
+}
+
+.swrp-card__badge-vehicle {
+  background: rgba(77, 166, 255, 0.2);
+  border-color: rgba(77, 166, 255, 0.45);
+  color: #9fd4ff;
+}
+
+.swrp-card__shields {
+  color: #7ec8ff;
+}
+
 .swrp-hp-bar--token {
   grid-row: 3;
   height: 100%;
@@ -2095,6 +2119,15 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
   height: 100%;
   padding: 0 2px 1px;
   box-sizing: border-box;
+}
+
+.swrp-board-token--vehicle {
+  grid-template-rows: auto 1fr auto auto;
+}
+
+.swrp-board-token--vehicle .swrp-shield-bar {
+  grid-row: 4;
+  padding: 0 2px 2px;
 }
 
 .swrp-board-token__status-icons {

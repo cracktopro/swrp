@@ -22,7 +22,7 @@ import {
 } from './firebase-config.js';
 import { renderCharacterCard } from './character-card.js';
 import { loadCharacterById } from './characters.js';
-import { loadNpcById, createNpc, updateNpc, buildNpcEraFormOptions, DEFAULT_NPC_ERA, normalizeNpcLoot, serializeNpcLoot } from './npcs.js';
+import { loadNpcById, createNpc, updateNpc, buildNpcEraFormOptions, DEFAULT_NPC_ERA, normalizeNpcLoot, serializeNpcLoot, readNpcCategory, isVehicleNpc, NPC_CATEGORY_VEHICLE, NPC_CATEGORY_CHARACTER } from './npcs.js';
 import { normalizeLootTemplate } from './loot.js';
 import { renderLootList, createLootItemPicker } from './loot-editor-ui.js';
 import { characterViewUrl } from './character-url.js';
@@ -52,7 +52,11 @@ function hideSaveAlert() {
 }
 
 function isNpcMode() {
-  return mode === 'npc';
+  return mode === 'npc' || mode === 'vehicle';
+}
+
+function isVehicleMode() {
+  return mode === 'vehicle';
 }
 
 function getPortraitUrlInput() {
@@ -100,11 +104,18 @@ function resolveSelectedSkill(skillId, classKey, level) {
 
 function syncNpcOnlyFields() {
   const isNpc = isNpcMode();
+  const isVehicle = isVehicleMode();
   document.getElementById('char-era-wrap')?.classList.toggle('d-none', !isNpc);
   document.getElementById('stats-edit-wrap')?.classList.toggle('d-none', !isNpc);
   document.getElementById('char-level-wrap')?.classList.toggle('d-none', isNpc);
+  document.getElementById('char-species-wrap')?.classList.toggle('d-none', isVehicle);
   document.getElementById('npc-custom-skills-wrap')?.classList.toggle('d-none', !isNpc);
   document.getElementById('npc-editor-tabs')?.classList.toggle('d-none', !isNpc);
+  document.getElementById('skills-picker-wrap')?.classList.toggle('d-none', isVehicle);
+  document.getElementById('stat-force-wrap')?.classList.toggle('d-none', isVehicle);
+  document.getElementById('stat-shields-wrap')?.classList.toggle('d-none', !isVehicle);
+  document.getElementById('vehicle-size-wrap')?.classList.toggle('d-none', !isVehicle);
+  document.getElementById('vehicle-move-wrap')?.classList.toggle('d-none', !isVehicle);
   if (!isNpc) {
     showNpcEditorTab('general');
   }
@@ -185,11 +196,14 @@ function syncStatsFieldsFromBase() {
   document.getElementById('stat-attack').value = statsOverride.attack ?? 0;
   document.getElementById('stat-damage').value = statsOverride.damage ?? 0;
   document.getElementById('stat-force').value = statsOverride.force ?? '';
+  const shieldsEl = document.getElementById('stat-shields');
+  if (shieldsEl) shieldsEl.value = statsOverride.shields ?? statsOverride.maxShields ?? 0;
 }
 
 function readStatsFromFields() {
   const forceVal = document.getElementById('stat-force').value;
-  return {
+  const shieldsVal = document.getElementById('stat-shields')?.value;
+  const base = {
     hp: parseInt(document.getElementById('stat-hp').value, 10) || 0,
     maxHp: parseInt(document.getElementById('stat-hp').value, 10) || 0,
     currentHp: parseInt(document.getElementById('stat-hp').value, 10) || 0,
@@ -198,15 +212,40 @@ function readStatsFromFields() {
     damage: parseInt(document.getElementById('stat-damage').value, 10) || 0,
     force: forceVal === '' ? null : parseInt(forceVal, 10)
   };
+  if (isVehicleMode()) {
+    const shields = parseInt(shieldsVal, 10) || 0;
+    base.shields = shields;
+    base.maxShields = shields;
+    base.force = null;
+  }
+  return base;
 }
 
-export async function initCharacterCreator(userId, { characterId = null, npcId = null, isAdmin = false } = {}) {
+function readVehicleFieldsFromUi() {
+  return {
+    spanCols: Math.max(1, parseInt(document.getElementById('vehicle-span-cols')?.value, 10) || 1),
+    spanRows: Math.max(1, parseInt(document.getElementById('vehicle-span-rows')?.value, 10) || 1),
+    moveRange: Math.max(1, parseInt(document.getElementById('vehicle-move-range')?.value, 10) || 6)
+  };
+}
+
+function applyVehicleFieldsToForm(entity) {
+  const spanColsEl = document.getElementById('vehicle-span-cols');
+  const spanRowsEl = document.getElementById('vehicle-span-rows');
+  const moveEl = document.getElementById('vehicle-move-range');
+  if (spanColsEl) spanColsEl.value = String(Math.max(1, Number(entity.spanCols) || 1));
+  if (spanRowsEl) spanRowsEl.value = String(Math.max(1, Number(entity.spanRows) || 1));
+  if (moveEl) moveEl.value = String(Math.max(1, Number(entity.moveRange) || 6));
+}
+
+export async function initCharacterCreator(userId, { characterId = null, npcId = null, isAdmin = false, creatorMode = null } = {}) {
   await loadCompendiumData();
   editingCharacterId = characterId;
   editingNpcId = npcId;
+  const urlMode = new URLSearchParams(window.location.search).get('mode');
   mode = npcId
     ? 'npc'
-    : (new URLSearchParams(window.location.search).get('mode') === 'npc' && isAdmin ? 'npc' : 'hero');
+    : ((urlMode === 'npc' || urlMode === 'vehicle') && isAdmin ? urlMode : (creatorMode === 'vehicle' && isAdmin ? 'vehicle' : 'hero'));
 
   populateClassSelect();
   populateSpeciesSelect();
@@ -223,6 +262,11 @@ export async function initCharacterCreator(userId, { characterId = null, npcId =
       showSaveAlert('NPC no encontrado.');
       return;
     }
+    mode = isVehicleNpc(npc) ? 'vehicle' : 'npc';
+    document.querySelectorAll('#creator-tabs [data-creator-mode]').forEach((b) => {
+      b.classList.toggle('active', b.dataset.creatorMode === mode);
+    });
+    document.getElementById('form-title').textContent = isVehicleNpc(npc) ? 'Editar Vehículo' : 'Editar NPC';
     applyEntityToForm(npc);
   } else if (characterId) {
     const result = await loadCharacterById(characterId, userId);
@@ -267,10 +311,16 @@ function setupCreatorTabs(isAdmin) {
       document.querySelectorAll('#creator-tabs [data-creator-mode]').forEach((b) => {
         b.classList.toggle('active', b.dataset.creatorMode === mode);
       });
-      document.getElementById('form-title').textContent = mode === 'npc' ? 'Crear NPC' : 'Crear Personaje';
-      document.getElementById('save-btn').textContent = 'Guardar';
+      const titles = { hero: 'Crear Personaje', npc: 'Crear NPC', vehicle: 'Crear Vehículo' };
+      document.getElementById('form-title').textContent = titles[mode] || 'Crear';
+      document.getElementById('save-btn').textContent = mode === 'vehicle' ? 'Guardar Vehículo' : 'Guardar';
       document.getElementById('char-form').reset();
       document.getElementById('char-level').value = 1;
+      if (mode === 'vehicle') {
+        document.getElementById('vehicle-span-cols').value = '1';
+        document.getElementById('vehicle-span-rows').value = '1';
+        document.getElementById('vehicle-move-range').value = '6';
+      }
       resetNpcLootDraft({});
       populateClassSelect();
       syncStatsFieldsFromBase();
@@ -280,10 +330,13 @@ function setupCreatorTabs(isAdmin) {
     });
   });
 
-  if (mode === 'npc') {
-    npcTab?.classList.add('active');
+  if (mode === 'npc' || mode === 'vehicle') {
     document.getElementById('tab-hero')?.classList.remove('active');
-    document.getElementById('form-title').textContent = editingNpcId ? 'Editar NPC' : 'Crear NPC';
+    const activeTab = document.querySelector(`#creator-tabs [data-creator-mode="${mode}"]`);
+    activeTab?.classList.add('active');
+    if (!editingNpcId) {
+      document.getElementById('form-title').textContent = mode === 'vehicle' ? 'Crear Vehículo' : 'Crear NPC';
+    }
   }
 }
 
@@ -296,12 +349,18 @@ function bindFormEvents(userId) {
     el.addEventListener('input', onFormChange);
   });
 
-  ['stat-hp', 'stat-defense', 'stat-attack', 'stat-damage', 'stat-force'].forEach((id) => {
+  ['stat-hp', 'stat-defense', 'stat-attack', 'stat-damage', 'stat-force', 'stat-shields'].forEach((id) => {
     document.getElementById(id)?.addEventListener('input', () => {
       if (isNpcMode()) {
         statsOverride = readStatsFromFields();
         updatePreview();
       }
+    });
+  });
+
+  ['vehicle-span-cols', 'vehicle-span-rows', 'vehicle-move-range'].forEach((id) => {
+    document.getElementById(id)?.addEventListener('input', () => {
+      if (isVehicleMode()) updatePreview();
     });
   });
 
@@ -361,8 +420,13 @@ function applyEntityToForm(entity) {
       defense: entity.defense ?? 0,
       attack: entity.attack ?? 0,
       damage: entity.damage ?? 0,
-      force: entity.force ?? null
+      force: entity.force ?? null,
+      shields: entity.shields ?? entity.maxShields ?? 0,
+      maxShields: entity.maxShields ?? entity.shields ?? 0
     };
+    if (isVehicleMode()) {
+      applyVehicleFieldsToForm(entity);
+    }
   } else {
     statsOverride = null;
   }
@@ -405,9 +469,10 @@ function getFormCharacter() {
     name: document.getElementById('char-name').value.trim() || 'Sin nombre',
     class: classKey,
     classKey,
-    species: document.getElementById('char-species').value,
+    species: isVehicleMode() ? 'Vehículo' : document.getElementById('char-species').value,
     era: isNpcMode() ? (document.getElementById('char-era')?.value || DEFAULT_NPC_ERA) : undefined,
     type: isNpcMode() ? 'NPC' : 'Heroe',
+    npcCategory: isVehicleMode() ? NPC_CATEGORY_VEHICLE : (isNpcMode() ? NPC_CATEGORY_CHARACTER : undefined),
     portraitUrl: getPortraitUrlInput(),
     hp: stats.hp,
     maxHp: stats.maxHp ?? stats.hp,
@@ -416,8 +481,13 @@ function getFormCharacter() {
     attack: stats.attack,
     damage: stats.damage,
     force: stats.force ?? null,
+    shields: stats.shields,
+    maxShields: stats.maxShields,
     skills: skillObjs
   };
+  if (isVehicleMode()) {
+    Object.assign(char, readVehicleFieldsFromUi());
+  }
   if (!isNpcMode()) char.level = level;
   return char;
 }
@@ -427,7 +497,7 @@ function updatePreview() {
   const char = getFormCharacter();
   const wrap = document.getElementById('card-preview');
   wrap.innerHTML = '';
-  wrap.appendChild(renderCharacterCard(char, { isNpc: isNpcMode() }));
+  wrap.appendChild(renderCharacterCard(char, { isNpc: isNpcMode(), isVehicle: isVehicleMode() }));
 
   if (!isNpcMode()) {
     const stats = getStats(char.class, char.level);
@@ -447,6 +517,10 @@ function updateSkillPicker() {
   const container = document.getElementById('skills-picker');
 
   if (isNpcMode()) {
+    if (isVehicleMode()) {
+      renderVehicleCustomSkillPicker(container);
+      return;
+    }
     renderNpcSkillPicker(container, classKey, level);
     return;
   }
@@ -495,6 +569,12 @@ function updateSkillPicker() {
     });
     container.appendChild(section);
   });
+}
+
+function renderVehicleCustomSkillPicker(container) {
+  container.innerHTML = '<p class="small text-muted mb-2">Solo habilidades custom (clase «Otros»). Añádelas abajo.</p><div id="npc-skill-list"></div>';
+  npcSkillSource = 'otros';
+  renderNpcSkillList(container.querySelector('#npc-skill-list'), document.getElementById('char-class').value, NPC_SKILL_LEVEL, 0);
 }
 
 function renderNpcSkillPicker(container, classKey, level) {
@@ -691,10 +771,11 @@ async function saveNpc(userId) {
   const skillIds = normalizeSelectedSkillIds(selectedSkills);
   const payload = {
     name: char.name,
-    species: char.species,
+    species: isVehicleMode() ? 'Vehículo' : char.species,
     classKey: char.classKey,
     class: char.classKey,
     type: 'NPC',
+    npcCategory: isVehicleMode() ? NPC_CATEGORY_VEHICLE : NPC_CATEGORY_CHARACTER,
     era: document.getElementById('char-era')?.value || DEFAULT_NPC_ERA,
     portraitUrl,
     hp: char.hp ?? 0,
@@ -702,20 +783,27 @@ async function saveNpc(userId) {
     defense: char.defense ?? 0,
     attack: char.attack ?? 0,
     damage: char.damage ?? 0,
-    force: char.force,
+    force: isVehicleMode() ? null : char.force,
+    shields: isVehicleMode() ? (char.shields ?? 0) : null,
+    maxShields: isVehicleMode() ? (char.maxShields ?? char.shields ?? 0) : null,
     skills: skillIds,
     createdBy: userId
   };
+  if (isVehicleMode()) {
+    Object.assign(payload, readVehicleFieldsFromUi());
+  }
   const loot = readNpcLootFromUi();
   payload.loot = loot;
+
+  const redirectHash = isVehicleMode() ? '#npcs-vehicles' : '#npcs';
 
   if (editingNpcId) {
     const { createdBy, ...updatePayload } = payload;
     await updateNpc(editingNpcId, updatePayload);
-    window.location.href = appUrl('compendium#npcs');
+    window.location.href = appUrl(`compendium${redirectHash}`);
   } else {
     await createNpc(payload);
-    window.location.href = appUrl('compendium#npcs');
+    window.location.href = appUrl(`compendium${redirectHash}`);
   }
 }
 

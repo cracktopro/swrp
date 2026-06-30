@@ -26,7 +26,7 @@ import {
   ITEM_STAT_DEFS
 } from './compendium-store.js';
 import { renderCharacterCard } from './character-card.js';
-import { loadAllNpcs, deleteNpc, npcToCardData, filterNpcs, buildNpcEraSelectOptions } from './npcs.js';
+import { loadAllNpcs, deleteNpc, npcToCardData, filterNpcs, buildNpcEraSelectOptions, readNpcCategory, NPC_CATEGORY_VEHICLE, NPC_CATEGORY_CHARACTER } from './npcs.js';
 
 function escapeHtml(str) {
   return String(str)
@@ -39,6 +39,7 @@ function escapeHtml(str) {
 let cachedNpcs = [];
 let npcFiltersReady = false;
 let itemFiltersReady = false;
+let npcListCategory = NPC_CATEGORY_CHARACTER;
 
 function setupNpcFilters() {
   if (npcFiltersReady) return;
@@ -66,8 +67,41 @@ function filterNpcsFromUi(npcs) {
   return filterNpcs(npcs, {
     nameQ: document.getElementById('npc-filter-name')?.value || '',
     classQ: document.getElementById('npc-filter-class')?.value || '',
-    eraQ: document.getElementById('npc-filter-era')?.value || ''
+    eraQ: document.getElementById('npc-filter-era')?.value || '',
+    categoryQ: npcListCategory
   });
+}
+
+function setupNpcCategoryTabs() {
+  document.getElementById('npc-category-tabs')?.addEventListener('click', (e) => {
+    const tab = e.target.closest('[data-npc-category]');
+    if (!tab) return;
+    npcListCategory = tab.dataset.npcCategory === NPC_CATEGORY_VEHICLE
+      ? NPC_CATEGORY_VEHICLE
+      : NPC_CATEGORY_CHARACTER;
+    document.querySelectorAll('#npc-category-tabs [data-npc-category]').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.npcCategory === npcListCategory);
+    });
+    const npcBtn = document.getElementById('btn-new-npc');
+    const vehicleBtn = document.getElementById('btn-new-vehicle');
+    npcBtn?.classList.toggle('d-none', npcListCategory !== NPC_CATEGORY_CHARACTER);
+    vehicleBtn?.classList.toggle('d-none', npcListCategory !== NPC_CATEGORY_VEHICLE);
+    renderNpcsFromCache(document.body.dataset.compAdmin === '1');
+  });
+}
+
+function activateNpcCategoryFromHash() {
+  const hash = window.location.hash || '';
+  if (hash === '#npcs-vehicles') {
+    npcListCategory = NPC_CATEGORY_VEHICLE;
+    document.querySelectorAll('#npc-category-tabs [data-npc-category]').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.npcCategory === NPC_CATEGORY_VEHICLE);
+    });
+    document.getElementById('btn-new-npc')?.classList.add('d-none');
+    document.getElementById('btn-new-vehicle')?.classList.remove('d-none');
+    const mainTab = document.querySelector('#compTabs [data-bs-target="#tab-npcs"]');
+    if (mainTab) bootstrap.Tab.getOrCreateInstance(mainTab).show();
+  }
 }
 
 export async function initCompendiumPage({ isAdmin }) {
@@ -108,6 +142,9 @@ export async function initCompendiumPage({ isAdmin }) {
     document.getElementById('btn-save-species')?.addEventListener('click', saveSpeciesFromModal);
     document.getElementById('btn-new-npc')?.addEventListener('click', () => {
       window.location.href = appUrl('character-create?mode=npc');
+    });
+    document.getElementById('btn-new-vehicle')?.addEventListener('click', () => {
+      window.location.href = appUrl('character-create?mode=vehicle');
     });
     document.getElementById('admin-boards-actions')?.classList.remove('d-none');
     document.getElementById('btn-add-board')?.addEventListener('click', () => openBoardModal(null));
@@ -436,27 +473,34 @@ async function renderNpcs(isAdmin) {
   container.innerHTML = '<p class="text-muted">Cargando NPCs…</p>';
   cachedNpcs = await loadAllNpcs();
   setupNpcFilters();
+  setupNpcCategoryTabs();
+  activateNpcCategoryFromHash();
   renderNpcsFromCache(isAdmin);
 }
 
 function renderNpcsFromCache(isAdmin) {
   const container = document.getElementById('npcs-list');
+  const inCategory = filterNpcs(cachedNpcs, { categoryQ: npcListCategory });
   const npcs = filterNpcsFromUi(cachedNpcs);
   container.innerHTML = '';
 
-  if (!cachedNpcs.length) {
-    container.innerHTML = '<p class="text-muted">No hay NPCs. Los admins pueden crearlos desde Personajes → pestaña NPCs.</p>';
+  if (!inCategory.length) {
+    const emptyMsg = npcListCategory === NPC_CATEGORY_VEHICLE
+      ? 'No hay vehículos. Los admins pueden crearlos desde Personajes → pestaña Vehículos.'
+      : 'No hay NPCs. Los admins pueden crearlos desde Personajes → pestaña NPCs.';
+    container.innerHTML = `<p class="text-muted">${emptyMsg}</p>`;
     return;
   }
   if (!npcs.length) {
-    container.innerHTML = '<p class="text-muted">Ningún NPC coincide con los filtros.</p>';
+    container.innerHTML = '<p class="text-muted">Ningún resultado coincide con los filtros.</p>';
     return;
   }
 
   npcs.forEach((npc) => {
     const wrap = document.createElement('div');
     wrap.className = 'npcs-grid__item';
-    wrap.appendChild(renderCharacterCard(npcToCardData(npc), { isNpc: true }));
+    const isVehicle = readNpcCategory(npc) === NPC_CATEGORY_VEHICLE;
+    wrap.appendChild(renderCharacterCard(npcToCardData(npc), { isNpc: true, isVehicle }));
     if (isAdmin) {
       const actions = document.createElement('div');
       actions.className = 'd-flex gap-2 justify-content-center mt-2 flex-wrap';
