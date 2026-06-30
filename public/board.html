@@ -696,7 +696,7 @@
     import { loadPartyMembers, isPartyGMUser, getMemberPlaySource } from './js/party-members.js';
     import { getPartyIdFromUrl, partyPageUrl } from './js/party-url.js';
     import { appUrl } from './js/app-path.js';
-    import { TacticalBoard, getTokenHp, getTokenMaxHp, getTokenEffectiveDefense, isTokenInCover, isTokenDefeated } from './js/board.js';
+    import { TacticalBoard, getTokenHp, getTokenMaxHp, getTokenEffectiveDefense, isTokenInCover, isTokenDefeated, buildTokenCardCharacter, buildTokenCardRenderOptions } from './js/board.js';
     import { readShowEnemyVisionConesPreference } from './js/board-vision.js';
     import { openLootModal } from './js/loot-modal.js';
     import { lootHasRemaining, lootHasRemainingForCharacter } from './js/loot.js';
@@ -736,22 +736,7 @@
     }
 
     function resolveNpcData(token) {
-      const snap = token.characterSnapshot;
-      const fromList = npcs.find((n) => n.id === token.sourceId);
-      if (fromList) {
-        return { ...fromList, image: fromList.image || fromList.portraitUrl || snap?.portraitUrl || '' };
-      }
-      if (snap) {
-        return {
-          ...snap,
-          id: snap.id || token.sourceId,
-          image: snap.portraitUrl || snap.image || '',
-          class: snap.class,
-          level: snap.level,
-          name: snap.name
-        };
-      }
-      return null;
+      return buildTokenCardCharacter(token, { npcCatalog: npcs });
     }
 
     function appendCardToModal(card) {
@@ -760,18 +745,7 @@
     }
 
     function buildTokenCardOptions(token, copyMentionId) {
-      const hp = getTokenHp(token);
-      const maxHp = getTokenMaxHp(token);
-      return {
-        copyMentionId,
-        boardContext: {
-          hp,
-          maxHp,
-          defense: getTokenEffectiveDefense(token),
-          defenseInCover: isTokenInCover(token),
-          hpDamaged: hp < maxHp
-        }
-      };
+      return buildTokenCardRenderOptions(token, copyMentionId);
     }
 
     function buildLootOption(token) {
@@ -787,14 +761,16 @@
       const cardOpts = buildTokenCardOptions(token, copyMentionId);
       const lootOpt = buildLootOption(token);
       if (lootOpt) cardOpts.loot = lootOpt;
-      if (token.kind === 'npc') {
-        const npc = resolveNpcData(token);
-        if (!npc) return;
-        appendCardToModal(renderCharacterCard(
-          normalizeCharacter({ ...npc, portraitUrl: npc.portraitUrl || npc.image || '' }, npc.id),
-          { isNpc: true, ...cardOpts }
-        ));
-        document.getElementById('charModalLabel').textContent = npc.name;
+      if (token.kind === 'npc' || token.kind === 'vehicle') {
+        const entity = resolveNpcData(token);
+        if (!entity) return;
+        const cardOpts = buildTokenCardOptions(token, copyMentionId);
+        appendCardToModal(renderCharacterCard(entity, {
+          isNpc: token.kind === 'npc',
+          isVehicle: token.kind === 'vehicle',
+          ...cardOpts
+        }));
+        document.getElementById('charModalLabel').textContent = entity.name;
         charModal.show();
         return;
       }
@@ -804,7 +780,8 @@
         snap = roster.find((c) => c.id === token.sourceId);
       }
       if (!snap) return;
-      const character = normalizeCharacter(snap, snap.id || token.sourceId);
+      const character = buildTokenCardCharacter(token, { npcCatalog: npcs })
+        || normalizeCharacter(snap, snap.id || token.sourceId);
       if (canManageTokenInventory(token)) {
         cardOpts.inventory = { onOpen: () => openBoardInventory(token) };
       }

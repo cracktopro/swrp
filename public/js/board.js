@@ -9,7 +9,7 @@ import {
   onSnapshot,
   serverTimestamp
 } from './firebase-config.js';
-import { getClassMeta } from './character-card.js';
+import { getClassMeta, normalizeCharacter } from './character-card.js';
 import { saveCharacterProgressFromBoard } from './party-members.js';
 import {
   getEnemyTokens,
@@ -2013,10 +2013,10 @@ export class TacticalBoard {
 
       chip.appendChild(badgeEl);
       chip.appendChild(faceEl);
-      chip.insertAdjacentHTML('beforeend', renderTokenHealthBarHtml(token));
       if (isVehicle && getTokenMaxShields(token) > 0) {
         chip.insertAdjacentHTML('beforeend', renderTokenShieldBarHtml(token));
       }
+      chip.insertAdjacentHTML('beforeend', renderTokenHealthBarHtml(token));
 
       chip.addEventListener('mousedown', (ev) => this.beginPointer(ev, token));
       if (this.isGM) {
@@ -2455,6 +2455,48 @@ export function logEntryAction(actor, message, cell = null) {
     },
     message,
     cell: cell || null
+  };
+}
+
+export function buildTokenCardCharacter(token, { npcCatalog = [] } = {}) {
+  if (!token) return null;
+  const snap = token.characterSnapshot || {};
+  const catalog = token.sourceId
+    ? (npcCatalog || []).find((n) => n.id === token.sourceId)
+    : null;
+  const vehicle = isTokenVehicle(token);
+  const id = snap.id || token.sourceId || token.id;
+  return normalizeCharacter({
+    ...(catalog || {}),
+    ...snap,
+    id,
+    name: token.name || snap.name || catalog?.name,
+    class: token.class || snap.class || catalog?.class,
+    portraitUrl: token.portraitUrl || snap.portraitUrl || catalog?.portraitUrl || catalog?.image,
+    hp: getTokenHp(token),
+    maxHp: getTokenMaxHp(token),
+    currentHp: getTokenHp(token),
+    defense: getTokenBaseDefense(token),
+    force: getTokenForce(token),
+    shields: getTokenShields(token),
+    maxShields: getTokenMaxShields(token),
+    npcCategory: vehicle ? 'vehicle' : (snap.npcCategory || catalog?.npcCategory)
+  }, id);
+}
+
+export function buildTokenCardRenderOptions(token, copyMentionId = token?.id) {
+  const kind = inferBoardTokenKind(token);
+  return {
+    copyMentionId,
+    isNpc: kind === 'npc',
+    isVehicle: kind === 'vehicle',
+    boardContext: {
+      hp: getTokenHp(token),
+      maxHp: getTokenMaxHp(token),
+      defense: getTokenEffectiveDefense(token),
+      defenseInCover: isTokenInCover(token),
+      hpDamaged: getTokenHp(token) < getTokenMaxHp(token)
+    }
   };
 }
 

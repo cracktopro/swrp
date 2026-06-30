@@ -235,6 +235,8 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 - Escaramuza predefinida: personaje propio o NPC al unirse.
 - Escaramuza custom: personaje, NPC o GM (si no hay GM).
 - Foro en tiempo real: posts narrativos y tiradas de dados.
+- El autor puede **editar** sus mensajes narrativos (`updateNarrativePost` en `party.js`).
+- GM sin personaje activo puede **tirar dados** indicando un nombre libre de tirador.
 - Markup: `[img]`, `[C]color[/C]`, `@` menciones (solo personajes unidos).
 - Panel «Mi participación»: cambiar rol/personaje.
 
@@ -451,7 +453,7 @@ Misma forma que `state/board` (snapshot del escenario cuando no está activo).
   authorId, content,
   roll?, rollLabel?,
   characterSnapshot?,
-  createdAt
+  createdAt, updatedAt?
 }
 ```
 
@@ -506,7 +508,7 @@ Misma forma que `state/board` (snapshot del escenario cuando no está activo).
 | `escaramuzaTemplates` | Autenticados | Crear cualquiera; update/delete solo `creatorId` |
 | `parties` | Autenticados | Create: Admin **o** escaramuza con `templateId`+`createdBy`; Update: Admin **o** GM slots en escaramuza sin plantilla; Delete: Admin |
 | `parties/.../members` | Autenticados | Usuario crea el suyo; update propio o GM; delete propio, GM o Admin |
-| `parties/.../posts` | Miembros | Miembros (`authorId` = uid) |
+| `parties/.../posts` | Miembros | Create: miembros (`authorId` = uid); update: autor en posts `narrative` |
 | `parties/.../state` | Miembros | Cualquier miembro (tablero colaborativo) |
 
 Funciones auxiliares en reglas: `isAdmin`, `isPartyMember`, `isPartyGM`, `isEscaramuzaPartyCreate`, `isEscaramuzaGmSlotUpdate`, `isEscaramuzaGmNpcControlUpdate`.

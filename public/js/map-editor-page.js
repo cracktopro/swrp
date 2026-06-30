@@ -1,7 +1,7 @@
 import { renderNavbar } from './navbar.js';
 import { requireAuth, isAdmin } from './auth.js';
 import { appUrl } from './app-path.js';
-import { TacticalBoard, cellLabel, getTokenHp, getTokenMaxHp, getTokenEffectiveDefense, isTokenInCover } from './board.js';
+import { TacticalBoard, cellLabel, getTokenHp, getTokenMaxHp, getTokenEffectiveDefense, isTokenInCover, buildTokenCardCharacter, buildTokenCardRenderOptions } from './board.js';
 import { initBoardGridPanel, syncBoardGridInputs } from './board-grid-panel.js';
 import { loadAllNpcs, npcToCardData, buildNpcEraFormOptions, DEFAULT_NPC_ERA } from './npcs.js';
 import { loadCompendiumData } from './compendium-store.js';
@@ -508,35 +508,28 @@ async function initBoardEditor(user, profile, initialState) {
 }
 
 function openTokenCard(token, { roster, npcs, charModal, charModalBody }) {
-  const cardOpts = {
-    copyMentionId: token.id,
-    boardContext: {
-      hp: getTokenHp(token),
-      maxHp: getTokenMaxHp(token),
-      defense: getTokenEffectiveDefense(token),
-      defenseInCover: isTokenInCover(token),
-      hpDamaged: getTokenHp(token) < getTokenMaxHp(token)
-    }
-  };
+  const cardOpts = buildTokenCardRenderOptions(token, token.id);
 
-  if (token.kind === 'npc') {
-    const npc = npcs.find((n) => n.id === token.sourceId) || token.characterSnapshot;
-    if (!npc) return;
+  if (token.kind === 'npc' || token.kind === 'vehicle') {
+    const entity = buildTokenCardCharacter(token, { npcCatalog: npcs });
+    if (!entity) return;
     charModalBody.innerHTML = '';
-    charModalBody.appendChild(renderCharacterCard(
-      normalizeCharacter({ ...npc, portraitUrl: npc.portraitUrl || npc.image || '' }, npc.id),
-      { isNpc: true, ...cardOpts }
-    ));
-    document.getElementById('charModalLabel').textContent = npc.name;
+    charModalBody.appendChild(renderCharacterCard(entity, {
+      isNpc: token.kind === 'npc',
+      isVehicle: token.kind === 'vehicle',
+      ...cardOpts
+    }));
+    document.getElementById('charModalLabel').textContent = entity.name;
     charModal.show();
     return;
   }
 
   let snap = token.characterSnapshot || roster.find((c) => c.id === token.sourceId);
   if (!snap) return;
+  const entity = buildTokenCardCharacter(token, { npcCatalog: npcs });
   charModalBody.innerHTML = '';
-  charModalBody.appendChild(renderCharacterCard(normalizeCharacter(snap, snap.id || token.sourceId), cardOpts));
-  document.getElementById('charModalLabel').textContent = snap.name;
+  charModalBody.appendChild(renderCharacterCard(entity || normalizeCharacter(snap, snap.id || token.sourceId), cardOpts));
+  document.getElementById('charModalLabel').textContent = (entity || snap).name;
   charModal.show();
 }
 

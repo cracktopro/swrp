@@ -138,6 +138,7 @@ export async function initPartyPage({ user, profile, partyId, ui }) {
       activeSelect.disabled = true;
     }
     updatePreview();
+    syncDiceFormUi();
   }
 
   function getActiveCharacter() {
@@ -181,8 +182,12 @@ export async function initPartyPage({ user, profile, partyId, ui }) {
 
   syncRoleForm();
   refreshActiveSelect();
+  syncDiceFormUi();
 
-  roleMode.addEventListener('change', syncRoleCharUi);
+  activeSelect.addEventListener('change', () => {
+    updatePreview();
+    syncDiceFormUi();
+  });
 
   roleSave.addEventListener('click', async () => {
     try {
@@ -206,27 +211,56 @@ export async function initPartyPage({ user, profile, partyId, ui }) {
     }
   });
 
-  activeSelect.addEventListener('change', updatePreview);
+  roleMode.addEventListener('change', syncRoleCharUi);
 
   watchPosts(partyId, document.getElementById('posts-feed'), {
     onOpenCharacter: ui.openCharacterModal,
     roster: partyRoster,
-    extraMentionEntities: partyNpcs
+    extraMentionEntities: partyNpcs,
+    currentUserId: user.uid
   });
+
+  function syncDiceFormUi() {
+    const wrap = document.getElementById('dice-gm-name-wrap');
+    const hint = document.getElementById('dice-form-hint');
+    if (!isGM) {
+      wrap?.classList.add('d-none');
+      if (hint) hint.textContent = 'El resultado se publica en el foro con el nombre de tu personaje activo.';
+      return;
+    }
+    const noActiveChar = !getActiveCharacter();
+    wrap?.classList.toggle('d-none', !noActiveChar);
+    if (hint) {
+      hint.textContent = noActiveChar
+        ? 'Sin personaje activo: indica el nombre de quien tira. Con personaje activo se usa su nombre y modificador de ataque si aplica.'
+        : 'El resultado se publica en el foro con el nombre de tu personaje activo.';
+    }
+  }
 
   document.getElementById('dice-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const char = getActiveCharacter();
-    if (!char) {
-      alert(isGM ? 'Selecciona un personaje de la partida para tirar dados.' : 'Debes jugar con un personaje asignado.');
-      return;
-    }
     const notation = document.getElementById('dice-type').value;
     const mod = parseInt(document.getElementById('dice-mod').value, 10) || 0;
     const label = document.getElementById('dice-label').value.trim();
-    const attackMod = label.toLowerCase().includes('ataque') ? char.attack : mod;
+    const rollerName = document.getElementById('dice-gm-name')?.value.trim() || '';
+    if (!char && !(isGM && rollerName)) {
+      alert(isGM
+        ? 'Selecciona un personaje activo o escribe el nombre del tirador.'
+        : 'Debes jugar con un personaje asignado.');
+      return;
+    }
+    const attackMod = char && label.toLowerCase().includes('ataque') ? char.attack : mod;
     try {
-      await publishDiceRoll(partyId, user, char, notation, attackMod, label);
+      await publishDiceRoll(
+        partyId,
+        user,
+        char,
+        notation,
+        attackMod,
+        label,
+        { rollerName: char ? '' : rollerName }
+      );
     } catch (err) {
       alert('Error al publicar tirada: ' + err.message);
     }

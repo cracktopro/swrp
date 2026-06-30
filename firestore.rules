@@ -117,6 +117,11 @@ service cloud.firestore {
         allow read: if isPartyMember(partyId);
         allow create: if isPartyMember(partyId)
           && request.resource.data.authorId == request.auth.uid;
+        allow update: if isPartyMember(partyId)
+          && resource.data.authorId == request.auth.uid
+          && request.resource.data.authorId == resource.data.authorId
+          && resource.data.type == 'narrative'
+          && request.resource.data.type == 'narrative';
       }
 
       match /state/{docId} {

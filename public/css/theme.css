@@ -1141,6 +1141,17 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
   line-height: 1.45;
 }
 
+.swrp-post__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.swrp-post__edit-area {
+  margin-top: 0.35rem;
+}
+
 .swrp-narrative-content {
   white-space: pre-wrap;
   word-break: break-word;
@@ -1711,6 +1722,7 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
 }
 
 .swrp-board-token-wrap--enemy,
+.swrp-board-token-wrap--neutral,
 .swrp-board-token-wrap:has(.swrp-board-token__status-icons) {
   overflow: visible;
 }
@@ -2126,6 +2138,11 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
 }
 
 .swrp-board-token--vehicle .swrp-shield-bar {
+  grid-row: 3;
+  padding: 0 2px 1px;
+}
+
+.swrp-board-token--vehicle .swrp-hp-bar--token:not(.swrp-shield-bar) {
   grid-row: 4;
   padding: 0 2px 2px;
 }

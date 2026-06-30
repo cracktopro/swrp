@@ -58,9 +58,13 @@
               <input type="text" class="form-control" id="dice-label" placeholder="Ataque">
             </div>
           </div>
+          <div class="mb-2 d-none" id="dice-gm-name-wrap">
+            <label class="form-label" for="dice-gm-name">Nombre del tirador</label>
+            <input type="text" class="form-control" id="dice-gm-name" maxlength="60" placeholder="Ej. Guardias imperiales">
+          </div>
           <button type="submit" class="btn btn-swrp btn-swrp-primary">Lanzar</button>
         </form>
-        <p class="small text-muted">
+        <p class="small text-muted" id="dice-form-hint">
           El resultado se publica en el foro con el nombre de tu personaje activo.
         </p>
         <hr>
