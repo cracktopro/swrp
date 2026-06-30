@@ -23,6 +23,23 @@ export const DEFAULT_NPC_ERA = 'República';
 export const NPC_CATEGORY_CHARACTER = 'character';
 export const NPC_CATEGORY_VEHICLE = 'vehicle';
 
+/** Clave interna fija; los vehículos no usan clases de juego. */
+export const VEHICLE_CLASS_KEY = 'vehiculo';
+export const VEHICLE_CLASS_LABEL = 'Vehículo';
+
+export function vehicleClassFields() {
+  return { class: VEHICLE_CLASS_KEY, classKey: VEHICLE_CLASS_KEY };
+}
+
+export function getVehicleClassMeta() {
+  return {
+    label: VEHICLE_CLASS_LABEL,
+    theme: 'soldado',
+    color: '#7ec8ff',
+    hasForce: false
+  };
+}
+
 export function readNpcCategory(npc) {
   const cat = npc?.npcCategory;
   return cat === NPC_CATEGORY_VEHICLE ? NPC_CATEGORY_VEHICLE : NPC_CATEGORY_CHARACTER;
@@ -65,6 +82,7 @@ export function readNpcEra(npc) {
 }
 
 export function readNpcClassKey(npc) {
+  if (isVehicleNpc(npc)) return VEHICLE_CLASS_KEY;
   return npc?.classKey || npc?.class || '';
 }
 
@@ -111,10 +129,14 @@ export async function loadNpcById(npcId) {
 }
 
 export async function createNpc(data) {
+  const category = readNpcCategory(data);
+  const normalized = category === NPC_CATEGORY_VEHICLE
+    ? { ...data, ...vehicleClassFields(), species: null, force: null }
+    : data;
   const ref = await addDoc(collection(db, 'npcs'), {
-    ...data,
-    era: readNpcEra(data),
-    npcCategory: readNpcCategory(data),
+    ...normalized,
+    era: readNpcEra(normalized),
+    npcCategory: category,
     type: 'NPC',
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
@@ -123,10 +145,14 @@ export async function createNpc(data) {
 }
 
 export async function updateNpc(npcId, data) {
+  const category = readNpcCategory(data);
+  const normalized = category === NPC_CATEGORY_VEHICLE
+    ? { ...data, ...vehicleClassFields(), species: null, force: null }
+    : data;
   await updateDoc(doc(db, 'npcs', npcId), {
-    ...data,
-    era: readNpcEra(data),
-    npcCategory: readNpcCategory(data),
+    ...normalized,
+    era: readNpcEra(normalized),
+    npcCategory: category,
     updatedAt: serverTimestamp()
   });
 }
@@ -136,12 +162,17 @@ export async function deleteNpc(npcId) {
 }
 
 export function npcToCardData(npc) {
-  return {
+  const card = {
     ...npc,
     era: readNpcEra(npc),
     image: npc.portraitUrl || npc.image || '',
     portraitUrl: npc.portraitUrl || npc.image || ''
   };
+  if (isVehicleNpc(npc)) {
+    Object.assign(card, vehicleClassFields());
+    card.species = null;
+  }
+  return card;
 }
 
 /** Objeto listo para snapshot de membresía / carta (escaramuza con NPC). */
@@ -171,17 +202,20 @@ function nameInitials(name) {
 }
 
 export function renderNpcPickerRow(npc, { selected = false, classMeta } = {}) {
-  const meta = classMeta || {};
+  const isVehicle = isVehicleNpc(npc);
+  const meta = isVehicle ? getVehicleClassMeta() : (classMeta || {});
   const theme = meta.theme || 'soldado';
   const color = meta.color || '#00e5ff';
-  const classLabel = meta.label || readNpcClassKey(npc) || '—';
+  const classLabel = isVehicle ? VEHICLE_CLASS_LABEL : (meta.label || readNpcClassKey(npc) || '—');
   const url = npc.portraitUrl || npc.image || '';
   const era = readNpcEra(npc);
-  const isVehicle = isVehicleNpc(npc);
-  const species = isVehicle ? 'Vehículo' : (npc.species || 'Humanos');
+  const species = npc.species || 'Humanos';
   const sizeLine = isVehicle
     ? `<span class="swrp-npc-picker-row__dot" aria-hidden="true">·</span><span>${Number(npc.spanCols) || 1}×${Number(npc.spanRows) || 1}</span>`
     : '';
+  const speciesLine = isVehicle
+    ? ''
+    : `<span class="swrp-npc-picker-row__dot" aria-hidden="true">·</span><span>${escapeHtml(species)}</span>`;
   const thumb = url
     ? `<img src="${escapeHtml(url)}" alt="" loading="lazy">`
     : `<span class="swrp-npc-picker-row__initials">${escapeHtml(nameInitials(npc.name))}</span>`;
@@ -195,9 +229,7 @@ export function renderNpcPickerRow(npc, { selected = false, classMeta } = {}) {
       <span class="swrp-npc-picker-row__body">
         <span class="swrp-npc-picker-row__name">${escapeHtml(npc.name || 'Sin nombre')}</span>
         <span class="swrp-npc-picker-row__meta">
-          <span>${escapeHtml(classLabel)}</span>
-          <span class="swrp-npc-picker-row__dot" aria-hidden="true">·</span>
-          <span>${escapeHtml(species)}</span>${sizeLine}
+          <span>${escapeHtml(classLabel)}</span>${speciesLine}${sizeLine}
           <span class="swrp-npc-picker-row__dot" aria-hidden="true">·</span>
           <span><span class="swrp-card__era-label">Era:</span> ${escapeHtml(era)}</span>
         </span>

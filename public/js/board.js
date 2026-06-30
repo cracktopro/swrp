@@ -25,6 +25,7 @@ import {
   readShowEnemyVisionConesPreference,
   writeShowEnemyVisionConesPreference
 } from './board-vision.js';
+import { vehicleClassFields, VEHICLE_CLASS_KEY } from './npcs.js';
 import { swrpConfirm } from './swrp-dialog.js';
 import { revertTemporaryEffectsOnTokens, grantCreditsToCharacter } from './inventory.js';
 import {
@@ -978,9 +979,11 @@ export class TacticalBoard {
     const snapshot = stripUndefinedDeep({
       id: sourceId,
       name: entity.name,
-      species: entity.species || (isVehicle ? 'Vehículo' : 'Humanos'),
-      class: entity.class || entity.classKey,
-      classKey: entity.classKey || entity.class,
+      ...(isVehicle ? vehicleClassFields() : {
+        species: entity.species || 'Humanos',
+        class: entity.class || entity.classKey,
+        classKey: entity.classKey || entity.class
+      }),
       ...(isHero ? { level: Number(entity.level) || 1 } : {}),
       type: token.characterSnapshot?.type || (isHero ? 'Heroe' : 'NPC'),
       npcCategory: isVehicle ? 'vehicle' : (token.characterSnapshot?.npcCategory || 'character'),
@@ -1002,8 +1005,8 @@ export class TacticalBoard {
     token.name = entity.name;
     if (isHero) token.level = snapshot.level;
     else delete token.level;
-    token.class = snapshot.class;
-    token.classLabel = meta.label;
+    token.class = isVehicle ? VEHICLE_CLASS_KEY : snapshot.class;
+    token.classLabel = isVehicle ? getClassMeta(VEHICLE_CLASS_KEY).label : meta.label;
     token.theme = meta.theme;
     token.color = meta.color;
     token.portraitUrl = snapshot.portraitUrl;

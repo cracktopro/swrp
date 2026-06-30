@@ -12,6 +12,10 @@ import {
 } from './compendium-store.js';
 import { normalizeCharacter } from './character-card.js';
 import { inferBoardTokenKind } from './board-vision.js';
+import {
+  VEHICLE_CLASS_KEY,
+  vehicleClassFields
+} from './npcs.js';
 
 let selectedSkills = [];
 let statsOverride = null;
@@ -60,6 +64,7 @@ function populateSpeciesSelect() {
 
 function syncVehicleFieldsVisibility() {
   const isVehicle = isVehicleToken();
+  document.getElementById('ctrl-stat-class-wrap')?.classList.toggle('d-none', isVehicle);
   document.getElementById('ctrl-stat-species-wrap')?.classList.toggle('d-none', isVehicle);
   document.getElementById('ctrl-stat-force-wrap')?.classList.toggle('d-none', isVehicle);
   document.getElementById('ctrl-stat-shields-wrap')?.classList.toggle('d-none', !isVehicle);
@@ -301,7 +306,7 @@ export async function ensureTokenStatsEditor(container) {
       <input type="text" class="form-control form-control-sm" id="ctrl-stat-name" maxlength="40">
     </div>
     <div class="row g-2 mb-3">
-      <div class="col-md-6">
+      <div class="col-md-6" id="ctrl-stat-class-wrap">
         <label class="form-label small" for="ctrl-stat-class">Clase</label>
         <select class="form-select form-select-sm" id="ctrl-stat-class"></select>
       </div>
@@ -384,7 +389,9 @@ export function loadTokenStatsEditor(token) {
   );
 
   document.getElementById('ctrl-stat-name').value = entity.name || '';
-  document.getElementById('ctrl-stat-class').value = entity.class || entity.classKey;
+  if (!isVehicleToken()) {
+    document.getElementById('ctrl-stat-class').value = entity.class || entity.classKey;
+  }
   if (tokenKind === 'character') {
     document.getElementById('ctrl-stat-level').value = String(entity.level || 1);
   }
@@ -420,7 +427,9 @@ export function loadTokenStatsEditor(token) {
 }
 
 export function readTokenStatsEditor() {
-  const classKey = document.getElementById('ctrl-stat-class')?.value;
+  const classKey = isVehicleToken()
+    ? VEHICLE_CLASS_KEY
+    : document.getElementById('ctrl-stat-class')?.value;
   const level = tokenKind === 'character'
     ? (parseInt(document.getElementById('ctrl-stat-level')?.value, 10) || 1)
     : 20;
@@ -429,7 +438,7 @@ export function readTokenStatsEditor() {
     name: document.getElementById('ctrl-stat-name')?.value.trim() || 'Sin nombre',
     class: classKey,
     classKey,
-    species: isVehicleToken() ? 'Vehículo' : document.getElementById('ctrl-stat-species')?.value,
+    species: isVehicleToken() ? null : document.getElementById('ctrl-stat-species')?.value,
     portraitUrl: document.getElementById('ctrl-stat-portrait')?.value.trim() || '',
     skills: [...selectedSkills],
     hp: stats.hp,

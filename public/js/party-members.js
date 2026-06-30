@@ -12,7 +12,7 @@ import {
 import { normalizeCharacter, getClassMeta } from './character-card.js';
 import { docToCharacter } from './characters.js';
 import { getStats } from './compendium-store.js';
-import { npcToMembershipCharacter, normalizeNpcLoot, npcHasDefaultLoot, isVehicleNpc } from './npcs.js';
+import { npcToMembershipCharacter, normalizeNpcLoot, npcHasDefaultLoot, isVehicleNpc, vehicleClassFields, getVehicleClassMeta } from './npcs.js';
 import { loadParty } from './party.js';
 import { hasEscaramuzaSlotConfig } from './escaramuza-templates.js';
 import { applyPermanentModifiers, computeMoveRange, normalizeInventory } from './inventory.js';
@@ -342,19 +342,20 @@ export function tokenFromNpc(npc) {
 }
 
 export function tokenFromVehicle(npc) {
-  const meta = getClassMeta(npc.class);
+  const meta = getVehicleClassMeta();
   const spanCols = Math.max(1, Number(npc.spanCols) || 1);
   const spanRows = Math.max(1, Number(npc.spanRows) || 1);
   const moveRange = Math.max(1, Number(npc.moveRange) || 6);
   const maxShields = Number(npc.maxShields ?? npc.shields) || 0;
   const shields = Number(npc.shields ?? npc.maxShields) ?? maxShields;
+  const classFields = vehicleClassFields();
   const token = {
     id: `vehicle_${npc.id}`,
     sourceId: npc.id,
     kind: 'vehicle',
     npcCategory: 'vehicle',
     name: npc.name,
-    class: npc.class,
+    ...classFields,
     classLabel: meta.label,
     theme: meta.theme,
     color: meta.color,
@@ -365,12 +366,11 @@ export function tokenFromVehicle(npc) {
     moveRange,
     characterSnapshot: buildCharacterSnapshot({
       ...npc,
+      ...classFields,
       id: npc.id,
       name: npc.name,
-      class: npc.class,
       type: 'NPC',
       npcCategory: 'vehicle',
-      species: 'Vehículo',
       portraitUrl: npc.image || npc.portraitUrl || '',
       skills: npc.skills || [],
       hp: npc.hp,

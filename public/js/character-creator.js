@@ -22,7 +22,7 @@ import {
 } from './firebase-config.js';
 import { renderCharacterCard } from './character-card.js';
 import { loadCharacterById } from './characters.js';
-import { loadNpcById, createNpc, updateNpc, buildNpcEraFormOptions, DEFAULT_NPC_ERA, normalizeNpcLoot, serializeNpcLoot, readNpcCategory, isVehicleNpc, NPC_CATEGORY_VEHICLE, NPC_CATEGORY_CHARACTER } from './npcs.js';
+import { loadNpcById, createNpc, updateNpc, buildNpcEraFormOptions, DEFAULT_NPC_ERA, normalizeNpcLoot, serializeNpcLoot, readNpcCategory, isVehicleNpc, NPC_CATEGORY_VEHICLE, NPC_CATEGORY_CHARACTER, VEHICLE_CLASS_KEY, vehicleClassFields } from './npcs.js';
 import { normalizeLootTemplate } from './loot.js';
 import { renderLootList, createLootItemPicker } from './loot-editor-ui.js';
 import { characterViewUrl } from './character-url.js';
@@ -108,6 +108,7 @@ function syncNpcOnlyFields() {
   document.getElementById('char-era-wrap')?.classList.toggle('d-none', !isNpc);
   document.getElementById('stats-edit-wrap')?.classList.toggle('d-none', !isNpc);
   document.getElementById('char-level-wrap')?.classList.toggle('d-none', isNpc);
+  document.getElementById('char-class-wrap')?.classList.toggle('d-none', isVehicle);
   document.getElementById('char-species-wrap')?.classList.toggle('d-none', isVehicle);
   document.getElementById('npc-custom-skills-wrap')?.classList.toggle('d-none', !isNpc);
   document.getElementById('npc-editor-tabs')?.classList.toggle('d-none', !isNpc);
@@ -116,6 +117,7 @@ function syncNpcOnlyFields() {
   document.getElementById('stat-shields-wrap')?.classList.toggle('d-none', !isVehicle);
   document.getElementById('vehicle-size-wrap')?.classList.toggle('d-none', !isVehicle);
   document.getElementById('vehicle-move-wrap')?.classList.toggle('d-none', !isVehicle);
+  document.getElementById('btn-load-base-stats')?.classList.toggle('d-none', !isNpc || isVehicle);
   if (!isNpc) {
     showNpcEditorTab('general');
   }
@@ -403,7 +405,9 @@ function onFormChange(e) {
 function applyEntityToForm(entity) {
   syncNpcOnlyFields();
   document.getElementById('char-name').value = entity.name || '';
-  document.getElementById('char-class').value = entity.class || entity.classKey || getClassList()[0]?.key;
+  if (!isVehicleMode()) {
+    document.getElementById('char-class').value = entity.class || entity.classKey || getClassList()[0]?.key;
+  }
   if (!isNpcMode()) {
     document.getElementById('char-level').value = entity.level ?? 1;
   }
@@ -455,8 +459,12 @@ function updatePortraitPreview(url) {
   img.onload = () => err?.classList.add('d-none');
 }
 
+function getFormClassKey() {
+  return isVehicleMode() ? VEHICLE_CLASS_KEY : document.getElementById('char-class').value;
+}
+
 function getFormCharacter() {
-  const classKey = document.getElementById('char-class').value;
+  const classKey = getFormClassKey();
   const level = isNpcMode()
     ? NPC_SKILL_LEVEL
     : (parseInt(document.getElementById('char-level').value, 10) || 1);
@@ -467,9 +475,9 @@ function getFormCharacter() {
 
   const char = {
     name: document.getElementById('char-name').value.trim() || 'Sin nombre',
-    class: classKey,
-    classKey,
-    species: isVehicleMode() ? 'Vehículo' : document.getElementById('char-species').value,
+    class: isVehicleMode() ? VEHICLE_CLASS_KEY : classKey,
+    classKey: isVehicleMode() ? VEHICLE_CLASS_KEY : classKey,
+    species: isVehicleMode() ? null : document.getElementById('char-species').value,
     era: isNpcMode() ? (document.getElementById('char-era')?.value || DEFAULT_NPC_ERA) : undefined,
     type: isNpcMode() ? 'NPC' : 'Heroe',
     npcCategory: isVehicleMode() ? NPC_CATEGORY_VEHICLE : (isNpcMode() ? NPC_CATEGORY_CHARACTER : undefined),
@@ -574,7 +582,7 @@ function updateSkillPicker() {
 function renderVehicleCustomSkillPicker(container) {
   container.innerHTML = '<p class="small text-muted mb-2">Solo habilidades custom (clase «Otros»). Añádelas abajo.</p><div id="npc-skill-list"></div>';
   npcSkillSource = 'otros';
-  renderNpcSkillList(container.querySelector('#npc-skill-list'), document.getElementById('char-class').value, NPC_SKILL_LEVEL, 0);
+  renderNpcSkillList(container.querySelector('#npc-skill-list'), VEHICLE_CLASS_KEY, NPC_SKILL_LEVEL, 0);
 }
 
 function renderNpcSkillPicker(container, classKey, level) {
@@ -771,9 +779,11 @@ async function saveNpc(userId) {
   const skillIds = normalizeSelectedSkillIds(selectedSkills);
   const payload = {
     name: char.name,
-    species: isVehicleMode() ? 'Vehículo' : char.species,
-    classKey: char.classKey,
-    class: char.classKey,
+    ...(isVehicleMode() ? vehicleClassFields() : {
+      species: char.species,
+      classKey: char.classKey,
+      class: char.classKey
+    }),
     type: 'NPC',
     npcCategory: isVehicleMode() ? NPC_CATEGORY_VEHICLE : NPC_CATEGORY_CHARACTER,
     era: document.getElementById('char-era')?.value || DEFAULT_NPC_ERA,

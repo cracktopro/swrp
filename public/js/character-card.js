@@ -1,8 +1,15 @@
 import { getStats, formatAttack, findSkillById, findCustomSkillById, GAME_DATA } from './compendium-store.js';
 import { applyPermanentModifiers, computeEquipmentBonus } from './inventory.js';
 import { CARD_LOGO_SRC } from './assets.js';
+import {
+  VEHICLE_CLASS_KEY,
+  VEHICLE_CLASS_LABEL,
+  getVehicleClassMeta,
+  isVehicleNpc
+} from './npcs.js';
 
 export function getClassMeta(classKey) {
+  if (classKey === VEHICLE_CLASS_KEY) return getVehicleClassMeta();
   return GAME_DATA.CLASS_META[classKey] || {
     label: classKey,
     theme: 'default',
@@ -19,11 +26,12 @@ export function readCharacterClass(data) {
 export function normalizeCharacter(data, id = null) {
   if (!data) return null;
   const level = Number(data.level) || 1;
-  const classKey = readCharacterClass(data);
+  const vehicle = isVehicleNpc(data);
+  const classKey = vehicle ? VEHICLE_CLASS_KEY : readCharacterClass(data);
   return {
     id: id ?? data.id ?? null,
     name: data.name || 'Sin nombre',
-    species: data.species || 'Humanos',
+    species: vehicle ? null : (data.species || 'Humanos'),
     era: data.era || null,
     class: classKey,
     classKey,
@@ -118,7 +126,8 @@ function statHexClass(statKey, { boardContext, equipBoosted }) {
 export function renderCharacterCard(character, options = {}) {
   const { mini = false, showSkills = true, isNpc = false, isVehicle = false, copyMentionId = null, boardContext = null, inventory = null, loot = null } = options;
   const char = normalizeCharacter(character, character?.id);
-  const meta = getClassMeta(char.class);
+  const isVehicleCard = isVehicle || isVehicleNpc(char);
+  const meta = isVehicleCard ? getVehicleClassMeta() : getClassMeta(char.class);
   const stats = resolveCharacterStats(char);
   const displayStats = boardContext
     ? {
@@ -141,13 +150,13 @@ export function renderCharacterCard(character, options = {}) {
 
   const equipBoosted = getEquipmentBoostedStatKeys(char);
   const attackFmt = formatAttack(displayStats.attack ?? stats.attack);
-  const forceBlock = !isVehicle && meta.hasForce && stats.force != null
+  const forceBlock = !isVehicleCard && meta.hasForce && stats.force != null
     ? `<p class="swrp-card__force"><em>Fuerza: ${stats.force}</em></p>`
     : '';
-  const shieldsBlock = isVehicle && (stats.shields != null || stats.maxShields != null)
+  const shieldsBlock = isVehicleCard && (stats.shields != null || stats.maxShields != null)
     ? `<p class="swrp-card__force swrp-card__shields"><em>Escudos: ${stats.shields ?? stats.maxShields ?? 0}</em></p>`
     : '';
-  const vehicleSizeBlock = isVehicle
+  const vehicleSizeBlock = isVehicleCard
     ? `<p class="swrp-card__vehicle-meta small text-muted mb-0">${Number(char.spanCols) || 1}×${Number(char.spanRows) || 1} celdas · Mov. ${Number(char.moveRange) || 6}</p>`
     : '';
 
@@ -155,7 +164,7 @@ export function renderCharacterCard(character, options = {}) {
     ? [...rolSkills, ...skills].map(renderSkillItem).join('')
     : '';
 
-  const npcBadge = isVehicle
+  const npcBadge = isVehicleCard
     ? '<span class="swrp-card__badge-npc swrp-card__badge-vehicle">VEHÍCULO</span>'
     : (isNpc ? '<span class="swrp-card__badge-npc">NPC</span>' : '');
 
@@ -170,14 +179,21 @@ export function renderCharacterCard(character, options = {}) {
           <div class="swrp-card__hex swrp-card__hex--level">${char.level}</div>
         </div>`;
 
+  const eraLine = char.era
+    ? `<span class="swrp-card__era-label">Era:</span> ${escapeHtml(char.era)}`
+    : '';
+  const speciesLine = isVehicleCard
+    ? (eraLine ? `<p class="swrp-card__species">${eraLine}</p>` : '')
+    : `<p class="swrp-card__species">${escapeHtml(char.species)}${eraLine ? ` · ${eraLine}` : ''}</p>`;
+
   card.innerHTML = `
     <header class="swrp-card__header">
       <div class="swrp-card__identity">
         <h2 class="swrp-card__name" title="${escapeHtml(char.name)}">
           <span class="swrp-card__name-text">${escapeHtml(char.name)}</span>${npcBadge}
         </h2>
-        <p class="swrp-card__class">${escapeHtml(meta.label)}</p>
-        <p class="swrp-card__species">${escapeHtml(isVehicle ? 'Vehículo' : char.species)}${char.era ? ` · <span class="swrp-card__era-label">Era:</span> ${escapeHtml(char.era)}` : ''}</p>
+        <p class="swrp-card__class">${escapeHtml(isVehicleCard ? VEHICLE_CLASS_LABEL : meta.label)}</p>
+        ${speciesLine}
         ${vehicleSizeBlock}
       </div>
       <div class="swrp-card__header-actions">

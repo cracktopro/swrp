@@ -242,7 +242,7 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 
 - **Personajes** (`characters/`): héroes del jugador; creador en `character-create.html` (pestaña Personajes).
 - **NPCs** (`npcs/`, `npcCategory: 'character'`): solo admin; sin campo nivel; stats editables; usados en tablero, compendio y escaramuzas. Creador: pestaña **NPCs** en `character-create.html`.
-- **Vehículos** (`npcs/`, `npcCategory: 'vehicle'`): mismo almacén Firestore que los NPCs, pero con campos y comportamiento distintos (ver §8.5.2). Creador: pestaña **Vehículos** en `character-create.html`.
+- **Vehículos** (`npcs/`, `npcCategory: 'vehicle'`): mismo almacén Firestore que los NPCs. Clase fija interna `vehiculo` (etiqueta **Vehículo**); sin especie ni selector de clase de juego. Creador: pestaña **Vehículos** en `character-create.html`.
 - Cartas: `character-card.js` + `character-card.css` (temas por clase; badge **VEHÍCULO** en vehículos).
 - Selector reutilizable: `npc-picker.js` (`initCharacterPicker`, `initNpcPicker`) — filas estilo tarjeta con thumb, clase, especie, nivel.
 
@@ -354,6 +354,8 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
   shields?, maxShields?,     // solo vehículo
   spanCols?, spanRows?,      // solo vehículo (tamaño en celdas)
   moveRange?,                // solo vehículo (celdas por acción de movimiento)
+  // vehículo: class/classKey = 'vehiculo', sin species
+  // personaje NPC: species + class de juego
   skills: [skillId, ...],
   portraitUrl / image,
   loot?: { credits, items: [{ itemId, prob }] },
