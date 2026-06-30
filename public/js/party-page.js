@@ -24,6 +24,7 @@ import { renderCharacterCard } from './character-card.js';
 import { openInventoryModal } from './inventory-modal.js';
 import { boardPageUrl } from './party-url.js';
 import { assignSpawnToMember, hasEscaramuzaSlotConfig } from './escaramuza-templates.js';
+import { initPartyMusic } from './party-music.js';
 
 export async function initPartyPage({ user, profile, partyId, ui }) {
   const {
@@ -290,6 +291,18 @@ export async function initPartyPage({ user, profile, partyId, ui }) {
       narrativeText.value = '';
     } catch (err) {
       alert('Error al publicar mensaje: ' + err.message);
+    }
+  });
+
+  initPartyMusic({
+    partyId,
+    isGM,
+    panel: {
+      root: '#party-music-panel',
+      urlInput: '#party-music-url',
+      applyBtn: '#party-music-apply',
+      stopBtn: '#party-music-stop',
+      status: '#party-music-status'
     }
   });
 }

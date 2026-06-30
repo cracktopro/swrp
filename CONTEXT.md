@@ -206,7 +206,9 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 
 **Acceso:** miembro de la partida. Escaramuza oculta enlace al foro; entra directo al tablero.
 
-**Sidebar:** pestañas Combate | Log | **Objetivos** (todos los jugadores) | Opciones (solo GM).
+**Sidebar:** pestañas Combate | Log | **Objetivos** (todos los jugadores) | Opciones (solo GM) | **Música** (solo GM).
+
+**Música** (`party-music.js`): el GM pega una URL de YouTube; al aceptar, todos los miembros oyen la pista (reproductor oculto + mini-reproductor flotante con play/pause sincronizado y volumen local). Estado en `state/music`. En campañas el panel también está en el foro narrativo.
 
 **Escenarios** (`board-scenarios.js`): barra de pestañas sobre el tablero (Escenario 1 por defecto, botón **+** solo GM). Cada escenario es un tablero independiente (mapa, grid, tokens, cofres, objetivos, biblioteca NPC neutral, combate). Mapa y dimensiones de cuadrícula son **por escenario** (se persisten al cambiar URL/mapas o grid y al cambiar de pestaña). Índice en `state/scenarios` (`activeScenarioId`, `items[]` con `name`, `visibleToPlayers`). El GM puede ocultar escenarios a jugadores; los jugadores solo ven y pueden cambiar a pestañas marcadas como visibles. En **Control de chapa → En juego**, el GM puede **mover una chapa a otro escenario** conservando HP, stats, diálogos, botín, etc. Misma UI en **Editor de mapas**; las plantillas guardan `scenarios[]` + `activeScenarioId` (y `boardLayout` del escenario activo por compatibilidad).
 
@@ -237,6 +239,7 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 - Foro en tiempo real: posts narrativos y tiradas de dados.
 - El autor puede **editar** sus mensajes narrativos (`updateNarrativePost` en `party.js`).
 - GM sin personaje activo puede **tirar dados** indicando un nombre libre de tirador.
+- Panel **Música** (solo GM): URL de YouTube; mini-reproductor flotante para todos (play/pause sincronizado, volumen local).
 - Markup: `[img]`, `[C]color[/C]`, `@` menciones (solo personajes unidos).
 - Panel «Mi participación»: cambiar rol/personaje.
 
@@ -495,6 +498,16 @@ Misma forma que `state/board` (snapshot del escenario cuando no está activo).
 }
 ```
 
+### `parties/{partyId}/state/music`
+```js
+{
+  videoId: string | null,   // ID de YouTube
+  title: string,              // título (noembed)
+  playing: boolean,
+  updatedAt
+}
+```
+
 ---
 
 ## 10. Reglas Firestore (resumen)
@@ -533,6 +546,7 @@ Funciones auxiliares en reglas: `isAdmin`, `isPartyMember`, `isPartyGM`, `isEsca
 | `npc-picker.js` | Selectores tarjeta personaje/NPC |
 | `party.js` | Carga partida, posts, tiradas foro |
 | `party-page.js` | UI partida: join, rol, foro |
+| `party-music.js` | Música ambiental YouTube sincronizada (`state/music`) |
 | `party-members.js` | Membresía, roster, tokens, `joinParty` |
 | `party-markup.js` | Parser `[img]`, `[C]`, `@` |
 | `party-url.js` | URLs partida/tablero, `rememberPartyId` |
