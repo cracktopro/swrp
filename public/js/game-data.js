@@ -65,6 +65,14 @@ export const GAME_DATA = {
       "theme": "noble",
       "color": "#d4af37",
       "hasForce": false
+    },
+    "Otros": {
+      "id": "otros",
+      "label": "Otros",
+      "theme": "otros",
+      "color": "#9e9e9e",
+      "hasForce": false,
+      "customSkillsOnly": true
     }
   },
   "SPECIES_LIST": [
@@ -1372,6 +1380,148 @@ export const GAME_DATA = {
         "damage": 20,
         "force": null
       }
+    },
+    "Otros": {
+      "1": {
+        "hp": 40,
+        "defense": 11,
+        "attack": 2,
+        "damage": 10,
+        "force": "N/A"
+      },
+      "2": {
+        "hp": 50,
+        "defense": 13,
+        "attack": 4,
+        "damage": 10,
+        "force": "N/A"
+      },
+      "3": {
+        "hp": 50,
+        "defense": 13,
+        "attack": 4,
+        "damage": 10,
+        "force": "N/A"
+      },
+      "4": {
+        "hp": 50,
+        "defense": 13,
+        "attack": 4,
+        "damage": 10,
+        "force": "N/A"
+      },
+      "5": {
+        "hp": 50,
+        "defense": 13,
+        "attack": 4,
+        "damage": 10,
+        "force": "N/A"
+      },
+      "6": {
+        "hp": 50,
+        "defense": 14,
+        "attack": 4,
+        "damage": 10,
+        "force": "N/A"
+      },
+      "7": {
+        "hp": 50,
+        "defense": 14,
+        "attack": 5,
+        "damage": 10,
+        "force": "N/A"
+      },
+      "8": {
+        "hp": 50,
+        "defense": 14,
+        "attack": 5,
+        "damage": 10,
+        "force": "N/A"
+      },
+      "9": {
+        "hp": 60,
+        "defense": 14,
+        "attack": 5,
+        "damage": 10,
+        "force": "N/A"
+      },
+      "10": {
+        "hp": 60,
+        "defense": 14,
+        "attack": 5,
+        "damage": 10,
+        "force": "N/A"
+      },
+      "11": {
+        "hp": 60,
+        "defense": 15,
+        "attack": 5,
+        "damage": 10,
+        "force": "N/A"
+      },
+      "12": {
+        "hp": 60,
+        "defense": 15,
+        "attack": 5,
+        "damage": 10,
+        "force": "N/A"
+      },
+      "13": {
+        "hp": 60,
+        "defense": 15,
+        "attack": 6,
+        "damage": 10,
+        "force": "N/A"
+      },
+      "14": {
+        "hp": 70,
+        "defense": 15,
+        "attack": 6,
+        "damage": 10,
+        "force": "N/A"
+      },
+      "15": {
+        "hp": 70,
+        "defense": 16,
+        "attack": 6,
+        "damage": 10,
+        "force": "N/A"
+      },
+      "16": {
+        "hp": 70,
+        "defense": 16,
+        "attack": 6,
+        "damage": 10,
+        "force": "N/A"
+      },
+      "17": {
+        "hp": 70,
+        "defense": 16,
+        "attack": 6,
+        "damage": 10,
+        "force": "N/A"
+      },
+      "18": {
+        "hp": 80,
+        "defense": 17,
+        "attack": 7,
+        "damage": 10,
+        "force": "N/A"
+      },
+      "19": {
+        "hp": 80,
+        "defense": 17,
+        "attack": 7,
+        "damage": 10,
+        "force": "N/A"
+      },
+      "20": {
+        "hp": 80,
+        "defense": 17,
+        "attack": 7,
+        "damage": 10,
+        "force": "N/A"
+      }
     }
   },
   "skills": {
@@ -2283,7 +2433,8 @@ export const GAME_DATA = {
         "class": "Cazarrecompensas",
         "forceCost": 0
       }
-    ]
+    ],
+    "Otros": []
   }
 };
 

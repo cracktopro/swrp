@@ -70,6 +70,14 @@ const CLASS_META = {
     theme: 'noble',
     color: '#d4af37',
     hasForce: false
+  },
+  Otros: {
+    id: 'otros',
+    label: 'Otros',
+    theme: 'otros',
+    color: '#9e9e9e',
+    hasForce: false,
+    customSkillsOnly: true
   }
 };
 
@@ -135,6 +143,10 @@ function buildProgression() {
     }
   }
 
+  if (byClass.Noble) {
+    byClass.Otros = JSON.parse(JSON.stringify(byClass.Noble));
+  }
+
   return byClass;
 }
 
@@ -166,6 +178,7 @@ function buildSkills() {
   cloneSkillsForClass('Jedi Consul', 'Inquisidor Sith');
   cloneSkillsForClass('Soldado', 'Cazarrecompensas');
   applyDerivedClassSkills(byClass);
+  byClass.Otros = [];
 
   return byClass;
 }

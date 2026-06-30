@@ -239,13 +239,13 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 - Foro en tiempo real: posts narrativos y tiradas de dados.
 - El autor puede **editar** sus mensajes narrativos (`updateNarrativePost` en `party.js`).
 - GM sin personaje activo puede **tirar dados** indicando un nombre libre de tirador.
-- Panel **Música** (solo GM): URL de YouTube; mini-reproductor flotante para todos (play/pause sincronizado, volumen local).
+- Panel **Música** (solo GM): URL de YouTube; mini-reproductor en cabecera (play/pause sincronizado, volumen local, barra de progreso).
 - Markup: `[img]`, `[C]color[/C]`, `@` menciones (solo personajes unidos).
 - Panel «Mi participación»: cambiar rol/personaje.
 
 ### 8.5 Personajes, NPCs y Vehículos
 
-- **Personajes** (`characters/`): héroes del jugador; creador en `character-create.html` (pestaña Personajes).
+- **Personajes** (`characters/`): héroes del jugador; creador en `character-create.html` (pestaña Personajes). Clase **Otros** disponible: solo elige habilidades personalizadas del compendio (`skills.Otros`).
 - **NPCs** (`npcs/`, `npcCategory: 'character'`): solo admin; sin campo nivel; stats editables; usados en tablero, compendio y escaramuzas. Creador: pestaña **NPCs** en `character-create.html`.
 - **Vehículos** (`npcs/`, `npcCategory: 'vehicle'`): mismo almacén Firestore que los NPCs. Clase fija interna `vehiculo` (etiqueta **Vehículo**); sin especie ni selector de clase de juego. Creador: pestaña **Vehículos** en `character-create.html`.
 - Cartas: `character-card.js` + `character-card.css` (temas por clase; badge **VEHÍCULO** en vehículos).
@@ -264,7 +264,7 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 
 - Progresión 1–20, habilidades por clase, especies.
 - Pestañas: Progresión, Habilidades, Especies, NPCs, **Tableros** (mapas VTT reutilizables, solo admin edita), **Objetos**.
-- **Habilidades → Otros:** catálogo de habilidades personalizadas creadas para NPCs (Activa/Pasiva; nombre y descripción). No forman parte de las clases de juego.
+- **Habilidades → Otros:** catálogo de habilidades personalizadas (Activa/Pasiva; nombre y descripción), creadas al editar NPCs. También es **clase de juego** seleccionable en personajes: sus habilidades son las de este catálogo.
 - **Objetos** (`compendium/data.items`, solo admin edita): catálogo de objetos para inventarios. Filtros en la pestaña: **nombre**, **tipo** y **clase** (equipo equipable por esa clase o por todas). Campos: nombre, descripción, imagen (URL del icono), tipo, **peso (KG)** y precio de venta. Por tipo:
   - **Equipo:** ocupa la ranura especial del inventario (solo uno equipado). Sube una estadística (HP/Defensa/Ataque/Daño/Fuerza) en `statBonus` mientras esté equipado. Define además **`equipClass`** (clase que puede equiparlo; `'all'` = todas, sin contar «Otros») y **`equipLevel`** (nivel mínimo 1–20); el inventario solo permite equiparlo si el personaje cumple ambos requisitos.
   - **Consumible:** se usa en partida, desaparece y aplica un efecto (estadística + aumento). `temporary: true` → el efecto se revierte al **Finalizar combate**; `false` → permanente. Una cura (HP) nunca supera el máximo del personaje. **Estadística «Ninguna» (`stat: 'none'`):** consumible sin efecto mecánico (llaves, piezas, etc.); solo se gasta y se registra (uso narrativo/rol).

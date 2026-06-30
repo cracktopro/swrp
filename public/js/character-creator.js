@@ -533,6 +533,11 @@ function updateSkillPicker() {
     return;
   }
 
+  if (classKey === CUSTOM_SKILLS_CLASS) {
+    renderPlayerOtrosSkillPicker(container, level);
+    return;
+  }
+
   const available = getSkillsForClass(classKey, level)
     .filter((s) => s.unlockLevel !== 'always' && s.type !== 'Rol');
 
@@ -576,6 +581,47 @@ function updateSkillPicker() {
       section.appendChild(label);
     });
     container.appendChild(section);
+  });
+}
+
+function renderPlayerOtrosSkillPicker(container, level) {
+  const unlockLevels = getUnlockableSkillLevels(level);
+  const maxSlots = Math.min(GAME_DATA.MAX_SKILLS, unlockLevels.length);
+  const slotsUsed = selectedSkills.length;
+  const customSkills = getCustomSkills()
+    .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es'));
+
+  container.innerHTML = `
+    <p class="small text-muted">Clase «Otros»: elige hasta ${maxSlots} habilidades personalizadas creadas en el compendio.</p>
+    <p class="small mb-2">Seleccionadas: ${slotsUsed}/${maxSlots}</p>`;
+
+  if (!customSkills.length) {
+    const empty = document.createElement('p');
+    empty.className = 'small text-muted mb-0';
+    empty.textContent = 'Aún no hay habilidades en «Otros». Se añaden al crear o editar NPCs.';
+    container.appendChild(empty);
+    return;
+  }
+
+  customSkills.forEach((skill) => {
+    const checked = selectedSkills.includes(skill.id);
+    const label = document.createElement('label');
+    label.className = 'd-block small mb-1';
+    label.innerHTML = `
+      <input type="checkbox" value="${escapeAttr(skill.id)}" ${checked ? 'checked' : ''}
+        ${!checked && slotsUsed >= maxSlots ? 'disabled' : ''}>
+      <span class="swrp-skill-badge ${skillTypeClass(skill.type)}">${escapeHtml(skill.type)}</span>
+      <strong>${escapeHtml(skill.name)}</strong> — ${escapeHtml(skill.description)}`;
+    label.querySelector('input').addEventListener('change', (e) => {
+      if (e.target.checked) {
+        if (selectedSkills.length < maxSlots) selectedSkills.push(skill.id);
+      } else {
+        selectedSkills = selectedSkills.filter((sid) => sid !== skill.id);
+      }
+      updateSkillPicker();
+      updatePreview();
+    });
+    container.appendChild(label);
   });
 }
 

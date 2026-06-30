@@ -60,6 +60,12 @@
   --card-glow-soft: rgba(212, 175, 55, 0.12);
 }
 
+.swrp-card.theme-otros {
+  --card-accent: #9e9e9e;
+  --card-glow: rgba(158, 158, 158, 0.45);
+  --card-glow-soft: rgba(158, 158, 158, 0.12);
+}
+
 .swrp-card.theme-sith-guardian {
   --card-accent: #ff1744;
   --card-glow: rgba(255, 23, 68, 0.5);

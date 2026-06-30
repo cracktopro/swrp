@@ -93,6 +93,9 @@ export function initPartyMusic({ partyId, isGM, panel = {}, playerMount = '#swrp
   let miniVolInput = null;
   let miniUnmuteBtn = null;
   let miniTitleEl = null;
+  let miniProgressFill = null;
+  let miniProgressTime = null;
+  let progressTimer = null;
 
   let hostWrap = document.getElementById('swrp-yt-player-host');
   if (!hostWrap) {
@@ -105,6 +108,37 @@ export function initPartyMusic({ partyId, isGM, panel = {}, playerMount = '#swrp
 
   function setStatus(msg) {
     if (statusEl) statusEl.textContent = msg || '';
+  }
+
+  function formatTime(seconds) {
+    const s = Math.max(0, Math.floor(Number(seconds) || 0));
+    const m = Math.floor(s / 60);
+    const r = s % 60;
+    return `${m}:${String(r).padStart(2, '0')}`;
+  }
+
+  function stopProgressTick() {
+    if (progressTimer) {
+      window.clearInterval(progressTimer);
+      progressTimer = null;
+    }
+  }
+
+  function updateProgressBar() {
+    if (!miniProgressFill || !miniProgressTime || !ytPlayer?.getDuration) return;
+    const duration = ytPlayer.getDuration() || 0;
+    const current = ytPlayer.getCurrentTime() || 0;
+    const pct = duration > 0 ? Math.min(100, (current / duration) * 100) : 0;
+    miniProgressFill.style.width = `${pct}%`;
+    miniProgressTime.textContent = duration > 0
+      ? `${formatTime(current)} / ${formatTime(duration)}`
+      : '0:00';
+  }
+
+  function startProgressTick() {
+    stopProgressTick();
+    updateProgressBar();
+    progressTimer = window.setInterval(updateProgressBar, 500);
   }
 
   function effectivePlaying() {
@@ -126,6 +160,11 @@ export function initPartyMusic({ partyId, isGM, panel = {}, playerMount = '#swrp
     miniPlayBtn.textContent = showPlay ? '▶' : '⏸';
     miniPlayBtn.setAttribute('aria-label', showPlay ? 'Reproducir' : 'Pausar');
     miniUnmuteBtn.classList.toggle('d-none', !needsUserGesture);
+    if (effectivePlaying()) startProgressTick();
+    else {
+      stopProgressTick();
+      updateProgressBar();
+    }
   }
 
   function destroyPlayer() {
@@ -176,6 +215,11 @@ export function initPartyMusic({ partyId, isGM, panel = {}, playerMount = '#swrp
             if (ev.data === window.YT.PlayerState.PLAYING) {
               needsUserGesture = false;
               updateMiniPlayerUi();
+              startProgressTick();
+            }
+            if (ev.data === window.YT.PlayerState.PAUSED || ev.data === window.YT.PlayerState.ENDED) {
+              stopProgressTick();
+              updateProgressBar();
             }
           }
         }
@@ -187,6 +231,7 @@ export function initPartyMusic({ partyId, isGM, panel = {}, playerMount = '#swrp
     if (!remoteState.videoId) {
       destroyPlayer();
       needsUserGesture = false;
+      stopProgressTick();
       updateMiniPlayerUi();
       return;
     }
@@ -220,13 +265,21 @@ export function initPartyMusic({ partyId, isGM, panel = {}, playerMount = '#swrp
     miniPlayer.className = 'swrp-music-player d-none';
     miniPlayer.innerHTML = `
       <div class="swrp-music-player__inner">
-        <button type="button" class="swrp-music-player__play btn btn-sm btn-swrp btn-swrp-ghost" aria-label="Reproducir">▶</button>
-        <p class="swrp-music-player__title"></p>
-        <label class="swrp-music-player__vol-wrap">
-          <span class="swrp-music-player__vol-label">Volumen</span>
-          <input type="range" class="swrp-music-player__vol" min="0" max="100" step="1" aria-label="Volumen">
-        </label>
-        <button type="button" class="swrp-music-player__unmute btn btn-sm btn-swrp btn-swrp-primary d-none">Activar sonido</button>
+        <div class="swrp-music-player__row">
+          <button type="button" class="swrp-music-player__play btn btn-sm btn-swrp btn-swrp-ghost" aria-label="Reproducir">▶</button>
+          <p class="swrp-music-player__title"></p>
+          <label class="swrp-music-player__vol-wrap">
+            <span class="swrp-music-player__vol-label">Volumen</span>
+            <input type="range" class="swrp-music-player__vol" min="0" max="100" step="1" aria-label="Volumen">
+          </label>
+          <button type="button" class="swrp-music-player__unmute btn btn-sm btn-swrp btn-swrp-primary d-none">Activar sonido</button>
+        </div>
+        <div class="swrp-music-player__progress-row">
+          <div class="swrp-music-player__progress-track" aria-hidden="true">
+            <div class="swrp-music-player__progress-fill"></div>
+          </div>
+          <span class="swrp-music-player__time">0:00</span>
+        </div>
       </div>
     `;
     (mountEl || document.body).appendChild(miniPlayer);
@@ -235,6 +288,8 @@ export function initPartyMusic({ partyId, isGM, panel = {}, playerMount = '#swrp
     miniVolInput = miniPlayer.querySelector('.swrp-music-player__vol');
     miniUnmuteBtn = miniPlayer.querySelector('.swrp-music-player__unmute');
     miniTitleEl = miniPlayer.querySelector('.swrp-music-player__title');
+    miniProgressFill = miniPlayer.querySelector('.swrp-music-player__progress-fill');
+    miniProgressTime = miniPlayer.querySelector('.swrp-music-player__time');
 
     miniPlayBtn.addEventListener('click', async () => {
       if (isGM) {
@@ -318,6 +373,7 @@ export function initPartyMusic({ partyId, isGM, panel = {}, playerMount = '#swrp
 
   return () => {
     unsub();
+    stopProgressTick();
     miniPlayer?.remove();
     miniPlayer = null;
     destroyPlayer();

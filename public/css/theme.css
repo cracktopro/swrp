@@ -3960,15 +3960,21 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
 
 .swrp-music-player__inner {
   display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.4rem 0.65rem;
+  flex-direction: column;
+  gap: 0.35rem;
   padding: 0.35rem 0.65rem;
   border: 1px solid var(--swrp-accent);
   background: rgba(6, 10, 18, 0.96);
   clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+}
+
+.swrp-music-player__row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.65rem;
 }
 
 .swrp-music-player__title {
@@ -4051,5 +4057,37 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
   flex-shrink: 0;
   font-size: 0.72rem;
   padding: 0.2rem 0.5rem;
+}
+
+.swrp-music-player__progress-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.swrp-music-player__progress-track {
+  flex: 1;
+  min-width: 4rem;
+  height: 0.35rem;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.swrp-music-player__progress-fill {
+  height: 100%;
+  width: 0%;
+  background: #2196f3;
+  border-radius: 2px;
+  transition: width 0.25s linear;
+}
+
+.swrp-music-player__time {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  color: var(--swrp-text-soft);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 

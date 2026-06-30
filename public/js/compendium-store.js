@@ -52,10 +52,7 @@ export function getCustomSkills() {
 }
 
 export function getSkillsClassList() {
-  return [
-    ...getClassList(),
-    { key: CUSTOM_SKILLS_CLASS, label: CUSTOM_SKILLS_CLASS, theme: 'default', color: '#9e9e9e' }
-  ];
+  return getClassList();
 }
 
 export function generateCustomSkillId(name) {
@@ -164,6 +161,10 @@ export async function loadCompendiumData() {
   }
 
   ensureCustomSkillsBucket(skills);
+  const seedProg = cloneProgression();
+  if (!progression[CUSTOM_SKILLS_CLASS] && seedProg[CUSTOM_SKILLS_CLASS]) {
+    progression[CUSTOM_SKILLS_CLASS] = seedProg[CUSTOM_SKILLS_CLASS];
+  }
   loaded = true;
   return {
     progression,
