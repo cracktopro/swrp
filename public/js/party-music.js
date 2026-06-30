@@ -73,7 +73,7 @@ async function fetchYouTubeTitle(videoId) {
  * Sincroniza música ambiental de partida vía Firestore `state/music`.
  * GM: panel para URL y detener. Todos: mini-reproductor flotante (play/pause + volumen local).
  */
-export function initPartyMusic({ partyId, isGM, panel = {} }) {
+export function initPartyMusic({ partyId, isGM, panel = {}, playerMount = '#swrp-music-player-mount' } = {}) {
   const panelRoot = panel.root ? document.querySelector(panel.root) : null;
   const urlInput = panel.urlInput ? document.querySelector(panel.urlInput) : null;
   const applyBtn = panel.applyBtn ? document.querySelector(panel.applyBtn) : null;
@@ -215,22 +215,21 @@ export function initPartyMusic({ partyId, isGM, panel = {} }) {
 
   function ensureMiniPlayer() {
     if (miniPlayer) return;
+    const mountEl = playerMount ? document.querySelector(playerMount) : null;
     miniPlayer = document.createElement('div');
     miniPlayer.className = 'swrp-music-player d-none';
     miniPlayer.innerHTML = `
       <div class="swrp-music-player__inner">
+        <button type="button" class="swrp-music-player__play btn btn-sm btn-swrp btn-swrp-ghost" aria-label="Reproducir">▶</button>
         <p class="swrp-music-player__title"></p>
-        <div class="swrp-music-player__controls">
-          <button type="button" class="swrp-music-player__play btn btn-sm btn-swrp btn-swrp-ghost" aria-label="Reproducir">▶</button>
-          <label class="swrp-music-player__vol-label">
-            <span class="visually-hidden">Volumen</span>
-            <input type="range" class="swrp-music-player__vol form-range" min="0" max="100" step="1">
-          </label>
-        </div>
+        <label class="swrp-music-player__vol-wrap">
+          <span class="swrp-music-player__vol-label">Volumen</span>
+          <input type="range" class="swrp-music-player__vol" min="0" max="100" step="1" aria-label="Volumen">
+        </label>
         <button type="button" class="swrp-music-player__unmute btn btn-sm btn-swrp btn-swrp-primary d-none">Activar sonido</button>
       </div>
     `;
-    document.body.appendChild(miniPlayer);
+    (mountEl || document.body).appendChild(miniPlayer);
 
     miniPlayBtn = miniPlayer.querySelector('.swrp-music-player__play');
     miniVolInput = miniPlayer.querySelector('.swrp-music-player__vol');

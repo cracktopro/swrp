@@ -208,7 +208,7 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
 
 **Sidebar:** pestañas Combate | Log | **Objetivos** (todos los jugadores) | Opciones (solo GM) | **Música** (solo GM).
 
-**Música** (`party-music.js`): el GM pega una URL de YouTube; al aceptar, todos los miembros oyen la pista (reproductor oculto + mini-reproductor flotante con play/pause sincronizado y volumen local). Estado en `state/music`. En campañas el panel también está en el foro narrativo.
+**Música** (`party-music.js`): el GM pega una URL de YouTube; al aceptar, todos los miembros oyen la pista (reproductor oculto + mini-reproductor en la cabecera junto al toggle de conos de visión, con play/pause sincronizado y volumen local). Estado en `state/music`. En campañas el panel también está en el foro narrativo.
 
 **Escenarios** (`board-scenarios.js`): barra de pestañas sobre el tablero (Escenario 1 por defecto, botón **+** solo GM). Cada escenario es un tablero independiente (mapa, grid, tokens, cofres, objetivos, biblioteca NPC neutral, combate). Mapa y dimensiones de cuadrícula son **por escenario** (se persisten al cambiar URL/mapas o grid y al cambiar de pestaña). Índice en `state/scenarios` (`activeScenarioId`, `items[]` con `name`, `visibleToPlayers`). El GM puede ocultar escenarios a jugadores; los jugadores solo ven y pueden cambiar a pestañas marcadas como visibles. En **Control de chapa → En juego**, el GM puede **mover una chapa a otro escenario** conservando HP, stats, diálogos, botín, etc. Misma UI en **Editor de mapas**; las plantillas guardan `scenarios[]` + `activeScenarioId` (y `boardLayout` del escenario activo por compatibilidad).
 
