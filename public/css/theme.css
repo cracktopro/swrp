@@ -3406,10 +3406,44 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
   overflow: hidden;
 }
 
-.swrp-template-pick-card:hover,
-.swrp-template-pick-card.is-selected {
+.swrp-template-pick-card:hover:not(.is-selected) {
   border-color: var(--swrp-accent);
   box-shadow: 0 0 12px rgba(0, 229, 255, 0.12);
+}
+
+.swrp-template-pick-card.is-selected {
+  border-color: var(--swrp-gold-bright, #ffc107);
+  background: rgba(255, 193, 7, 0.1);
+  box-shadow:
+    0 0 0 2px rgba(255, 193, 7, 0.4),
+    0 0 18px rgba(255, 193, 7, 0.22);
+}
+
+.swrp-template-pick-card.swrp-difficulty-card--padawan.is-selected,
+.swrp-template-pick-card.swrp-difficulty-card--jedi.is-selected,
+.swrp-template-pick-card.swrp-difficulty-card--caballero.is-selected,
+.swrp-template-pick-card.swrp-difficulty-card--maestro.is-selected {
+  box-shadow:
+    inset 4px 0 0 var(--difficulty-color, #ffc107),
+    0 0 0 2px rgba(255, 193, 7, 0.45),
+    0 0 18px rgba(255, 193, 7, 0.2);
+}
+
+.swrp-template-pick-card.is-selected::after {
+  content: 'Seleccionada';
+  position: absolute;
+  top: 0.45rem;
+  right: 0.5rem;
+  z-index: 2;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #1a1400;
+  background: var(--swrp-gold-bright, #ffc107);
+  padding: 0.12rem 0.45rem;
+  border-radius: 3px;
+  pointer-events: none;
 }
 
 .swrp-template-pick-card__media {

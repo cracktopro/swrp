@@ -608,6 +608,7 @@ export function renderTemplatePickCard(template, { selected = false, onSelect } 
   el.type = 'button';
   el.className = `swrp-template-pick-card${selected ? ' is-selected' : ''}`;
   el.dataset.templateId = template.id;
+  el.setAttribute('aria-pressed', selected ? 'true' : 'false');
   applyDifficultyCardStyle(el, template.difficulty);
 
   const media = template.imageUrl
