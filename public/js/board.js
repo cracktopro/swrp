@@ -204,6 +204,21 @@ function tokenMatchesPlayerTurn(token, turn) {
   return token.sourceId === turn.sourceId;
 }
 
+function cellsAreAdjacent(cellsA, cellsB) {
+  for (const a of cellsA) {
+    for (const b of cellsB) {
+      if (Math.abs(a.col - b.col) + Math.abs(a.row - b.row) === 1) return true;
+    }
+  }
+  return false;
+}
+
+function isPlayerCharacterToken(token) {
+  return normalizeTokenSide(token?.side) === 'ally'
+    && inferBoardTokenKind(token) === 'character'
+    && !isTokenDefeated(token);
+}
+
 export class TacticalBoard {
   constructor(canvas, tokenLayer, logEl, options = {}) {
     this.canvas = canvas;
@@ -260,7 +275,6 @@ export class TacticalBoard {
     this.onChestEditClick = options.onChestEditClick || (() => {});
     this.onBoardMetaChange = options.onBoardMetaChange || (() => {});
     this.showEnemyVisionCones = options.showEnemyVisionCones ?? readShowEnemyVisionConesPreference();
-    this._dialogueIndexByToken = {};
     this._activeDialogueBubble = null;
     this.boardStage = options.boardStage || this.canvas?.closest('.board-stage') || null;
     if (this.chestLayer) {
@@ -1394,8 +1408,23 @@ export class TacticalBoard {
   canShowNeutralTalkButton(token) {
     if (!token || token.side !== 'neutral' || isTokenDefeated(token)) return false;
     if (!(token.dialogues || []).length) return false;
+    if (!this.hasAdjacentPlayerToken(token)) return false;
     if (this.isGM) return true;
-    return this.isCellAdjacentToUser(token.col, token.row);
+    return this.isCellAdjacentToUserToken(token);
+  }
+
+  hasAdjacentPlayerToken(token) {
+    const neutralCells = getTokenFootprintCells(token);
+    return this.tokens.some(
+      (t) => isPlayerCharacterToken(t) && cellsAreAdjacent(getTokenFootprintCells(t), neutralCells)
+    );
+  }
+
+  isCellAdjacentToUserToken(targetToken) {
+    const targetCells = getTokenFootprintCells(targetToken);
+    return this.getUserControlledTokens().some(
+      (userToken) => cellsAreAdjacent(getTokenFootprintCells(userToken), targetCells)
+    );
   }
 
   speakNeutralDialogue(tokenId) {
@@ -1404,10 +1433,18 @@ export class TacticalBoard {
     if (!token || token.side !== 'neutral' || !lines.length) return;
     if (!this.canShowNeutralTalkButton(token)) return;
 
-    const idx = this._dialogueIndexByToken[tokenId] ?? 0;
-    const text = lines[idx % lines.length];
-    this._dialogueIndexByToken[tokenId] = (idx + 1) % lines.length;
-    this._activeDialogueBubble = { tokenId, text };
+    const bubbleOpen = this._activeDialogueBubble?.tokenId === tokenId;
+    if (!bubbleOpen) {
+      this._activeDialogueBubble = { tokenId, text: lines[0], index: 0 };
+    } else {
+      const currentIdx = this._activeDialogueBubble.index ?? 0;
+      const nextIdx = currentIdx + 1;
+      if (nextIdx < lines.length) {
+        this._activeDialogueBubble = { tokenId, text: lines[nextIdx], index: nextIdx };
+      } else {
+        this._activeDialogueBubble = null;
+      }
+    }
     this.renderTokenLayer();
   }
 
@@ -1944,6 +1981,12 @@ export class TacticalBoard {
 
   renderTokenLayer() {
     if (!this.tokenLayer) return;
+    if (this._activeDialogueBubble) {
+      const bubbleToken = this.tokens.find((t) => t.id === this._activeDialogueBubble.tokenId);
+      if (!bubbleToken || !this.canShowNeutralTalkButton(bubbleToken)) {
+        this._activeDialogueBubble = null;
+      }
+    }
     this.tokenLayer.innerHTML = '';
     const pad = 0;
 
@@ -2230,8 +2273,8 @@ export class TacticalBoard {
   }
 
   isCellAdjacentToUser(col, row) {
-    return this.getUserControlledTokens().some(
-      (t) => Math.abs(t.col - col) + Math.abs(t.row - row) === 1
+    return this.getUserControlledTokens().some((t) =>
+      cellsAreAdjacent(getTokenFootprintCells(t), [{ col, row }])
     );
   }
 

@@ -2087,8 +2087,10 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
   top: -10px;
   transform: translate(-50%, -100%);
   z-index: 12;
-  padding: 0.15rem 0.45rem;
-  font-size: 0.62rem;
+  padding: 0.3rem 0.55rem;
+  min-height: 1.35rem;
+  font-size: 0.68rem;
+  line-height: 1.1;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
