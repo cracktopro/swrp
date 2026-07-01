@@ -1593,7 +1593,8 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
   pointer-events: none;
 }
 
-.board-interaction-wrap .board-chest-action-btn {
+.board-interaction-wrap .board-chest-action-btn,
+.board-interaction-wrap .board-neutral-talk-btn {
   pointer-events: auto;
 }
 

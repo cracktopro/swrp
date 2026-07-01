@@ -213,10 +213,11 @@ function cellsAreAdjacent(cellsA, cellsB) {
   return false;
 }
 
-function isPlayerCharacterToken(token) {
-  return normalizeTokenSide(token?.side) === 'ally'
-    && inferBoardTokenKind(token) === 'character'
-    && !isTokenDefeated(token);
+function isPlayerAllyToken(token) {
+  if (!token || isTokenDefeated(token)) return false;
+  if (normalizeTokenSide(token.side) !== 'ally') return false;
+  const kind = inferBoardTokenKind(token);
+  return kind === 'character' || kind === 'npc' || kind === 'vehicle';
 }
 
 export class TacticalBoard {
@@ -1417,7 +1418,7 @@ export class TacticalBoard {
   hasAdjacentPlayerToken(token) {
     const neutralCells = getTokenFootprintCells(token);
     return this.tokens.some(
-      (t) => isPlayerCharacterToken(t) && cellsAreAdjacent(getTokenFootprintCells(t), neutralCells)
+      (t) => isPlayerAllyToken(t) && cellsAreAdjacent(getTokenFootprintCells(t), neutralCells)
     );
   }
 
@@ -1447,6 +1448,7 @@ export class TacticalBoard {
       }
     }
     this.renderTokenLayer();
+    this.renderInteractionLayer();
   }
 
   async updateTokenProperties(tokenId, { side, facing, inCover }) {
@@ -2086,23 +2088,6 @@ export class TacticalBoard {
 
       wrap.appendChild(chip);
 
-      if (this.canShowNeutralTalkButton(token)) {
-        const talkBtn = document.createElement('button');
-        talkBtn.type = 'button';
-        talkBtn.className = 'board-neutral-talk-btn';
-        talkBtn.textContent = 'Hablar';
-        talkBtn.addEventListener('mousedown', (ev) => {
-          ev.preventDefault();
-          ev.stopPropagation();
-        });
-        talkBtn.addEventListener('click', (ev) => {
-          ev.preventDefault();
-          ev.stopPropagation();
-          this.speakNeutralDialogue(token.id);
-        });
-        wrap.appendChild(talkBtn);
-      }
-
       if (this._activeDialogueBubble?.tokenId === token.id) {
         const bubble = document.createElement('div');
         bubble.className = 'board-neutral-dialogue';
@@ -2186,6 +2171,32 @@ export class TacticalBoard {
     this.interactionLayer.innerHTML = '';
     this.interactionLayer.style.width = `${this.cols * this.cellWidth}px`;
     this.interactionLayer.style.height = `${this.rows * this.cellHeight}px`;
+
+    this.tokens.forEach((token) => {
+      if (!this.canShowNeutralTalkButton(token)) return;
+      const wrap = document.createElement('div');
+      wrap.className = 'board-interaction-wrap';
+      wrap.style.left = `${token.col * this.cellWidth}px`;
+      wrap.style.top = `${token.row * this.cellHeight}px`;
+      wrap.style.width = `${this.cellWidth * getTokenSpan(token).spanCols}px`;
+      wrap.style.height = `${this.cellHeight * getTokenSpan(token).spanRows}px`;
+
+      const talkBtn = document.createElement('button');
+      talkBtn.type = 'button';
+      talkBtn.className = 'board-neutral-talk-btn';
+      talkBtn.textContent = 'Hablar';
+      talkBtn.addEventListener('mousedown', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+      });
+      talkBtn.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        this.speakNeutralDialogue(token.id);
+      });
+      wrap.appendChild(talkBtn);
+      this.interactionLayer.appendChild(wrap);
+    });
 
     this.chests.forEach((chest) => {
       if (!this.canShowChestActionButton(chest)) return;
@@ -2312,8 +2323,11 @@ export class TacticalBoard {
   // ── Adyacencia del jugador ──
   getUserControlledTokens() {
     if (!this.userCharacterSourceId) return [];
+    const kind = this.userPlayTokenKind || 'character';
     return this.tokens.filter(
-      (t) => normalizeTokenSide(t.side) === 'ally' && t.sourceId === this.userCharacterSourceId
+      (t) => normalizeTokenSide(t.side) === 'ally'
+        && t.sourceId === this.userCharacterSourceId
+        && inferBoardTokenKind(t) === kind
     );
   }
 
