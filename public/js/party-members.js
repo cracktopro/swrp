@@ -7,6 +7,7 @@ import {
   updateDoc,
   collection,
   arrayUnion,
+  onSnapshot,
   serverTimestamp
 } from './firebase-config.js';
 import { normalizeCharacter, getClassMeta } from './character-card.js';
@@ -27,6 +28,15 @@ export async function getPartyMember(partyId, userId) {
 export async function loadPartyMembers(partyId) {
   const snap = await getDocs(collection(db, 'parties', partyId, 'members'));
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+/** Escucha cambios en `parties/{id}/members` (altas, bajas, cambio de personaje). */
+export function watchPartyMembers(partyId, onChange) {
+  if (!partyId || typeof onChange !== 'function') return () => {};
+  return onSnapshot(collection(db, 'parties', partyId, 'members'), (snap) => {
+    const members = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    onChange(members);
+  });
 }
 
 export function getPartyGM(members) {

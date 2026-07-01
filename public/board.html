@@ -719,8 +719,14 @@
   <script type="module">
     import { renderNavbar } from './js/navbar.js';
     import { requireAuth, isAdmin } from './js/auth.js';
-    import { loadParty, isPartyMember, loadPartyRoster, watchPartyMembers } from './js/party.js';
-    import { loadPartyMembers, isPartyGMUser, getMemberPlaySource, getJoinedCharacterRoster } from './js/party-members.js';
+    import { loadParty, isPartyMember, loadPartyRoster } from './js/party.js';
+    import {
+      loadPartyMembers,
+      isPartyGMUser,
+      getMemberPlaySource,
+      getJoinedCharacterRoster,
+      watchPartyMembers
+    } from './js/party-members.js';
     import { getPartyIdFromUrl, partyPageUrl } from './js/party-url.js';
     import { appUrl } from './js/app-path.js';
     import { TacticalBoard, getTokenHp, getTokenMaxHp, getTokenEffectiveDefense, isTokenInCover, isTokenDefeated, buildTokenCardCharacter, buildTokenCardRenderOptions } from './js/board.js';
