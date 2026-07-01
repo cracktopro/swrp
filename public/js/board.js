@@ -32,7 +32,7 @@ import {
   isFirestoreQuotaBlocked,
   markFirestoreQuotaExceeded
 } from './firestore-quota.js';
-import { normalizeLoot, getChestVisualState, CHEST_ICONS } from './loot.js';
+import { normalizeLoot, getChestVisualState, CHEST_ICONS, lootHasRemaining } from './loot.js';
 import { normalizeObjectiveList, normalizeObjectiveEntry } from './board-objectives.js';
 import { renderDiceResultHtml } from './dice.js';
 import {
@@ -249,6 +249,7 @@ export class TacticalBoard {
     this.objectives = [];
     this.neutralNpcPresets = [];
     this.chestLayer = options.chestLayer || null;
+    this.interactionLayer = options.interactionLayer || null;
     this._logEntries = [];
     this.mapImage = null;
     this._mapUrl = null;
@@ -1901,6 +1902,7 @@ export class TacticalBoard {
     this.renderGrid();
     this.renderTokenLayer();
     this.renderChestLayer();
+    this.renderInteractionLayer();
   }
 
   renderGrid() {
@@ -2121,25 +2123,29 @@ export class TacticalBoard {
     this.chestLayer.style.height = `${this.rows * this.cellHeight}px`;
 
     this.chests.forEach((chest) => {
-      const visual = getChestVisualState(chest);
+      const hidden = chest.hidden === true;
+      const visual = hidden ? null : getChestVisualState(chest);
       const wrap = document.createElement('div');
-      wrap.className = `swrp-board-chest swrp-board-chest--${visual}`;
+      wrap.className = `swrp-board-chest${visual ? ` swrp-board-chest--${visual}` : ''}${hidden ? ' swrp-board-chest--hidden' : ''}`;
       wrap.style.left = `${chest.col * this.cellWidth}px`;
       wrap.style.top = `${chest.row * this.cellHeight}px`;
       wrap.style.width = `${this.cellWidth}px`;
       wrap.style.height = `${this.cellHeight}px`;
-      wrap.setAttribute('role', 'button');
-      wrap.tabIndex = 0;
+      if (hidden && !this.isGM) {
+        wrap.style.pointerEvents = 'none';
+      }
       const titles = { closed: 'Caja cerrada', open: 'Caja abierta', empty: 'Caja vacía' };
-      wrap.title = titles[visual] || 'Caja';
+      wrap.title = hidden ? 'Caja oculta' : (titles[visual] || 'Caja');
 
-      const img = document.createElement('img');
-      img.className = 'swrp-board-chest__img';
-      img.src = CHEST_ICONS[visual];
-      img.alt = titles[visual] || 'Caja';
-      img.loading = 'lazy';
-      img.draggable = false;
-      wrap.appendChild(img);
+      if (!hidden && visual) {
+        const img = document.createElement('img');
+        img.className = 'swrp-board-chest__img';
+        img.src = CHEST_ICONS[visual];
+        img.alt = titles[visual] || 'Caja';
+        img.loading = 'lazy';
+        img.draggable = false;
+        wrap.appendChild(img);
+      }
 
       const blockContextMenu = (ev) => {
         ev.preventDefault();
@@ -2147,7 +2153,6 @@ export class TacticalBoard {
         return false;
       };
       wrap.addEventListener('contextmenu', blockContextMenu, true);
-      img.addEventListener('contextmenu', blockContextMenu, true);
       wrap.addEventListener('mousedown', (ev) => {
         if (ev.button === 2) {
           ev.preventDefault();
@@ -2161,11 +2166,51 @@ export class TacticalBoard {
           this.onChestEditClick(chest);
           return;
         }
-        if (ev.button === 0) {
-          this.onChestClick(chest);
+        if (ev.button === 0 && this.isGM) {
+          this.onChestEditClick(chest);
         }
       });
       this.chestLayer.appendChild(wrap);
+    });
+  }
+
+  canShowChestActionButton(chest) {
+    if (!chest) return false;
+    if (!lootHasRemaining(chest.loot)) return false;
+    if (!this.userCharacterSourceId) return false;
+    return this.isCellAdjacentToUser(chest.col, chest.row);
+  }
+
+  renderInteractionLayer() {
+    if (!this.interactionLayer) return;
+    this.interactionLayer.innerHTML = '';
+    this.interactionLayer.style.width = `${this.cols * this.cellWidth}px`;
+    this.interactionLayer.style.height = `${this.rows * this.cellHeight}px`;
+
+    this.chests.forEach((chest) => {
+      if (!this.canShowChestActionButton(chest)) return;
+      const wrap = document.createElement('div');
+      wrap.className = 'board-interaction-wrap';
+      wrap.style.left = `${chest.col * this.cellWidth}px`;
+      wrap.style.top = `${chest.row * this.cellHeight}px`;
+      wrap.style.width = `${this.cellWidth}px`;
+      wrap.style.height = `${this.cellHeight}px`;
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'board-neutral-talk-btn board-chest-action-btn';
+      btn.textContent = chest.hidden ? 'Coger' : 'Abrir';
+      btn.addEventListener('mousedown', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+      });
+      btn.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        this.onChestClick(chest);
+      });
+      wrap.appendChild(btn);
+      this.interactionLayer.appendChild(wrap);
     });
   }
 
@@ -2189,7 +2234,7 @@ export class TacticalBoard {
     return this.chests.find((c) => c.col === col && c.row === row) || null;
   }
 
-  async addChest({ col, row, imageUrl = '', loot = null }) {
+  async addChest({ col, row, hidden = false, loot = null }) {
     if (col == null || row == null) throw new Error('Indica una celda para la caja.');
     if (this.tokenAt(col, row) || this.chestAt(col, row)) {
       throw new Error('Esa celda ya está ocupada.');
@@ -2198,7 +2243,7 @@ export class TacticalBoard {
       id: `chest_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
       col,
       row,
-      imageUrl,
+      hidden: hidden === true,
       loot
     });
     this.chests = [...this.chests, chest];
@@ -2353,6 +2398,7 @@ function normalizeChest(raw) {
     col: Math.max(0, Math.round(Number(raw?.col) || 0)),
     row: Math.max(0, Math.round(Number(raw?.row) || 0)),
     imageUrl: String(raw?.imageUrl || '').trim(),
+    hidden: raw?.hidden === true,
     opened: raw?.opened === true,
     loot: normalizeLoot(raw?.loot)
   });

@@ -733,7 +733,7 @@ export function initBoardPage(ctx) {
         document.getElementById('btn-confirm-chest').disabled = chestPlaceMini.spawnCol == null;
       };
     }
-    document.getElementById('chest-place-image').value = '';
+    document.getElementById('chest-place-hidden').checked = false;
     chestPlaceMini.setSpawn(null, null);
     document.getElementById('chest-place-label').textContent = 'Clic en el mapa…';
     document.getElementById('btn-confirm-chest').disabled = true;
@@ -747,7 +747,7 @@ export function initBoardPage(ctx) {
     lootContext = { kind: 'chest', listId: 'chest-loot-list', creditsId: 'chest-loot-credits' };
     lootDraft = normalizeLoot(chest.loot);
     document.getElementById('chest-edit-cell').textContent = cellLabel(chest.col, chest.row);
-    document.getElementById('chest-edit-image').value = chest.imageUrl || '';
+    document.getElementById('chest-edit-hidden').checked = chest.hidden === true;
     document.getElementById('chest-loot-credits').value = String(lootDraft.credits || 0);
     renderActiveLootList();
     chestEditModal?.show();
@@ -920,7 +920,7 @@ export function initBoardPage(ctx) {
       await board.addChest({
         col: chestPlaceMini.spawnCol,
         row: chestPlaceMini.spawnRow,
-        imageUrl: document.getElementById('chest-place-image').value.trim()
+        hidden: document.getElementById('chest-place-hidden')?.checked === true
       });
       chestPlaceMini.setSpawn(null, null);
       chestPlaceModal?.hide();
@@ -934,7 +934,7 @@ export function initBoardPage(ctx) {
     lootDraft.credits = Math.max(0, parseInt(document.getElementById('chest-loot-credits')?.value, 10) || 0);
     lootDraft.resolved = null;
     await board.updateChest(chestEditId, {
-      imageUrl: document.getElementById('chest-edit-image').value.trim(),
+      hidden: document.getElementById('chest-edit-hidden')?.checked === true,
       loot: lootDraft
     });
     chestEditModal?.hide();

@@ -67,6 +67,7 @@ export function normalizeChestTemplate(raw) {
     col: Math.max(0, Math.round(Number(raw?.col) || 0)),
     row: Math.max(0, Math.round(Number(raw?.row) || 0)),
     imageUrl: String(raw?.imageUrl || '').trim(),
+    hidden: raw?.hidden === true,
     opened: false,
     loot: normalizeLootTemplate(raw?.loot)
   };

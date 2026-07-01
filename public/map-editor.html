@@ -85,6 +85,7 @@
               <canvas id="board-canvas" class="board-canvas"></canvas>
               <div id="board-chest-layer" class="board-chest-layer"></div>
               <div id="board-token-layer" class="board-token-layer"></div>
+              <div id="board-interaction-layer" class="board-interaction-layer"></div>
               <div id="board-spawn-layer" class="board-spawn-layer" aria-hidden="true"></div>
             </div>
           </div>
@@ -560,9 +561,11 @@
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
-          <label class="form-label small mb-1" for="chest-place-image">Imagen de la miniatura (URL, opcional)</label>
-          <input type="url" class="form-control form-control-sm mb-3" id="chest-place-image" placeholder="https://ejemplo.com/caja.png">
-          <p class="small text-muted mb-2">Celda: <strong id="chest-place-label">Clic en el mapa…</strong></p>
+          <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" id="chest-place-hidden">
+            <label class="form-check-label small" for="chest-place-hidden">Ocultar caja</label>
+          </div>
+          <p class="small text-muted mb-2">Si está activo, la caja no muestra imagen (útil sobre objetos del mapa). Celda: <strong id="chest-place-label">Clic en el mapa…</strong></p>
           <div class="board-mini-wrap">
             <canvas id="chest-place-canvas" class="board-mini-canvas"></canvas>
           </div>
@@ -583,8 +586,11 @@
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
-          <label class="form-label small mb-1" for="chest-edit-image">Imagen de la miniatura (URL, opcional)</label>
-          <input type="url" class="form-control form-control-sm mb-3" id="chest-edit-image" placeholder="https://ejemplo.com/caja.png">
+          <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" id="chest-edit-hidden">
+            <label class="form-check-label small" for="chest-edit-hidden">Ocultar caja</label>
+          </div>
+          <p class="small text-muted mb-3">Si está activo, la caja no muestra imagen en el tablero.</p>
           <label class="form-label small mb-1" for="chest-loot-credits">Créditos (a repartir entre los jugadores)</label>
           <input type="number" class="form-control form-control-sm mb-3" id="chest-loot-credits" min="0" step="1" value="0">
           <div class="d-flex justify-content-between align-items-center mb-2">

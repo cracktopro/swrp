@@ -294,14 +294,14 @@ Helpers clave: `readDifficulty`, `resolveDifficulty`, `buildDifficultyCardHtml`,
   - `resolved`: lista `[{ itemId, qty }]` que se calcula **una sola vez** (al primer saqueo) tirando cada objeto por su probabilidad (`resolveLoot`); se persiste para que todos vean lo mismo.
 - **Configuración (GM):**
   - **Enemigo:** pestaña **«Objetos»** del modal de control de chapa (solo enemigos): créditos + lista de objetos.
-  - **Caja:** botón **«+ Caja»** (junto a «+ Añadir») abre un modal con minimapa (`MiniBoardPicker`) y URL de miniatura para colocarla; **clic izquierdo** sobre la caja la edita (imagen, créditos, objetos, eliminar).
+  - **Caja:** botón **«+ Caja»** (junto a «+ Añadir») abre un modal con minimapa (`MiniBoardPicker`) y toggle **Ocultar caja**; el GM edita con clic en la caja (créditos, objetos, ocultar, eliminar).
   - Añadir objeto: modal compartido `lootItemModal` con filtros **nombre, tipo, clase** y selector de **probabilidad** (1-5). Editar configuración resetea `resolved` (se vuelve a tirar al siguiente saqueo).
 - **Saqueo (jugador):**
   - **Enemigo:** debe estar **derrotado** y el jugador en una de las **4 celdas ortogonales** (`isCellAdjacentToUser`); en la carta del enemigo aparece el botón **«Saquear»**.
-  - **Caja:** clic en la caja estando en una celda contigua → modal de saqueo.
+  - **Caja:** botón **«Abrir»** o **«Coger»** (si la caja está oculta) en celda contigua → modal de saqueo (`#board-interaction-layer`).
   - El modal (`loot-modal.js`) muestra los objetos resueltos; **«Coger»** los pasa al inventario del personaje (`grantItemToCharacter`, respeta límite de casillas) y los retira del botín, dejando el resto para otros jugadores. Cada recogida se registra en el log (tipo `loot`).
 - **Créditos:** en el **primer saqueo** (cualquier jugador) se calculan las partes (`creditShares`: `{ [characterId]: cantidad }`) dividiendo el total entre los jugadores de la partida. **Cada jugador recibe su parte solo cuando él saquea** (abre el modal estando adyacente): una escritura a su personaje + una al botín (`creditsClaimedBy`). No hay cola global ni escrituras automáticas al cargar el tablero.
-- La capa de cajas se dibuja en `#board-chest-layer` (`renderChestLayer`); las cajas vacías se atenúan.
+- La capa de cajas se dibuja en `#board-chest-layer` (`renderChestLayer`); con **Ocultar caja** (`hidden: true`) no se muestra imagen en ningún estado. Botones de interacción en `#board-interaction-layer`.
 
 ### 8.5.1 Habilidades custom en NPCs (`character-creator.js`)
 
@@ -481,7 +481,7 @@ Misma forma que `state/board` (snapshot del escenario cuando no está activo).
     alerted?, spawnCol?, spawnRow?
   }],
   chests: [{             // cajas de loot
-    id, col, row, imageUrl, opened?,
+    id, col, row, hidden?, imageUrl?, opened?,
     loot: { credits, items, creditShares, creditsClaimedBy, resolved }
   }],
   objectives: [{ id, title?, text }],  // reglas / misiones / pistas (GM edita)

@@ -1580,6 +1580,23 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
   pointer-events: none;
 }
 
+.board-interaction-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 25;
+}
+
+.board-interaction-wrap {
+  position: absolute;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.board-interaction-wrap .board-chest-action-btn {
+  pointer-events: auto;
+}
+
 .swrp-board-chest {
   position: absolute;
   display: flex;
@@ -1613,6 +1630,16 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
 
 .swrp-board-chest--empty:hover {
   filter: grayscale(0.2) drop-shadow(0 0 4px rgba(255, 199, 0, 0.35));
+}
+
+.swrp-board-chest--hidden {
+  cursor: default;
+  opacity: 0;
+}
+
+.swrp-board-chest--hidden:hover {
+  transform: none;
+  filter: none;
 }
 
 /* ── Listas de configuración de loot (GM) ── */
@@ -1768,6 +1795,10 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
 .swrp-board-token-wrap--neutral,
 .swrp-board-token-wrap:has(.swrp-board-token__status-icons) {
   overflow: visible;
+}
+
+.swrp-board-token-wrap:has(.board-neutral-dialogue) {
+  z-index: 50;
 }
 
 .swrp-board-token-wrap.is-active-turn .swrp-board-token {
@@ -2112,7 +2143,7 @@ body.swrp-app .table-hover > tbody > tr:hover > * {
   position: absolute;
   left: calc(100% + 8px);
   top: 0;
-  z-index: 11;
+  z-index: 2;
   min-width: 11rem;
   max-width: 16rem;
   padding: 0.55rem 0.7rem;

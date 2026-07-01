@@ -358,6 +358,7 @@ async function initBoardEditor(user, profile, initialState) {
       userId: user.uid,
       roster,
       chestLayer: document.getElementById('board-chest-layer'),
+      interactionLayer: document.getElementById('board-interaction-layer'),
       colLabelsEl: document.getElementById('board-col-labels'),
       rowLabelsEl: document.getElementById('board-row-labels'),
       tooltipEl: document.getElementById('board-token-tooltip'),
