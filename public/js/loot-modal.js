@@ -10,7 +10,7 @@ import { swrpAlert } from './swrp-dialog.js';
 
 let modalEl = null;
 let bsModal = null;
-let state = null; // { board, target:{kind,id}, sourceName, looter:{id,name,class}, partyId }
+let state = null; // { board, target:{kind,id}, sourceName, looter:{id,name,class}, partyId, grantItem }
 
 function escapeHtml(str) {
   return String(str ?? '')
@@ -61,9 +61,9 @@ async function persistTargetLoot(loot) {
   }
 }
 
-export async function openLootModal({ board, target, sourceName = 'Botín', looter, partyId = null }) {
+export async function openLootModal({ board, target, sourceName = 'Botín', looter, partyId = null, grantItem = null }) {
   ensureModal();
-  state = { board, target, sourceName, looter, partyId };
+  state = { board, target, sourceName, looter, partyId, grantItem };
   modalEl.querySelector('#swrp-loot-source').textContent = sourceName;
 
   if (target.kind === 'chest') {
@@ -86,7 +86,9 @@ export async function openLootModal({ board, target, sourceName = 'Botín', loot
     await board.logLootCredits(sourceName, split);
   }
 
-  const granted = await board.claimLootCreditsForCharacter(target, looter.id);
+  const granted = await board.claimLootCreditsForCharacter(target, looter.id, {
+    tokenKind: looter.tokenKind || null
+  });
   if (granted > 0) {
     creditsMsg = `Has recibido ${granted} créditos de tu parte del botín.`;
   } else {
@@ -142,7 +144,21 @@ function render() {
 async function takeItem(itemId) {
   const item = getItemById(itemId);
   try {
-    await grantItemToCharacter(state.looter.id, itemId, 1, state.partyId);
+    if (typeof state.grantItem === 'function') {
+      await state.grantItem(itemId, 1);
+    } else {
+      try {
+        await grantItemToCharacter(state.looter.id, itemId, 1, state.partyId);
+      } catch (err) {
+        const hasTokenInventory = state.board?.tokens?.some((t) =>
+          t.side === 'ally'
+          && t.sourceId === state.looter.id
+          && (!state.looter.tokenKind || t.kind === state.looter.tokenKind)
+        );
+        if (!hasTokenInventory) throw err;
+        await state.board.grantItemToTokenInventory(state.looter.id, state.looter.tokenKind, itemId, 1);
+      }
+    }
   } catch (err) {
     await swrpAlert({ title: 'No se pudo coger', message: err.message || 'Tu inventario no admite el objeto.' });
     return;

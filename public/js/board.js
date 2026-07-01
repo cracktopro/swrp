@@ -27,7 +27,13 @@ import {
 } from './board-vision.js';
 import { vehicleClassFields, VEHICLE_CLASS_KEY } from './npcs.js';
 import { swrpConfirm } from './swrp-dialog.js';
-import { revertTemporaryEffectsOnTokens, grantCreditsToCharacter } from './inventory.js';
+import {
+  revertTemporaryEffectsOnTokens,
+  grantCreditsToCharacter,
+  addItemToInventory,
+  normalizeInventory,
+  computeMoveRange
+} from './inventory.js';
 import {
   isFirestoreQuotaBlocked,
   markFirestoreQuotaExceeded
@@ -2320,6 +2326,69 @@ export class TacticalBoard {
     await this.saveState({});
   }
 
+  async updateTokenInventory(tokenId, patch = {}) {
+    const token = this.tokens.find((t) => t.id === tokenId);
+    if (!token || normalizeTokenSide(token.side) === 'enemy') {
+      throw new Error('Chapa no válida para inventario.');
+    }
+    if (!token.characterSnapshot) token.characterSnapshot = {};
+    const current = normalizeInventory(token.characterSnapshot);
+    const next = {
+      credits: patch.credits !== undefined ? Math.max(0, Math.round(Number(patch.credits) || 0)) : current.credits,
+      inventory: patch.inventory !== undefined ? normalizeInventory({ inventory: patch.inventory }).inventory : current.inventory,
+      equippedItemId: patch.equippedItemId !== undefined ? (patch.equippedItemId || null) : current.equippedItemId,
+      statBonuses: patch.statBonuses !== undefined ? normalizeInventory({ statBonuses: patch.statBonuses }).statBonuses : current.statBonuses
+    };
+    Object.assign(token.characterSnapshot, {
+      credits: next.credits,
+      inventory: next.inventory,
+      equippedItemId: next.equippedItemId,
+      statBonuses: next.statBonuses
+    });
+    if (patch.currentHp !== undefined) {
+      token.characterSnapshot.hp = Math.max(0, Math.round(Number(patch.currentHp) || 0));
+    }
+    token.moveRange = computeMoveRange({
+      ...token.characterSnapshot,
+      class: token.characterSnapshot.class || token.class,
+      inventory: next.inventory,
+      equippedItemId: next.equippedItemId
+    });
+    normalizeBoardToken(token);
+    this.render();
+    await this.saveState({});
+    this.onTokensChange(this.tokens);
+  }
+
+  async grantItemToTokenInventory(sourceId, tokenKind, itemId, qty = 1) {
+    if (!sourceId || !itemId) throw new Error('Chapa no válida para inventario.');
+    const token = this.tokens.find((t) =>
+      normalizeTokenSide(t.side) === 'ally'
+      && t.sourceId === sourceId
+      && inferBoardTokenKind(t) === (tokenKind || inferBoardTokenKind(t))
+    );
+    if (!token) throw new Error('La chapa no está en el tablero.');
+    const inv = normalizeInventory(token.characterSnapshot);
+    const next = addItemToInventory(inv.inventory, itemId, qty);
+    await this.updateTokenInventory(token.id, { inventory: next });
+    return next;
+  }
+
+  async grantCreditsToTokenInventory(sourceId, tokenKind, amount) {
+    const amt = Math.round(Number(amount) || 0);
+    if (!sourceId || !amt) return 0;
+    const token = this.tokens.find((t) =>
+      normalizeTokenSide(t.side) === 'ally'
+      && t.sourceId === sourceId
+      && inferBoardTokenKind(t) === (tokenKind || inferBoardTokenKind(t))
+    );
+    if (!token) throw new Error('La chapa no está en el tablero.');
+    const inv = normalizeInventory(token.characterSnapshot);
+    const nextCredits = Math.max(0, inv.credits + amt);
+    await this.updateTokenInventory(token.id, { credits: nextCredits });
+    return nextCredits;
+  }
+
   // ── Adyacencia del jugador ──
   getUserControlledTokens() {
     if (!this.userCharacterSourceId) return [];
@@ -2342,7 +2411,7 @@ export class TacticalBoard {
     const seen = new Set();
     const out = [];
     for (const c of this.roster || []) {
-      if (!c?.id || c.type === 'NPC' || seen.has(c.id)) continue;
+      if (!c?.id || seen.has(c.id)) continue;
       seen.add(c.id);
       out.push(c);
     }
@@ -2361,13 +2430,23 @@ export class TacticalBoard {
    * Abona al personaje su parte de créditos del botín (solo cuando él saquea).
    * Las partes quedan en loot.creditShares; cada jugador reclama la suya.
    */
-  async claimLootCreditsForCharacter(target, characterId) {
+  async claimLootCreditsForCharacter(target, characterId, { tokenKind = null } = {}) {
     if (!characterId || isFirestoreQuotaBlocked()) return 0;
     const loot = normalizeLoot(this.readLootForTarget(target));
     const share = Math.round(Number(loot.creditShares?.[characterId]) || 0);
     if (!share || loot.creditsClaimedBy?.[characterId]) return 0;
 
-    await grantCreditsToCharacter(characterId, share);
+    try {
+      await grantCreditsToCharacter(characterId, share);
+    } catch (err) {
+      const hasToken = this.tokens.some((t) =>
+        normalizeTokenSide(t.side) === 'ally'
+        && t.sourceId === characterId
+        && (!tokenKind || inferBoardTokenKind(t) === tokenKind)
+      );
+      if (!hasToken) throw err;
+      await this.grantCreditsToTokenInventory(characterId, tokenKind, share);
+    }
     const updated = {
       ...loot,
       creditsClaimedBy: { ...loot.creditsClaimedBy, [characterId]: true }

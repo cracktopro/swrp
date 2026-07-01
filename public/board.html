@@ -785,7 +785,7 @@
 
     function buildLootOption(token) {
       if (!invCtx) return null;
-      if (invCtx.userPlayTokenKind !== 'character' || !invCtx.userSourceId) return null;
+      if (!invCtx.userSourceId) return null;
       if (token.side !== 'enemy' || !isTokenDefeated(token)) return null;
       if (!invCtx.board.isCellAdjacentToUser(token.col, token.row)) return null;
       if (!lootHasRemainingForCharacter(token.loot, invCtx.userSourceId)) return null;
@@ -799,7 +799,9 @@
       if (token.kind === 'npc' || token.kind === 'vehicle') {
         const entity = resolveNpcData(token);
         if (!entity) return;
-        const cardOpts = buildTokenCardOptions(token, copyMentionId);
+        if (canManageTokenInventory(token)) {
+          cardOpts.inventory = { onOpen: () => openBoardInventory(token) };
+        }
         appendCardToModal(renderCharacterCard(entity, {
           isNpc: token.kind === 'npc',
           isVehicle: token.kind === 'vehicle',
@@ -826,9 +828,16 @@
     }
 
     function lootLooter() {
-      if (!invCtx || invCtx.userPlayTokenKind !== 'character' || !invCtx.userSourceId) return null;
+      if (!invCtx || !invCtx.userSourceId) return null;
+      const token = invCtx.board.getUserControlledTokens()[0] || null;
       const c = roster.find((r) => r.id === invCtx.userSourceId);
-      return { id: invCtx.userSourceId, name: c?.name || 'Jugador', class: c?.class || c?.classKey };
+      return {
+        id: invCtx.userSourceId,
+        name: c?.name || token?.name || 'Jugador',
+        class: c?.class || c?.classKey || token?.class,
+        tokenId: token?.id || null,
+        tokenKind: invCtx.userPlayTokenKind || token?.kind || 'character'
+      };
     }
 
     async function openEnemyLoot(token) {
@@ -843,20 +852,32 @@
         target: { kind: 'token', id: token.id },
         sourceName: token.name,
         looter,
-        partyId: invCtx.partyId
+        partyId: invCtx.partyId,
+        grantItem: looter.tokenKind === 'character'
+          ? null
+          : (itemId, qty) => invCtx.board.grantItemToTokenInventory(looter.id, looter.tokenKind, itemId, qty)
       });
     }
 
     function canManageTokenInventory(token) {
       return !!invCtx
         && (invCtx.partyType === 'Campaña' || invCtx.partyType === 'Escaramuza')
-        && token.kind !== 'npc'
-        && token.sourceId === invCtx.userSourceId;
+        && token.side !== 'enemy'
+        && invCtx.board.getUserControlledTokens().some((t) => t.id === token.id);
     }
 
     async function openBoardInventory(token) {
-      const res = await loadCharacterById(token.sourceId, invCtx.userId);
-      const character = res?.character;
+      let character = null;
+      let persistOnToken = token.kind !== 'character';
+      if (token.kind === 'character') {
+        const res = await loadCharacterById(token.sourceId, invCtx.userId);
+        character = res?.character || null;
+        persistOnToken = !character;
+      }
+      if (!character) {
+        character = buildTokenCardCharacter(token, { npcCatalog: npcs })
+          || normalizeCharacter(token.characterSnapshot, token.sourceId);
+      }
       if (!character) return;
       charModal.hide();
       openInventoryModal(character, {
@@ -864,6 +885,9 @@
         canEdit: true,
         shopEnabled: invCtx.board.shopEnabled !== false,
         logUse: (item) => invCtx.board.logItemUse(character, item),
+        saveInventory: persistOnToken
+          ? (patch) => invCtx.board.updateTokenInventory(token.id, patch)
+          : null,
         onChange: (patch) => {
           const rosterChar = roster.find((c) => c.id === token.sourceId);
           if (rosterChar) {
@@ -1045,7 +1069,16 @@
             await swrpAlert({ title: 'Sin personaje', message: 'No controlas ningún personaje para recoger objetos.' });
             return;
           }
-          await openLootModal({ board, target: { kind: 'chest', id: chest.id }, sourceName: 'Caja', looter, partyId });
+          await openLootModal({
+            board,
+            target: { kind: 'chest', id: chest.id },
+            sourceName: 'Caja',
+            looter,
+            partyId,
+            grantItem: looter.tokenKind === 'character'
+              ? null
+              : (itemId, qty) => board.grantItemToTokenInventory(looter.id, looter.tokenKind, itemId, qty)
+          });
         }
 
         board = new TacticalBoard(
@@ -1235,8 +1268,17 @@
           members = nextMembers;
           roster = getJoinedCharacterRoster(nextMembers);
           const nextMember = nextMembers.find((m) => m.userId === user.uid);
+          const nextPlaySource = getMemberPlaySource(nextMember);
+          board.roster = roster;
+          board.userCharacterSourceId = nextPlaySource.sourceId;
+          board.userPlayTokenKind = nextPlaySource.tokenKind;
+          if (invCtx) {
+            invCtx.userSourceId = nextPlaySource.sourceId;
+            invCtx.userPlayTokenKind = nextPlaySource.tokenKind;
+          }
           combatUi?.setMembers(nextMembers, roster, nextMember);
           npcControlPanel?.setMembers(nextMembers);
+          board.renderInteractionLayer();
         });
 
         if (npcControlPanel) {

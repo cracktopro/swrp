@@ -160,7 +160,15 @@ function setTab(tab) {
   if (tab === 'shop') renderShop();
 }
 
-export function openInventoryModal(character, { partyId = null, canEdit = true, shopEnabled = true, onChange = null, onClosed = null, logUse = null } = {}) {
+export function openInventoryModal(character, {
+  partyId = null,
+  canEdit = true,
+  shopEnabled = true,
+  onChange = null,
+  onClosed = null,
+  logUse = null,
+  saveInventory = null
+} = {}) {
   ensureModal();
   const norm = normalizeInventory(character);
   state = {
@@ -180,6 +188,7 @@ export function openInventoryModal(character, { partyId = null, canEdit = true, 
     onChange,
     onClosed,
     logUse,
+    saveInventory,
     selectedItemId: null,
     activeTab: 'inv',
     shopFilters: { name: '', type: '', classKey: '' }
@@ -419,8 +428,19 @@ function renderShop() {
 
 async function persist(patch) {
   try {
-    await saveCharacterInventory(state.characterId, patch);
-    if (state.partyId) {
+    if (typeof state.saveInventory === 'function') {
+      await state.saveInventory({
+        ...patch,
+        credits: state.credits,
+        inventory: state.inventory,
+        equippedItemId: state.equippedItemId,
+        statBonuses: state.statBonuses,
+        currentHp: state.currentHp
+      });
+    } else {
+      await saveCharacterInventory(state.characterId, patch);
+    }
+    if (state.partyId && typeof state.saveInventory !== 'function') {
       await syncBoardTokenInventory(state.partyId, {
         id: state.characterId,
         class: state.classKey,
