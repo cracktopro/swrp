@@ -415,7 +415,11 @@ export async function saveCharacterProgressFromBoard(partyId, characterId, entit
 
   const charSnap = await getDoc(doc(db, 'characters', characterId));
   if (!charSnap.exists()) {
-    throw new Error('Personaje no encontrado.');
+    console.warn('saveCharacterProgressFromBoard: character document not found; keeping changes on the board token only.', {
+      partyId,
+      characterId
+    });
+    return null;
   }
 
   const charData = charSnap.data();
