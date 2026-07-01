@@ -33,12 +33,27 @@ export async function loadPartyRoster(partyId) {
   return getJoinedCharacterRoster(members);
 }
 
+/** Escucha cambios en `parties/{id}/members` (altas, bajas, cambio de personaje). */
+export function watchPartyMembers(partyId, onChange) {
+  if (!partyId || typeof onChange !== 'function') return () => {};
+  return onSnapshot(collection(db, 'parties', partyId, 'members'), (snap) => {
+    const members = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    onChange(members);
+  });
+}
+
 export async function isPartyMember(partyId, userId) {
   const member = await getPartyMember(partyId, userId);
   return !!member;
 }
 
-export { loadPartyMembers, getPartyMember, getJoinedCharacterRoster, isPartyGMUser };
+export {
+  loadPartyMembers,
+  getPartyMember,
+  getJoinedCharacterRoster,
+  isPartyGMUser,
+  getMemberPlaySource
+} from './party-members.js';
 
 export function watchPosts(partyId, container, options = {}) {
   const {

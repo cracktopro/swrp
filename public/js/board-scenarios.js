@@ -174,6 +174,18 @@ export async function moveTokenToScenario(partyId, board, tokenId, targetScenari
   await board.saveState();
 }
 
+/** Carga el escenario activo en el tablero (escaramuza con escenarios). */
+export async function loadActiveScenarioBoard(partyId, board) {
+  if (!partyId || !board) return false;
+  const indexSnap = await getDoc(doc(db, 'parties', partyId, 'state', 'scenarios'));
+  if (!indexSnap.exists()) return false;
+  const activeId = indexSnap.data().activeScenarioId || DEFAULT_SCENARIO_ID;
+  const snap = await getDoc(doc(db, 'parties', partyId, 'state', scenarioDocId(activeId)));
+  if (!snap.exists()) return false;
+  await board.applyBoardData(snap.data());
+  return true;
+}
+
 export async function ensurePartyScenariosInitialized(partyId, board) {
   const indexRef = doc(db, 'parties', partyId, 'state', 'scenarios');
   const indexSnap = await getDoc(indexRef);

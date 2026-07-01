@@ -11,7 +11,7 @@ import {
   isTokenDefeated
 } from './board.js';
 import { inferBoardTokenKind } from './board-vision.js';
-import { getMemberPlaySource } from './party-members.js';
+import { getMemberPlaySource, getJoinedCharacterRoster } from './party-members.js';
 import { findNpcController } from './npc-control.js';
 import { buildBoardTokenMap } from './party-markup.js';
 import { loadAllNpcs, npcToCardData } from './npcs.js';
@@ -44,7 +44,7 @@ export function buildTurnOptions(members, tokens, npcControlAssignments = {}) {
   const addedTokenIds = new Set();
 
   members
-    .filter((m) => m.characterSnapshot && (m.characterId || m.npcId || m.playMode === 'npc'))
+    .filter((m) => m.characterSnapshot?.id && getMemberPlaySource(m).sourceId)
     .forEach((m) => {
       const { sourceId, tokenKind } = getMemberPlaySource(m);
       if (!sourceId) return;
@@ -515,7 +515,9 @@ function resolveInitiativeActor(ctx, selectEl) {
   const token = board.tokens.find((t) => t.id === selectEl.value);
   if (token?.sourceId === ctx.userCharacterSourceId && isUserPlayToken(token, ctx)) {
     const resolved = actorFromToken(token);
-    const member = members.find((m) => m.characterId === token.sourceId);
+    const member = members.find(
+      (m) => m.characterId === token.sourceId || m.npcId === token.sourceId
+    );
     return {
       ...resolved,
       actorKey: `player:${token.sourceId}`,
@@ -583,12 +585,8 @@ export function initBoardCombatUi(ctx) {
   const {
     board,
     user,
-    members,
-    member,
     roster,
     isGM,
-    userCharacterSourceId,
-    userPlayTokenKind,
     getNpcControlAssignments,
     mentionUi,
     onOpenMention
@@ -706,7 +704,7 @@ export function initBoardCombatUi(ctx) {
   function refreshInitiativeUi() {
     const order = computeInitiativeOrder(
       board.initiativeLog,
-      members,
+      ctx.members,
       board.tokens,
       getNpcControlAssignments?.() || {}
     );
@@ -746,7 +744,7 @@ export function initBoardCombatUi(ctx) {
 
   function refreshAll() {
     const npcControlAssignments = getNpcControlAssignments?.() || {};
-    turnOptions = buildTurnOptions(members, board.tokens, npcControlAssignments);
+    turnOptions = buildTurnOptions(ctx.members, board.tokens, npcControlAssignments);
     syncTurnUi(
       board.activeTurn,
       turnOptions,
@@ -782,7 +780,7 @@ export function initBoardCombatUi(ctx) {
     syncCombatControls();
   }
 
-  let turnOptions = buildTurnOptions(members, board.tokens, getNpcControlAssignments?.() || {});
+  let turnOptions = buildTurnOptions(ctx.members, board.tokens, getNpcControlAssignments?.() || {});
 
   const prevOnTokensChange = board.onTokensChange;
   board.onTokensChange = (tokens) => {
@@ -889,7 +887,7 @@ export function initBoardCombatUi(ctx) {
     if (!isGM || !board.initiativeOpen) return;
     const order = computeInitiativeOrder(
       board.initiativeLog,
-      members,
+      ctx.members,
       board.tokens,
       getNpcControlAssignments?.() || {}
     );
@@ -1061,5 +1059,15 @@ export function initBoardCombatUi(ctx) {
   refreshAll();
   syncPanelsVisibility();
 
-  return { refreshAll };
+  function setMembers(nextMembers, nextRoster, nextMember) {
+    ctx.members = nextMembers;
+    ctx.roster = nextRoster ?? getJoinedCharacterRoster(nextMembers);
+    ctx.member = nextMember ?? null;
+    const playSource = getMemberPlaySource(ctx.member);
+    ctx.userCharacterSourceId = playSource.sourceId;
+    ctx.userPlayTokenKind = playSource.tokenKind;
+    refreshAll();
+  }
+
+  return { refreshAll, setMembers };
 }

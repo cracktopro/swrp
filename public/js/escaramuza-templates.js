@@ -17,10 +17,11 @@ import {
   joinParty,
   getPartyMember,
   memberToActiveCharacter,
-  tokenFromCharacter,
+  tokenFromMember,
+  getMemberPlaySource,
   loadPartyMembers
 } from './party-members.js';
-import { normalizeBoardToken } from './board-vision.js';
+import { normalizeBoardToken, inferBoardTokenKind } from './board-vision.js';
 import { DEFAULT_CELL_WIDTH, DEFAULT_CELL_HEIGHT, DEFAULT_COLS, DEFAULT_ROWS, normalizeNeutralNpcPresets } from './board.js';
 import { normalizeLootTemplate, normalizeChestTemplate } from './loot.js';
 import { normalizeObjectiveList } from './board-objectives.js';
@@ -440,18 +441,24 @@ export async function deleteEscaramuzaTemplate(userId, templateId) {
 }
 
 export async function placeMemberTokenAtSpawn(partyId, member, col, row) {
-  const char = memberToActiveCharacter(member);
-  if (!char) return;
+  const template = tokenFromMember(member);
+  if (!template) return;
 
-  const ref = doc(db, 'parties', partyId, 'state', 'board');
-  const snap = await getDoc(ref);
+  const { sourceId, tokenKind } = getMemberPlaySource(member);
+
+  const boardRef = doc(db, 'parties', partyId, 'state', 'board');
+  const snap = await getDoc(boardRef);
   const data = snap.exists() ? snap.data() : { tokens: [] };
   const tokens = (data.tokens || []).map((t) => normalizeBoardToken({ ...t }));
+
+  const alreadyOnBoard = tokens.some(
+    (t) => t.sourceId === sourceId && inferBoardTokenKind(t) === tokenKind
+  );
+  if (alreadyOnBoard) return;
 
   const occupied = tokens.some((t) => t.col === col && t.row === row);
   if (occupied) throw new Error('La celda de spawn está ocupada');
 
-  const template = tokenFromCharacter(char);
   const token = normalizeBoardToken({
     ...template,
     id: uniqueTokenId(template),
@@ -463,10 +470,28 @@ export async function placeMemberTokenAtSpawn(partyId, member, col, row) {
     spawnRow: row
   });
 
-  await setDoc(ref, {
-    tokens: [...tokens, stripUndefinedDeep(token)],
-    updatedAt: serverTimestamp()
-  }, { merge: true });
+  const nextTokens = [...tokens, stripUndefinedDeep(token)];
+  const payload = { tokens: nextTokens, updatedAt: serverTimestamp() };
+
+  await setDoc(boardRef, payload, { merge: true });
+
+  const scenariosSnap = await getDoc(doc(db, 'parties', partyId, 'state', 'scenarios'));
+  if (scenariosSnap.exists()) {
+    const activeId = scenariosSnap.data().activeScenarioId || DEFAULT_SCENARIO_ID;
+    const scenarioRef = doc(db, 'parties', partyId, 'state', activeId);
+    const scenarioSnap = await getDoc(scenarioRef);
+    const scenarioData = scenarioSnap.exists() ? scenarioSnap.data() : { tokens: [] };
+    const scenarioTokens = (scenarioData.tokens || []).map((t) => normalizeBoardToken({ ...t }));
+    const scenarioHasToken = scenarioTokens.some(
+      (t) => t.sourceId === sourceId && inferBoardTokenKind(t) === tokenKind
+    );
+    if (!scenarioHasToken) {
+      await setDoc(scenarioRef, {
+        tokens: [...scenarioTokens, stripUndefinedDeep(token)],
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+    }
+  }
 }
 
 export function getCharacterMemberSpawnIndex(members, userId) {
@@ -555,10 +580,9 @@ export async function createEscaramuzaFromTemplate(user, profile, templateId, ch
     const spawnIndex = getCharacterMemberSpawnIndex(members, user.uid);
     const spawn = spawns[spawnIndex];
     if (member && spawn) {
-      const char = memberToActiveCharacter(member);
+      const tokenTemplate = tokenFromMember(member);
       const occupied = boardState.tokens.some((t) => t.col === spawn.col && t.row === spawn.row);
-      if (char && !occupied) {
-        const tokenTemplate = tokenFromCharacter(char);
+      if (tokenTemplate && !occupied) {
         boardState.tokens.push(stripUndefinedDeep(normalizeBoardToken({
           ...tokenTemplate,
           id: uniqueTokenId(tokenTemplate),

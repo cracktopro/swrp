@@ -70,7 +70,7 @@ function escapeHtml(str) {
 export function initNpcControlPanel({
   partyId,
   party,
-  members,
+  members: initialMembers,
   getBoard,
   isGM,
   getAssignments,
@@ -89,6 +89,7 @@ export function initNpcControlPanel({
   const saveBtn = document.getElementById('btn-save-npc-control');
   if (!listEl || !saveBtn) return null;
 
+  let members = initialMembers || [];
   let bound = false;
 
   function render() {
@@ -170,5 +171,11 @@ export function initNpcControlPanel({
   }
 
   render();
-  return { refresh: render };
+  return {
+    refresh: render,
+    setMembers(nextMembers) {
+      members = nextMembers || [];
+      render();
+    }
+  };
 }

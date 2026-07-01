@@ -193,8 +193,19 @@ export function memberToActiveCharacter(member) {
   if (!member?.characterSnapshot?.id) return null;
   return normalizeCharacter(
     member.characterSnapshot,
-    member.characterId || member.characterSnapshot.id
+    member.characterId || member.npcId || member.characterSnapshot.id
   );
+}
+
+/** Chapa de tablero para un miembro unido (personaje, NPC o vehículo). */
+export function tokenFromMember(member) {
+  const char = memberToActiveCharacter(member);
+  if (!char) return null;
+  const { tokenKind } = getMemberPlaySource(member);
+  if (tokenKind === 'npc') {
+    return isVehicleNpc(char) ? tokenFromVehicle(char) : tokenFromNpc(char);
+  }
+  return tokenFromCharacter(char);
 }
 
 function resolveMembershipCharacter(playMode, character) {

@@ -719,8 +719,8 @@
   <script type="module">
     import { renderNavbar } from './js/navbar.js';
     import { requireAuth, isAdmin } from './js/auth.js';
-    import { loadParty, isPartyMember, loadPartyRoster } from './js/party.js';
-    import { loadPartyMembers, isPartyGMUser, getMemberPlaySource } from './js/party-members.js';
+    import { loadParty, isPartyMember, loadPartyRoster, watchPartyMembers } from './js/party.js';
+    import { loadPartyMembers, isPartyGMUser, getMemberPlaySource, getJoinedCharacterRoster } from './js/party-members.js';
     import { getPartyIdFromUrl, partyPageUrl } from './js/party-url.js';
     import { appUrl } from './js/app-path.js';
     import { TacticalBoard, getTokenHp, getTokenMaxHp, getTokenEffectiveDefense, isTokenInCover, isTokenDefeated, buildTokenCardCharacter, buildTokenCardRenderOptions } from './js/board.js';
@@ -741,7 +741,7 @@
     import { initBoardGrantPanel } from './js/board-grant-panel.js';
     import { initBoardObjectivesPanel } from './js/board-objectives.js';
     import { initNpcControlPanel, normalizeNpcControlAssignments } from './js/npc-control.js';
-    import { initBoardScenarios } from './js/board-scenarios.js';
+    import { initBoardScenarios, loadActiveScenarioBoard } from './js/board-scenarios.js';
     import { initPartyMusic } from './js/party-music.js';
 
     const charModal = new bootstrap.Modal(document.getElementById('charModal'));
@@ -752,6 +752,7 @@
     let escaramuzaSpawnsEditor = null;
     let npcControlPanel = null;
     let scenariosPanel = null;
+    let combatUi = null;
     let npcControlAssignments = {};
     let invCtx = null;
 
@@ -975,7 +976,7 @@
         });
         window.location.href = partyPageUrl(partyId);
       } else {
-        const members = await loadPartyMembers(partyId);
+        let members = await loadPartyMembers(partyId);
         const member = members.find((m) => m.userId === user.uid);
         const isGM = isPartyGMUser(members, user.uid) || member?.playMode === 'gm';
         npcControlAssignments = normalizeNpcControlAssignments(party?.npcControlAssignments);
@@ -1094,6 +1095,9 @@
         };
 
         await board.loadState();
+        if (party?.type === 'Escaramuza') {
+          await loadActiveScenarioBoard(partyId, board);
+        }
         board.watchState();
 
         function refreshBoardUiAfterScenarioSwitch() {
@@ -1207,7 +1211,7 @@
           }
         });
 
-        initBoardCombatUi({
+        combatUi = initBoardCombatUi({
           board,
           user,
           members,
@@ -1219,6 +1223,14 @@
           getNpcControlAssignments: () => npcControlAssignments,
           mentionUi: { modal: mentionModal },
           onOpenMention: openMentionTarget
+        });
+
+        watchPartyMembers(partyId, (nextMembers) => {
+          members = nextMembers;
+          roster = getJoinedCharacterRoster(nextMembers);
+          const nextMember = nextMembers.find((m) => m.userId === user.uid);
+          combatUi?.setMembers(nextMembers, roster, nextMember);
+          npcControlPanel?.setMembers(nextMembers);
         });
 
         if (npcControlPanel) {
